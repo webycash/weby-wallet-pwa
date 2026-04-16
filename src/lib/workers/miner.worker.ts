@@ -1,5 +1,5 @@
 // CPU mining Web Worker — testnet only.
-// Reports real-time stats: hash rate, attempts, solutions, ETA.
+// Builds JSON preimage matching webylib/src/miner.rs exactly.
 
 const hexEncode = (bytes: Uint8Array): string =>
 	Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
@@ -40,53 +40,57 @@ const deriveSecret = async (masterHex: string, chainCode: number, depth: number)
 const formatDuration = (seconds: number): string => {
 	if (seconds < 60) return `${Math.round(seconds)}s`;
 	if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
-	if (seconds < 86400) return `${(seconds / 3600).toFixed(1)}h`;
-	return `${(seconds / 86400).toFixed(1)}d`;
+	return `${(seconds / 3600).toFixed(1)}h`;
 };
 
 self.onmessage = async (e: MessageEvent) => {
 	const { masterSecret, miningDepth, difficulty, miningAmount } = e.data;
 	const enc = new TextEncoder();
 
+	// Derive mining secret (same as webylib ChainCode::Mining = 3)
 	const secret = await deriveSecret(masterSecret, 3, miningDepth);
+	const webcashStr = `e${miningAmount}:secret:${secret}`;
+
 	let nonce = 0;
 	let totalAttempts = 0;
-	let solutionsFound = 0;
 	const startTime = performance.now();
 	let lastReport = startTime;
 	let hashCount = 0;
 
 	const mine = async () => {
 		while (true) {
-			const preimage = `${secret}:${nonce}`;
+			const timestamp = Math.floor(Date.now() / 1000);
+
+			// Build preimage JSON — MUST match webylib/src/miner.rs format exactly
+			const preimage = `{"webcash":["${webcashStr}"],"subsidy":[],"timestamp":${timestamp},"difficulty":${difficulty},"nonce":${nonce}}`;
 			const hash = await sha256(enc.encode(preimage));
 
 			hashCount++;
 			totalAttempts++;
-			nonce++;
 
 			if (leadingZeroBits(hash) >= difficulty) {
-				solutionsFound++;
 				const hashHex = hexEncode(hash);
 				const elapsed = (performance.now() - startTime) / 1000;
-				const avgRate = Math.round(totalAttempts / elapsed);
 
 				self.postMessage({
 					type: 'found',
 					preimage,
 					hash: hashHex,
-					webcash: `e${miningAmount}:secret:${secret}`,
+					webcash: webcashStr,
+					secret,
 					nonce,
 					stats: {
-						hashRate: avgRate,
+						hashRate: Math.round(totalAttempts / elapsed),
 						totalAttempts,
-						solutionsFound,
+						solutionsFound: 1,
 						difficulty,
 						uptimeSecs: Math.round(elapsed),
 					}
 				});
 				return;
 			}
+
+			nonce++;
 
 			const now = performance.now();
 			if (now - lastReport >= 400) {
@@ -100,11 +104,10 @@ self.onmessage = async (e: MessageEvent) => {
 
 				self.postMessage({
 					type: 'progress',
-					hashRate: currentRate,
 					stats: {
 						hashRate: currentRate,
 						totalAttempts,
-						solutionsFound,
+						solutionsFound: 0,
 						difficulty,
 						uptimeSecs: Math.round(totalElapsed),
 						eta: formatDuration(etaSecs),

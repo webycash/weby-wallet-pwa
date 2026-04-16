@@ -1,16 +1,24 @@
 // Wallet store — reactive wrapper over core/wallet.
-// Thin: no business logic, just wires core functions to UI.
+// Separate database per network (testnet vs production).
 
 import { openDb } from '$lib/core/storage';
 import * as Wallet from '$lib/core/wallet';
+import { getNetwork } from './network.svelte';
 import type { SecretWebcash, WalletStats, NetworkMode } from '$lib/core/types';
 
 let db: IDBDatabase | null = null;
+let dbNetwork: NetworkMode | null = null;
 
 export const getDb = async (): Promise<IDBDatabase> => {
-	if (!db) db = await openDb();
+	const network = getNetwork();
+	if (!db || dbNetwork !== network) {
+		db = await openDb(network);
+		dbNetwork = network;
+	}
 	return db;
 };
+
+export const resetDb = () => { db = null; dbNetwork = null; };
 
 export const setupWallet = async (masterSecret?: string) =>
 	Wallet.setup(await getDb(), masterSecret);

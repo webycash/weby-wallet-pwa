@@ -3,14 +3,16 @@
 
 import type { StoredOutput, StoredSpentHash, WalletSnapshot } from './types';
 
-const DB_NAME = 'weby-wallet';
+import type { NetworkMode } from './types';
+
 const DB_VERSION = 1;
+const dbName = (network: NetworkMode) => `weby-wallet-${network}`;
 
 // ── Open / Upgrade ───────────────────────────────────────────────
 
-export const openDb = (): Promise<IDBDatabase> =>
+export const openDb = (network: NetworkMode = 'production'): Promise<IDBDatabase> =>
 	new Promise((resolve, reject) => {
-		const req = indexedDB.open(DB_NAME, DB_VERSION);
+		const req = indexedDB.open(dbName(network), DB_VERSION);
 		req.onerror = () => reject(req.error);
 		req.onsuccess = () => resolve(req.result);
 		req.onupgradeneeded = () => {

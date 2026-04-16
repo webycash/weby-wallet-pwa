@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { getBalance, getStats, getWebcash, exportWalletSnapshot,
-		insertWebcash, payWebcash, checkWallet, mergeOutputs } from '$lib/stores/wallet.svelte';
+		insertWebcash, payWebcash, checkWallet, mergeOutputs, resetDb } from '$lib/stores/wallet.svelte';
 	import { getNetwork, setNetwork } from '$lib/stores/network.svelte';
 	import { markBackedUp, backedUp, dismissBackup, backupDismissed,
 		clearWallet, walletExists } from '$lib/stores/settings.svelte';
@@ -124,7 +124,8 @@
 
 	const handleDeleteWallet = () => {
 		if (confirm('Delete this wallet? Make sure you have a backup. This cannot be undone.')) {
-			indexedDB.deleteDatabase('weby-wallet');
+			indexedDB.deleteDatabase('weby-wallet-production');
+			indexedDB.deleteDatabase('weby-wallet-testnet');
 			clearWallet();
 			window.location.reload();
 		}
@@ -132,7 +133,8 @@
 
 	const handleNewWallet = () => {
 		if (confirm('Create a new wallet? The current wallet will be replaced. Back up first!')) {
-			indexedDB.deleteDatabase('weby-wallet');
+			indexedDB.deleteDatabase('weby-wallet-production');
+			indexedDB.deleteDatabase('weby-wallet-testnet');
 			clearWallet();
 			window.location.reload();
 		}
@@ -175,14 +177,14 @@
 	<!-- Network + settings centered -->
 	<div class="flex items-center justify-center gap-3">
 		<div class="flex rounded-full border border-border/60 bg-muted/30 p-0.5">
-			<button onclick={() => { network = 'production'; setNetwork('production'); refresh(); }}
+			<button onclick={() => { network = 'production'; setNetwork('production'); resetDb(); refresh(); }}
 				class="rounded-full px-5 py-1.5 text-xs font-semibold transition-all
 					{network === 'production'
 						? 'bg-card text-foreground shadow-sm'
 						: 'text-muted-foreground hover:text-foreground'}">
 				Mainnet
 			</button>
-			<button onclick={() => { network = 'testnet'; setNetwork('testnet'); refresh(); }}
+			<button onclick={() => { network = 'testnet'; setNetwork('testnet'); resetDb(); refresh(); }}
 				class="rounded-full px-5 py-1.5 text-xs font-semibold transition-all
 					{network === 'testnet'
 						? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 shadow-sm'
