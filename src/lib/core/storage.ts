@@ -1,12 +1,11 @@
 // IndexedDB storage layer — all I/O contained here.
 // Schema matches webylib's SQLite tables exactly.
 
-import type { StoredOutput, StoredSpentHash, WalletSnapshot } from './types';
-
-import type { NetworkMode } from './types';
+import type { StoredOutput, StoredSpentHash, WalletSnapshot, NetworkMode } from './types';
 
 const DB_VERSION = 1;
 const dbName = (network: NetworkMode) => `weby-wallet-${network}`;
+const MASTER_SECRET_KEY = 'weby_master_secret';
 
 // ── Open / Upgrade ───────────────────────────────────────────────
 
@@ -50,13 +49,23 @@ const all = <T>(r: IDBRequest<T[]>): Promise<T[]> => req(r);
 
 // ── Metadata ─────────────────────────────────────────────────────
 
-export const getMeta = (db: IDBDatabase, key: string): Promise<string | undefined> =>
-	req(tx(db, 'wallet_metadata').objectStore('wallet_metadata').get(key))
-		.then(r => r?.value);
+export const getMeta = async (db: IDBDatabase, key: string): Promise<string | undefined> => {
+	// Master secret is shared across networks (stored in localStorage)
+	if (key === 'master_secret') {
+		const val = typeof localStorage !== 'undefined' ? localStorage.getItem(MASTER_SECRET_KEY) : null;
+		if (val) return val;
+	}
+	const record = await req(tx(db, 'wallet_metadata').objectStore('wallet_metadata').get(key));
+	return record?.value;
+};
 
-export const setMeta = (db: IDBDatabase, key: string, value: string): Promise<void> =>
-	req(tx(db, 'wallet_metadata', 'readwrite').objectStore('wallet_metadata').put({ key, value }))
-		.then(() => {});
+export const setMeta = async (db: IDBDatabase, key: string, value: string): Promise<void> => {
+	// Master secret is shared across networks
+	if (key === 'master_secret' && typeof localStorage !== 'undefined') {
+		localStorage.setItem(MASTER_SECRET_KEY, value);
+	}
+	await req(tx(db, 'wallet_metadata', 'readwrite').objectStore('wallet_metadata').put({ key, value }));
+};
 
 // ── Depths ───────────────────────────────────────────────────────
 
@@ -105,7 +114,7 @@ export const getSpentHashes = (db: IDBDatabase): Promise<StoredSpentHash[]> =>
 
 // ── Bulk Import / Export ─────────────────────────────────────────
 
-export const clearAll = async (db: IDBDatabase): Promise<void> => {
+export const clearAll = async (db: IDBDatabase, clearMasterSecret = false): Promise<void> => {
 	const t = tx(db, ['wallet_metadata', 'unspent_outputs', 'spent_hashes', 'walletdepths'], 'readwrite');
 	t.objectStore('wallet_metadata').clear();
 	t.objectStore('unspent_outputs').clear();
@@ -115,9 +124,15 @@ export const clearAll = async (db: IDBDatabase): Promise<void> => {
 		t.oncomplete = () => resolve();
 		t.onerror = () => reject(t.error);
 	});
+	if (clearMasterSecret && typeof localStorage !== 'undefined') {
+		localStorage.removeItem(MASTER_SECRET_KEY);
+	}
 };
 
 export const hasWallet = async (db: IDBDatabase): Promise<boolean> => {
+	// Check localStorage first (shared across networks)
+	const lsMs = typeof localStorage !== 'undefined' ? localStorage.getItem(MASTER_SECRET_KEY) : null;
+	if (lsMs && lsMs.length === 64) return true;
 	const ms = await getMeta(db, 'master_secret');
 	return ms !== undefined && ms.length === 64;
 };
