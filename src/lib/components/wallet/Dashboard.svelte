@@ -8,7 +8,7 @@
 	import { getWasm } from '$lib/core/wasm';
 	import type { SecretWebcash, WalletStats, NetworkMode } from '$lib/core/types';
 	import { ArrowDownToLine, ArrowUpFromLine, ShieldCheck, Merge, Pickaxe,
-		Download, Settings, Trash2, Plus, RefreshCw, QrCode, RotateCcw } from '@lucide/svelte';
+		Download, Settings, Trash2, Plus, QrCode, RotateCcw } from '@lucide/svelte';
 
 	import BalanceCard from './BalanceCard.svelte';
 	import InsertForm from './InsertForm.svelte';
@@ -172,36 +172,29 @@
 		</div>
 	{/if}
 
-	<!-- Network selector + actions -->
-	<div class="flex items-center justify-between">
+	<!-- Network + settings centered -->
+	<div class="flex items-center justify-center gap-3">
 		<div class="flex rounded-full border border-border/60 bg-muted/30 p-0.5">
 			<button onclick={() => { network = 'production'; setNetwork('production'); refresh(); }}
-				class="rounded-full px-4 py-1.5 text-xs font-semibold transition-all
+				class="rounded-full px-5 py-1.5 text-xs font-semibold transition-all
 					{network === 'production'
 						? 'bg-card text-foreground shadow-sm'
 						: 'text-muted-foreground hover:text-foreground'}">
 				Mainnet
 			</button>
 			<button onclick={() => { network = 'testnet'; setNetwork('testnet'); refresh(); }}
-				class="rounded-full px-4 py-1.5 text-xs font-semibold transition-all
+				class="rounded-full px-5 py-1.5 text-xs font-semibold transition-all
 					{network === 'testnet'
 						? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 shadow-sm'
 						: 'text-muted-foreground hover:text-foreground'}">
 				Testnet
 			</button>
 		</div>
-		<div class="flex items-center gap-1">
-			<button onclick={refresh}
-				class="rounded-full p-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all"
-				disabled={loading}>
-				<RefreshCw class="w-4 h-4 {loading ? 'animate-spin' : ''}" />
-			</button>
-			<button onclick={() => showSettings = !showSettings}
-				class="rounded-full p-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all
-					{showSettings ? 'text-primary bg-primary/10' : ''}">
-				<Settings class="w-4 h-4" />
-			</button>
-		</div>
+		<button onclick={() => showSettings = !showSettings}
+			class="rounded-full p-2.5 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all
+				{showSettings ? 'text-primary bg-primary/10' : ''}">
+			<Settings class="w-4 h-4" />
+		</button>
 	</div>
 
 	<!-- Balance -->
@@ -217,7 +210,7 @@
 	{/if}
 
 	<!-- Action buttons -->
-	<div class="grid grid-cols-3 sm:grid-cols-6 gap-2">
+	<div class="grid grid-cols-4 gap-2">
 		{#each actions as btn}
 			<button
 				onclick={() => btn.action ? btn.action() : toggle(btn.id)}
@@ -248,37 +241,36 @@
 
 	<!-- Settings panel -->
 	{#if showSettings}
-		<div class="rounded-2xl border border-border bg-card p-5 space-y-4">
-			<h3 class="text-sm font-semibold text-foreground">Wallet Settings</h3>
+		<div class="rounded-3xl border border-border bg-card p-5 space-y-4">
+			<h3 class="text-sm font-semibold text-foreground text-center">Settings</h3>
 
 			<EncryptionSetup />
 
-			<div class="grid grid-cols-3 gap-2 pt-2 border-t border-border/50">
+			<div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-3 border-t border-border/50">
 				<button onclick={handleQrExport}
-					class="flex items-center justify-center gap-2 rounded-xl border border-border/50 px-3 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:border-border transition-all">
-					<QrCode class="w-4 h-4" />
-					QR Export
+					class="flex items-center gap-3 rounded-full border border-border/50 px-5 py-3 text-sm text-muted-foreground hover:text-foreground hover:border-border transition-all">
+					<QrCode class="w-4 h-4 shrink-0" />
+					<span>Export as QR Code</span>
 				</button>
 				<button onclick={handleNewWallet}
-					class="flex items-center justify-center gap-2 rounded-xl border border-border/50 px-3 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:border-border transition-all">
-					<Plus class="w-4 h-4" />
-					New Wallet
+					class="flex items-center gap-3 rounded-full border border-border/50 px-5 py-3 text-sm text-muted-foreground hover:text-foreground hover:border-border transition-all">
+					<Plus class="w-4 h-4 shrink-0" />
+					<span>Create New Wallet</span>
 				</button>
 				<button onclick={handleDeleteWallet}
-					class="flex items-center justify-center gap-2 rounded-xl border border-red-500/20 px-3 py-2.5 text-sm text-red-500/70 hover:text-red-500 hover:border-red-500/40 hover:bg-red-500/5 transition-all">
-					<Trash2 class="w-4 h-4" />
-					Delete
+					class="flex items-center gap-3 rounded-full border border-red-500/20 px-5 py-3 text-sm text-red-500/60 hover:text-red-500 hover:border-red-500/40 hover:bg-red-500/5 transition-all sm:col-span-2">
+					<Trash2 class="w-4 h-4 shrink-0" />
+					<span>Delete Wallet</span>
 				</button>
 			</div>
 
-			<!-- QR Code display -->
 			{#if qrDataUrl}
-				<div class="pt-3 border-t border-border/50">
-					<p class="text-xs font-medium text-muted-foreground mb-2">Scan on mobile to import wallet</p>
-					<div class="flex justify-center bg-white rounded-xl p-4">
-						<img src={qrDataUrl} alt="Wallet QR Code" class="w-48 h-48" />
+				<div class="pt-3 border-t border-border/50 text-center">
+					<p class="text-xs font-medium text-muted-foreground mb-3">Scan on mobile to import wallet</p>
+					<div class="inline-block bg-white rounded-3xl p-4">
+						<img src={qrDataUrl} alt="Wallet QR Code" class="w-52 h-52" />
 					</div>
-					<p class="text-[10px] text-muted-foreground/50 text-center mt-2">Contains your master secret — keep private</p>
+					<p class="text-[10px] text-muted-foreground/40 mt-2">Contains your master secret — keep private</p>
 				</div>
 			{/if}
 		</div>

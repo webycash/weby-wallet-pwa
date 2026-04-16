@@ -56,7 +56,8 @@ export interface SpentHashSnapshot {
 // Server protocol types
 
 export interface HealthResponse {
-	readonly results: readonly { readonly hash: string; readonly spent: boolean }[];
+	readonly status: string;
+	readonly results: Record<string, { amount: string | null; spent: boolean | null }>;
 }
 
 export interface ReplaceRequest {

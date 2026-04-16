@@ -234,11 +234,9 @@ export const check = async (
 		let validCount = 0;
 		let spentCount = 0;
 
-		if (response.results) {
-			for (const r of response.results) {
-				if (r.spent) spentCount++;
-				else validCount++;
-			}
+		for (const [, r] of Object.entries(response.results ?? {})) {
+			if (r.spent === true) spentCount++;
+			else if (r.spent === false) validCount++;
 		}
 
 		return ok({ validCount, spentCount, unknownCount: 0 });
@@ -331,17 +329,15 @@ export const recover = async (
 			let consecutiveEmpty = 0;
 
 			while (consecutiveEmpty < gapLimit && currentDepth < 1000) {
-				const batch: { secret: string; publicStr: string; depth: number }[] = [];
+				// Build batch: derive secrets, create public webcash strings
+				const batch: { secret: string; hash: string; publicStr: string; depth: number }[] = [];
 
 				for (let offset = 0; offset < gapLimit; offset++) {
 					const depth = currentDepth + offset;
 					const secret = await wasm.derive_secret(masterSecretHex, code, depth);
 					const hash = await sha256ofSecret(secret);
-					batch.push({
-						secret,
-						publicStr: wasm.format_public_webcash(hash, 1), // dummy amount for health check
-						depth
-					});
+					const publicStr = wasm.format_public_webcash(hash, 1);
+					batch.push({ secret, hash, publicStr, depth });
 				}
 
 				onProgress?.(name, currentDepth);
@@ -350,32 +346,36 @@ export const recover = async (
 					const response = await Server.healthCheck(network, batch.map(b => b.publicStr));
 
 					let foundAny = false;
-					if (response.results) {
-						for (let i = 0; i < response.results.length; i++) {
-							const r = response.results[i];
-							if (r && !r.spent) {
-								// Found unspent — store it
-								const b = batch[i];
-								if (b) {
-									const hashBuf = await secretHashBuffer(b.secret);
-									try {
-										await Storage.putOutput(db, {
-											secretHash: hashBuf,
-											secret: b.secret,
-											amount: 1, // TODO: get actual amount from server response
-											createdAt: now(),
-											spent: 0
-										});
-										recoveredCount++;
-										totalAmount += 1;
-										foundAny = true;
-									} catch {
-										// Duplicate — already stored
-										foundAny = true;
-									}
+					// Build lookup: public hash -> batch entry
+					const hashToBatch = new Map(batch.map(b => [b.hash, b]));
+
+					for (const [webcashKey, result] of Object.entries(response.results ?? {})) {
+						// Extract hash from "e1:public:<hash>"
+						const keyHash = webcashKey.split(':')[2];
+						const entry = keyHash ? hashToBatch.get(keyHash) : undefined;
+
+						if (result.spent !== null) {
+							foundAny = true; // Server knows this token
+						}
+
+						if (result.spent === false && entry) {
+							// Unspent — recover it
+							const amount = result.amount ? wasm.parse_amount(result.amount) : 0;
+							if (amount > 0) {
+								const hashBuf = await secretHashBuffer(entry.secret);
+								try {
+									await Storage.putOutput(db, {
+										secretHash: hashBuf,
+										secret: entry.secret,
+										amount,
+										createdAt: now(),
+										spent: 0
+									});
+									recoveredCount++;
+									totalAmount += amount;
+								} catch {
+									// Duplicate — already stored
 								}
-							} else if (r?.spent) {
-								foundAny = true;
 							}
 						}
 					}

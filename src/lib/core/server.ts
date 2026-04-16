@@ -31,7 +31,7 @@ const get = async <T>(url: string): Promise<T> => {
 };
 
 export const healthCheck = (network: NetworkMode, webcashes: string[]): Promise<HealthResponse> =>
-	post(apiUrl(network, 'health_check'), { webcashes });
+	post(apiUrl(network, 'health_check'), webcashes);
 
 export const replace = (network: NetworkMode, request: ReplaceRequest): Promise<ReplaceResponse> =>
 	post(apiUrl(network, 'replace'), request);

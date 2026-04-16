@@ -16,8 +16,12 @@
 		result = null;
 		try {
 			const response = await healthCheck(getNetwork(), [trimmed]);
-			if (response.results && response.results.length > 0) {
-				result = response.results[0].spent ? 'spent' : 'valid';
+			const entries = Object.values(response.results ?? {});
+			if (entries.length > 0) {
+				const r = entries[0];
+				if (r.spent === true) result = 'spent';
+				else if (r.spent === false) result = 'valid';
+				else result = 'unknown';
 			} else {
 				result = 'unknown';
 			}
