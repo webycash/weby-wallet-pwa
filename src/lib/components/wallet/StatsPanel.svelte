@@ -1,26 +1,38 @@
 <script lang="ts">
 	import type { WalletStats } from '$lib/core/types';
+	import { Coins, CircleCheck, CircleX, Database } from '@lucide/svelte';
 	let { stats, formatAmount }: { stats: WalletStats; formatAmount: ((w: number) => string) | null } = $props();
 </script>
 
-<div class="rounded-xl border border-border bg-card p-4">
-	<h3 class="text-xs font-medium text-muted-foreground tracking-wider uppercase mb-3">Info</h3>
-	<div class="grid grid-cols-2 gap-3 text-sm">
-		<div>
-			<span class="text-muted-foreground">Unspent</span>
-			<span class="float-right font-medium">{stats.unspentWebcash}</span>
+<div class="rounded-2xl border border-border bg-card overflow-hidden">
+	<div class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border/30">
+		<div class="bg-card px-4 py-3">
+			<div class="flex items-center gap-1.5 text-muted-foreground mb-1">
+				<CircleCheck class="w-3 h-3 text-emerald-500" />
+				<span class="text-[10px] uppercase tracking-wider font-medium">Unspent</span>
+			</div>
+			<p class="text-lg font-bold text-foreground tabular-nums">{stats.unspentWebcash}</p>
 		</div>
-		<div>
-			<span class="text-muted-foreground">Spent</span>
-			<span class="float-right font-medium">{stats.spentWebcash}</span>
+		<div class="bg-card px-4 py-3">
+			<div class="flex items-center gap-1.5 text-muted-foreground mb-1">
+				<CircleX class="w-3 h-3 text-red-400" />
+				<span class="text-[10px] uppercase tracking-wider font-medium">Spent</span>
+			</div>
+			<p class="text-lg font-bold text-foreground tabular-nums">{stats.spentWebcash}</p>
 		</div>
-		<div>
-			<span class="text-muted-foreground">Total entries</span>
-			<span class="float-right font-medium">{stats.totalWebcash}</span>
+		<div class="bg-card px-4 py-3">
+			<div class="flex items-center gap-1.5 text-muted-foreground mb-1">
+				<Database class="w-3 h-3" />
+				<span class="text-[10px] uppercase tracking-wider font-medium">Total</span>
+			</div>
+			<p class="text-lg font-bold text-foreground tabular-nums">{stats.totalWebcash}</p>
 		</div>
-		<div>
-			<span class="text-muted-foreground">Balance</span>
-			<span class="float-right font-medium">{formatAmount ? formatAmount(stats.totalBalance) : stats.totalBalance}</span>
+		<div class="bg-card px-4 py-3">
+			<div class="flex items-center gap-1.5 text-muted-foreground mb-1">
+				<Coins class="w-3 h-3 text-primary" />
+				<span class="text-[10px] uppercase tracking-wider font-medium">Balance</span>
+			</div>
+			<p class="text-lg font-bold text-foreground tabular-nums">{formatAmount ? formatAmount(stats.totalBalance) : stats.totalBalance}</p>
 		</div>
 	</div>
 </div>

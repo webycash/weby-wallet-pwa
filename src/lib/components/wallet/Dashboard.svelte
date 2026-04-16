@@ -3,9 +3,12 @@
 	import { getBalance, getStats, getWebcash, exportWalletSnapshot,
 		insertWebcash, payWebcash, checkWallet, mergeOutputs } from '$lib/stores/wallet.svelte';
 	import { getNetwork, setNetwork } from '$lib/stores/network.svelte';
-	import { markBackedUp, backedUp, dismissBackup, backupDismissed } from '$lib/stores/settings.svelte';
+	import { markBackedUp, backedUp, dismissBackup, backupDismissed,
+		clearWallet, walletExists } from '$lib/stores/settings.svelte';
 	import { getWasm } from '$lib/core/wasm';
 	import type { SecretWebcash, WalletStats, NetworkMode } from '$lib/core/types';
+	import { ArrowDownToLine, ArrowUpFromLine, ShieldCheck, Merge, Pickaxe,
+		Download, Settings, Trash2, Plus, TestTube, Globe, RefreshCw } from '@lucide/svelte';
 
 	import BalanceCard from './BalanceCard.svelte';
 	import InsertForm from './InsertForm.svelte';
@@ -13,6 +16,7 @@
 	import StatsPanel from './StatsPanel.svelte';
 	import WebcashList from './WebcashList.svelte';
 	import MinerPanel from './MinerPanel.svelte';
+	import EncryptionSetup from './EncryptionSetup.svelte';
 
 	let balanceWats = $state(0);
 	let walletStats = $state<WalletStats | null>(null);
@@ -24,6 +28,7 @@
 	let loading = $state(false);
 	let formatAmount = $state<((wats: number) => string) | null>(null);
 	let showBackupWarning = $state(!backedUp() && !backupDismissed());
+	let showSettings = $state(false);
 
 	const showMessage = (msg: string, type: 'success' | 'error' = 'success') => {
 		message = msg;
@@ -32,9 +37,11 @@
 	};
 
 	const refresh = async () => {
+		loading = true;
 		balanceWats = await getBalance();
 		walletStats = await getStats();
 		webcashList = await getWebcash();
+		loading = false;
 	};
 
 	const toggleNetwork = () => {
@@ -46,7 +53,7 @@
 	const handleInsert = async (webcashStr: string) => {
 		loading = true;
 		const result = await insertWebcash(network, webcashStr);
-		if (result.ok) { showMessage('Webcash inserted'); await refresh(); }
+		if (result.ok) { showMessage('Webcash inserted successfully'); activePanel = null; await refresh(); }
 		else showMessage(result.error, 'error');
 		loading = false;
 	};
@@ -54,7 +61,7 @@
 	const handlePay = async (amountWats: number, memo: string) => {
 		loading = true;
 		const result = await payWebcash(network, amountWats, memo);
-		if (result.ok) { showMessage(`Payment sent: ${result.value}`); await refresh(); }
+		if (result.ok) { showMessage(`Payment sent: ${result.value}`); activePanel = null; await refresh(); }
 		else showMessage(result.error, 'error');
 		loading = false;
 	};
@@ -64,7 +71,7 @@
 		const result = await checkWallet(network);
 		if (result.ok) {
 			const { validCount, spentCount } = result.value;
-			showMessage(`Check: ${validCount} valid, ${spentCount} spent`);
+			showMessage(`${validCount} valid, ${spentCount} spent`);
 			await refresh();
 		} else showMessage(result.error, 'error');
 		loading = false;
@@ -92,46 +99,90 @@
 		showMessage('Backup downloaded');
 	};
 
+	const handleDeleteWallet = () => {
+		if (confirm('Delete this wallet? Make sure you have a backup. This cannot be undone.')) {
+			indexedDB.deleteDatabase('weby-wallet');
+			clearWallet();
+			window.location.reload();
+		}
+	};
+
+	const handleNewWallet = () => {
+		if (confirm('Create a new wallet? The current wallet will be replaced. Back up first!')) {
+			indexedDB.deleteDatabase('weby-wallet');
+			clearWallet();
+			window.location.reload();
+		}
+	};
+
+	const toggle = (id: string) => {
+		activePanel = activePanel === id ? null : id;
+	};
+
 	onMount(async () => {
 		const wasm = await getWasm();
 		formatAmount = wasm.format_amount;
 		await refresh();
 	});
+
+	const actions = $derived([
+		{ id: 'insert', label: 'Receive', icon: ArrowDownToLine, color: 'text-emerald-500' },
+		{ id: 'pay', label: 'Send', icon: ArrowUpFromLine, color: 'text-blue-500' },
+		{ id: 'check', label: 'Verify', icon: ShieldCheck, color: 'text-violet-500', action: handleCheck },
+		{ id: 'merge', label: 'Merge', icon: Merge, color: 'text-orange-500', action: handleMerge },
+		...(network === 'testnet' ? [{ id: 'mine', label: 'Mine', icon: Pickaxe, color: 'text-amber-500' }] : []),
+		{ id: 'backup', label: 'Backup', icon: Download, color: 'text-cyan-500', action: handleBackup },
+	]);
 </script>
 
-<div class="container mx-auto px-6 py-8 max-w-2xl space-y-6">
+<div class="container mx-auto px-4 sm:px-6 py-6 max-w-2xl space-y-5">
 	<!-- Backup warning -->
 	{#if showBackupWarning}
-		<div class="flex items-center justify-between rounded-xl bg-amber-500/10 border border-amber-500/20 px-4 py-2.5">
-			<p class="text-xs text-amber-600 dark:text-amber-400">
-				Wallet not backed up.
-				<button onclick={handleBackup} class="underline font-medium hover:no-underline ml-1">Back up now</button>
+		<div class="flex items-center gap-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 px-4 py-3">
+			<div class="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0"></div>
+			<p class="text-sm text-amber-600 dark:text-amber-400 flex-1">
+				Wallet not backed up
 			</p>
-			<button onclick={() => { dismissBackup(); showBackupWarning = false; }} class="text-amber-500/50 hover:text-amber-500 text-lg leading-none">&times;</button>
+			<button onclick={handleBackup} class="text-xs font-semibold text-amber-600 dark:text-amber-400 hover:underline shrink-0">Back up</button>
+			<button onclick={() => { dismissBackup(); showBackupWarning = false; }} class="text-amber-400/50 hover:text-amber-400 ml-1 shrink-0">&times;</button>
 		</div>
 	{/if}
 
-	<!-- Network toggle + refresh -->
+	<!-- Network switch + settings -->
 	<div class="flex items-center justify-between">
 		<button onclick={toggleNetwork}
-			class="rounded-full px-4 py-1.5 text-xs font-semibold tracking-wide uppercase transition-all {network === 'testnet'
-				? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25 hover:bg-amber-500/25'
-				: 'bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20'}">
-			{network === 'testnet' ? 'Testnet' : 'Production'}
+			class="group flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all border
+				{network === 'testnet'
+					? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 hover:bg-amber-500/20'
+					: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20'}">
+			{#if network === 'testnet'}
+				<TestTube class="w-4 h-4" />
+				<span>Testnet</span>
+			{:else}
+				<Globe class="w-4 h-4" />
+				<span>Mainnet</span>
+			{/if}
+			<span class="text-xs opacity-50 group-hover:opacity-80">Switch</span>
 		</button>
-		<button onclick={refresh}
-			class="rounded-full px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all"
-			disabled={loading}>
-			{loading ? 'Loading...' : 'Refresh'}
-		</button>
+		<div class="flex items-center gap-1">
+			<button onclick={refresh}
+				class="rounded-full p-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all"
+				disabled={loading}>
+				<RefreshCw class="w-4 h-4 {loading ? 'animate-spin' : ''}" />
+			</button>
+			<button onclick={() => showSettings = !showSettings}
+				class="rounded-full p-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all">
+				<Settings class="w-4 h-4" />
+			</button>
+		</div>
 	</div>
 
 	<!-- Balance -->
-	<BalanceCard {balanceWats} {formatAmount} />
+	<BalanceCard {balanceWats} {formatAmount} {network} />
 
 	<!-- Status message -->
 	{#if message}
-		<div class="rounded-xl px-4 py-3 text-sm font-medium transition-all {messageType === 'error'
+		<div class="rounded-2xl px-4 py-3 text-sm font-medium animate-in fade-in {messageType === 'error'
 			? 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20'
 			: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'}">
 			{message}
@@ -139,24 +190,20 @@
 	{/if}
 
 	<!-- Action buttons -->
-	<div class="grid grid-cols-3 gap-3 sm:grid-cols-6">
-		{#each [
-			{ id: 'insert', label: 'Insert', icon: '↓' },
-			{ id: 'pay', label: 'Pay', icon: '↑' },
-			{ id: 'check', label: 'Check', icon: '✓', action: handleCheck },
-			{ id: 'merge', label: 'Merge', icon: '⊕', action: handleMerge },
-			...(network === 'testnet' ? [{ id: 'mine', label: 'Mine', icon: '⛏' }] : []),
-			{ id: 'backup', label: 'Backup', icon: '↗', action: handleBackup }
-		] as btn}
+	<div class="grid grid-cols-3 sm:grid-cols-6 gap-2">
+		{#each actions as btn}
 			<button
-				onclick={() => btn.action ? btn.action() : activePanel = activePanel === btn.id ? null : btn.id}
-				class="flex flex-col items-center gap-1 rounded-xl border px-3 py-3 text-xs font-medium transition-all
+				onclick={() => btn.action ? btn.action() : toggle(btn.id)}
+				class="flex flex-col items-center gap-1.5 rounded-2xl border px-2 py-3 transition-all
 					{activePanel === btn.id
-						? 'border-primary bg-primary/10 text-primary shadow-sm shadow-primary/10'
-						: 'border-border/60 bg-card text-muted-foreground hover:border-primary/30 hover:text-primary hover:bg-primary/5'}"
+						? 'border-primary/40 bg-primary/5 shadow-sm'
+						: 'border-border/50 bg-card hover:border-border hover:bg-muted/30'}"
 				disabled={loading}>
-				<span class="text-base">{btn.icon}</span>
-				{btn.label}
+				<btn.icon
+					class="w-5 h-5 {activePanel === btn.id ? 'text-primary' : btn.color}" />
+				<span class="text-[11px] font-medium {activePanel === btn.id ? 'text-primary' : 'text-muted-foreground'}">
+					{btn.label}
+				</span>
 			</button>
 		{/each}
 	</div>
@@ -167,7 +214,29 @@
 	{:else if activePanel === 'pay'}
 		<PayForm onSubmit={handlePay} disabled={loading} {formatAmount} {balanceWats} />
 	{:else if activePanel === 'mine'}
-		<MinerPanel {network} />
+		<MinerPanel {network} onBalanceUpdate={refresh} />
+	{/if}
+
+	<!-- Settings panel -->
+	{#if showSettings}
+		<div class="rounded-2xl border border-border bg-card p-5 space-y-4">
+			<h3 class="text-sm font-semibold text-foreground">Wallet Settings</h3>
+
+			<EncryptionSetup />
+
+			<div class="flex gap-2 pt-2 border-t border-border/50">
+				<button onclick={handleNewWallet}
+					class="flex items-center gap-2 rounded-xl border border-border/50 px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:border-border transition-all flex-1">
+					<Plus class="w-4 h-4" />
+					New Wallet
+				</button>
+				<button onclick={handleDeleteWallet}
+					class="flex items-center gap-2 rounded-xl border border-red-500/20 px-4 py-2.5 text-sm text-red-500/70 hover:text-red-500 hover:border-red-500/40 hover:bg-red-500/5 transition-all flex-1">
+					<Trash2 class="w-4 h-4" />
+					Delete Wallet
+				</button>
+			</div>
+		</div>
 	{/if}
 
 	<!-- Stats -->
@@ -178,9 +247,8 @@
 	<!-- Webcash list -->
 	<WebcashList webcash={webcashList} {formatAmount} />
 
-	<!-- Privacy footer -->
-	<p class="text-center text-xs text-muted-foreground/60 pt-2">
-		All data stays on your device.
-		<a href="https://github.com/webycash/weby-wallet-pwa" target="_blank" rel="noopener" class="hover:text-muted-foreground transition-colors">Source</a>
+	<!-- Privacy -->
+	<p class="text-center text-[11px] text-muted-foreground/40 pt-2">
+		All data stays on your device
 	</p>
 </div>

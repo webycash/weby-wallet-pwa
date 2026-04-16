@@ -4,16 +4,31 @@
 import type { NetworkMode } from './types';
 import * as Server from './server';
 
+export interface MinerStats {
+	readonly hashRate: number;
+	readonly totalAttempts: number;
+	readonly solutionsFound: number;
+	readonly difficulty: number;
+	readonly uptimeSecs: number;
+	readonly eta?: string;
+	readonly progress?: number;
+}
+
 export interface MinerState {
 	readonly running: boolean;
-	readonly hashRate: number;
+	readonly stats: MinerStats;
 	readonly found: boolean;
 	readonly result?: string;
+	readonly resultHash?: string;
 }
 
 type MinerCallback = (state: MinerState) => void;
 
 let worker: Worker | null = null;
+
+const emptyStats: MinerStats = {
+	hashRate: 0, totalAttempts: 0, solutionsFound: 0, difficulty: 0, uptimeSecs: 0
+};
 
 export const startMining = async (
 	network: NetworkMode,
@@ -36,15 +51,24 @@ export const startMining = async (
 		miningDepth,
 		difficulty: target.difficulty,
 		miningAmount: target.mining_amount,
-		subsidyAmount: target.mining_subsidy_amount ?? 0
 	});
 
 	worker.onmessage = async (e) => {
 		const msg = e.data;
 		if (msg.type === 'progress') {
-			onUpdate({ running: true, hashRate: msg.hashRate, found: false });
+			onUpdate({
+				running: true,
+				stats: msg.stats,
+				found: false,
+			});
 		} else if (msg.type === 'found') {
-			onUpdate({ running: false, hashRate: 0, found: true, result: msg.webcash });
+			onUpdate({
+				running: false,
+				stats: msg.stats,
+				found: true,
+				result: msg.webcash,
+				resultHash: msg.hash,
+			});
 
 			try {
 				await Server.submitMiningReport(network, {
@@ -59,8 +83,9 @@ export const startMining = async (
 		}
 	};
 
-	worker.onerror = () => {
-		onUpdate({ running: false, hashRate: 0, found: false });
+	worker.onerror = (err) => {
+		console.error('Miner worker error:', err);
+		onUpdate({ running: false, stats: emptyStats, found: false });
 		stopMining();
 	};
 };

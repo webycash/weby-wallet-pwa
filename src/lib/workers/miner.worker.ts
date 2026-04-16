@@ -1,5 +1,5 @@
 // CPU mining Web Worker — testnet only.
-// Iterates SHA-256 hashes until leading zero bits >= difficulty.
+// Reports real-time stats: hash rate, attempts, solutions, ETA.
 
 const hexEncode = (bytes: Uint8Array): string =>
 	Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
@@ -37,13 +37,23 @@ const deriveSecret = async (masterHex: string, chainCode: number, depth: number)
 	return hexEncode(await sha256(input));
 };
 
+const formatDuration = (seconds: number): string => {
+	if (seconds < 60) return `${Math.round(seconds)}s`;
+	if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
+	if (seconds < 86400) return `${(seconds / 3600).toFixed(1)}h`;
+	return `${(seconds / 86400).toFixed(1)}d`;
+};
+
 self.onmessage = async (e: MessageEvent) => {
 	const { masterSecret, miningDepth, difficulty, miningAmount } = e.data;
 	const enc = new TextEncoder();
 
-	const secret = await deriveSecret(masterSecret, 3, miningDepth); // MINING chain = 3
+	const secret = await deriveSecret(masterSecret, 3, miningDepth);
 	let nonce = 0;
-	let lastReport = performance.now();
+	let totalAttempts = 0;
+	let solutionsFound = 0;
+	const startTime = performance.now();
+	let lastReport = startTime;
 	let hashCount = 0;
 
 	const mine = async () => {
@@ -52,29 +62,58 @@ self.onmessage = async (e: MessageEvent) => {
 			const hash = await sha256(enc.encode(preimage));
 
 			hashCount++;
+			totalAttempts++;
 			nonce++;
 
 			if (leadingZeroBits(hash) >= difficulty) {
+				solutionsFound++;
 				const hashHex = hexEncode(hash);
+				const elapsed = (performance.now() - startTime) / 1000;
+				const avgRate = Math.round(totalAttempts / elapsed);
+
 				self.postMessage({
 					type: 'found',
 					preimage,
 					hash: hashHex,
 					webcash: `e${miningAmount}:secret:${secret}`,
-					nonce
+					nonce,
+					stats: {
+						hashRate: avgRate,
+						totalAttempts,
+						solutionsFound,
+						difficulty,
+						uptimeSecs: Math.round(elapsed),
+					}
 				});
 				return;
 			}
 
-			// Report progress every ~500ms
 			const now = performance.now();
-			if (now - lastReport >= 500) {
+			if (now - lastReport >= 400) {
 				const elapsed = (now - lastReport) / 1000;
-				self.postMessage({ type: 'progress', hashRate: Math.round(hashCount / elapsed), nonce });
+				const currentRate = Math.round(hashCount / elapsed);
+				const totalElapsed = (now - startTime) / 1000;
+				const avgRate = totalAttempts / totalElapsed;
+				const expectedHashes = Math.pow(2, difficulty);
+				const remaining = Math.max(0, expectedHashes - totalAttempts);
+				const etaSecs = avgRate > 0 ? remaining / avgRate : 0;
+
+				self.postMessage({
+					type: 'progress',
+					hashRate: currentRate,
+					stats: {
+						hashRate: currentRate,
+						totalAttempts,
+						solutionsFound,
+						difficulty,
+						uptimeSecs: Math.round(totalElapsed),
+						eta: formatDuration(etaSecs),
+						progress: Math.min(100, (totalAttempts / expectedHashes) * 100),
+					}
+				});
+
 				hashCount = 0;
 				lastReport = now;
-
-				// Yield to prevent browser from killing the worker
 				await new Promise(r => setTimeout(r, 0));
 			}
 		}

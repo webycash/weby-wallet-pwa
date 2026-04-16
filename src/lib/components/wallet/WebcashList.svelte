@@ -1,36 +1,49 @@
 <script lang="ts">
 	import type { SecretWebcash } from '$lib/core/types';
+	import { ChevronDown, Copy, Check } from '@lucide/svelte';
 	let { webcash, formatAmount }: { webcash: SecretWebcash[]; formatAmount: ((w: number) => string) | null } = $props();
 
 	let expanded = $state(false);
-
-	const copySecret = (secret: string) => {
-		navigator.clipboard.writeText(secret);
-	};
+	let copiedIdx = $state(-1);
 
 	const fmt = (wats: number) => formatAmount ? formatAmount(wats) : (wats / 1e8).toFixed(8);
+
+	const copySecret = async (secret: string, idx: number) => {
+		await navigator.clipboard.writeText(secret);
+		copiedIdx = idx;
+		setTimeout(() => { copiedIdx = -1; }, 1500);
+	};
 </script>
 
 {#if webcash.length > 0}
-	<div class="rounded-xl border border-border bg-card">
+	<div class="rounded-2xl border border-border bg-card overflow-hidden">
 		<button onclick={() => expanded = !expanded}
-			class="w-full px-4 py-3 text-left flex items-center justify-between">
-			<span class="text-xs font-medium text-muted-foreground tracking-wider uppercase">
-				Webcash ({webcash.length})
+			class="w-full px-5 py-3.5 flex items-center justify-between hover:bg-muted/20 transition-all">
+			<span class="text-xs font-semibold text-muted-foreground tracking-wider uppercase">
+				Webcash
 			</span>
-			<span class="text-xs text-muted-foreground">{expanded ? 'Hide' : 'Show'}</span>
+			<div class="flex items-center gap-2">
+				<span class="text-xs text-muted-foreground/60">{webcash.length} outputs</span>
+				<ChevronDown class="w-4 h-4 text-muted-foreground transition-transform {expanded ? 'rotate-180' : ''}" />
+			</div>
 		</button>
 
 		{#if expanded}
-			<div class="border-t border-border divide-y divide-border/50 max-h-64 overflow-y-auto">
-				{#each webcash as wc}
-					<div class="px-4 py-2 flex items-center justify-between gap-2">
-						<code class="text-xs text-muted-foreground font-mono truncate max-w-[60%]">{wc.secret}</code>
-						<div class="flex items-center gap-2 shrink-0">
-							<span class="text-sm font-medium">{fmt(wc.amountWats)}</span>
-							<button onclick={() => copySecret(wc.secret)}
-								class="text-xs text-primary hover:text-primary/80 transition-colors">
-								Copy
+			<div class="border-t border-border/50 divide-y divide-border/30 max-h-72 overflow-y-auto">
+				{#each webcash as wc, i}
+					<div class="px-5 py-3 flex items-center justify-between gap-3 hover:bg-muted/10 transition-all">
+						<code class="text-xs text-muted-foreground font-mono truncate flex-1 min-w-0">
+							{wc.secret.slice(0, 8)}...{wc.secret.slice(-8)}
+						</code>
+						<div class="flex items-center gap-3 shrink-0">
+							<span class="text-sm font-semibold tabular-nums">{fmt(wc.amountWats)}</span>
+							<button onclick={() => copySecret(wc.secret, i)}
+								class="rounded-lg p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all">
+								{#if copiedIdx === i}
+									<Check class="w-3.5 h-3.5 text-emerald-500" />
+								{:else}
+									<Copy class="w-3.5 h-3.5" />
+								{/if}
 							</button>
 						</div>
 					</div>

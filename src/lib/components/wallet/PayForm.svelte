@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { ArrowUpFromLine } from '@lucide/svelte';
 	let { onSubmit, disabled, formatAmount, balanceWats }: {
 		onSubmit: (amountWats: number, memo: string) => void;
 		disabled: boolean;
@@ -18,12 +19,19 @@
 		memo = '';
 	};
 
+	const setMax = () => {
+		amountStr = formatAmount ? formatAmount(balanceWats) : (balanceWats / 1e8).toFixed(8);
+	};
+
 	const maxDisplay = $derived(formatAmount ? formatAmount(balanceWats) : (balanceWats / 1e8).toFixed(8));
 </script>
 
-<div class="rounded-xl border border-border bg-card p-4">
-	<label class="text-xs font-medium text-muted-foreground" for="pay-amount">Amount</label>
-	<div class="mt-1 relative">
+<div class="rounded-2xl border border-border bg-card p-5 space-y-3">
+	<div>
+		<div class="flex items-center justify-between mb-1.5">
+			<label class="text-xs font-medium text-muted-foreground" for="pay-amount">Amount</label>
+			<button onclick={setMax} class="text-[11px] text-primary hover:underline font-medium">Max: {maxDisplay}</button>
+		</div>
 		<input
 			id="pay-amount"
 			type="number"
@@ -31,19 +39,19 @@
 			min="0"
 			bind:value={amountStr}
 			placeholder="0.00"
-			class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+			class="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
 		/>
-		<span class="absolute right-3 top-2 text-xs text-muted-foreground">max: {maxDisplay}</span>
 	</div>
 	<input
 		type="text"
 		bind:value={memo}
 		placeholder="Memo (optional)"
-		class="mt-2 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+		class="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
 	/>
 	<button onclick={submit}
-		class="mt-2 w-full rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+		class="w-full flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-40"
 		disabled={disabled || !amountStr}>
-		Pay
+		<ArrowUpFromLine class="w-4 h-4" />
+		Send
 	</button>
 </div>

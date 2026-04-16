@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { ArrowDownToLine } from '@lucide/svelte';
 	let { onSubmit, disabled }: { onSubmit: (s: string) => void; disabled: boolean } = $props();
 	let input = $state('');
 
@@ -7,20 +8,19 @@
 	};
 </script>
 
-<div class="rounded-xl border border-border bg-card p-4">
-	<label class="text-xs font-medium text-muted-foreground" for="insert-input">
-		Paste webcash string
-	</label>
+<div class="rounded-2xl border border-border bg-card p-5">
+	<label class="text-xs font-medium text-muted-foreground" for="insert-input">Paste webcash to receive</label>
 	<textarea
 		id="insert-input"
 		bind:value={input}
 		placeholder="e0.001:secret:abc123..."
-		class="mt-2 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm font-mono h-16 resize-none"
+		class="mt-2 w-full rounded-xl border border-input bg-background px-4 py-3 text-sm font-mono h-20 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
 		spellcheck="false"
 	></textarea>
 	<button onclick={submit}
-		class="mt-2 w-full rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+		class="mt-3 w-full flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-40"
 		disabled={disabled || !input.trim()}>
-		Insert
+		<ArrowDownToLine class="w-4 h-4" />
+		Receive
 	</button>
 </div>
