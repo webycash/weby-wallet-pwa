@@ -30,6 +30,8 @@
 		"vite-plugin-wasm": "^3.4.1"
 	},
 	"dependencies": {
-		"@lucide/svelte": "^1.8.0"
+		"@lucide/svelte": "^1.8.0",
+		"@types/qrcode": "^1.5.6",
+		"qrcode": "^1.5.4"
 	}
 }

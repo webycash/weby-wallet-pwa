@@ -2,11 +2,12 @@
 	import { setupWallet, importWalletSnapshot, recoverWallet } from '$lib/stores/wallet.svelte';
 	import { markWalletCreated, setEncryptionType, type EncryptionType } from '$lib/stores/settings.svelte';
 	import { getNetwork } from '$lib/stores/network.svelte';
-	import { isWebAuthnAvailable } from '$lib/core/encryption';
+	import { isWebAuthnAvailable, encryptWithPasskey, encryptWithPassword } from '$lib/core/encryption';
 	import type { WalletSnapshot } from '$lib/core/types';
-	import { Plus, KeyRound, Upload, Lock, Fingerprint, ShieldOff, Copy, Check } from '@lucide/svelte';
+	import { exportWalletSnapshot } from '$lib/stores/wallet.svelte';
+	import { Plus, KeyRound, Upload, Lock, Fingerprint, ShieldOff, Copy, Check, ScanLine } from '@lucide/svelte';
 
-	type Step = 'choose' | 'recover' | 'encrypt' | 'backup';
+	type Step = 'choose' | 'recover' | 'qrscan' | 'encrypt' | 'backup';
 
 	let step = $state<Step>('choose');
 	let masterSecret = $state('');
@@ -15,8 +16,56 @@
 	let loading = $state(false);
 	let copied = $state(false);
 	let selectedEncryption = $state<EncryptionType>('none');
+	let encPassword = $state('');
+	let encPasswordConfirm = $state('');
+	let encLoading = $state(false);
+	let encError = $state('');
 
 	const webauthnAvailable = isWebAuthnAvailable();
+	let videoEl = $state<HTMLVideoElement>();
+	let cameraStream: MediaStream | null = null;
+
+	const startCamera = async () => {
+		try {
+			cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+			if (videoEl) videoEl.srcObject = cameraStream;
+
+			// Use BarcodeDetector if available (Chrome, Edge)
+			if ('BarcodeDetector' in window) {
+				// @ts-ignore
+				const detector = new BarcodeDetector({ formats: ['qr_code'] });
+				const scan = async () => {
+					if (!cameraStream || !videoEl) return;
+					try {
+						const barcodes = await detector.detect(videoEl);
+						if (barcodes.length > 0) {
+							const value = barcodes[0].rawValue;
+							if (value && /^[0-9a-f]{64}$/i.test(value)) {
+								recoverInput = value;
+								stopCamera();
+								await recoverFromSecret();
+								return;
+							}
+						}
+					} catch {}
+					if (cameraStream) requestAnimationFrame(scan);
+				};
+				requestAnimationFrame(scan);
+			}
+		} catch (e) {
+			error = 'Camera access denied. Paste the secret manually.';
+		}
+	};
+
+	const stopCamera = () => {
+		cameraStream?.getTracks().forEach(t => t.stop());
+		cameraStream = null;
+	};
+
+	$effect(() => {
+		if (step === 'qrscan') startCamera();
+		return () => { if (step !== 'qrscan') stopCamera(); };
+	});
 
 	const createNew = async () => {
 		loading = true;
@@ -69,9 +118,39 @@
 		loading = false;
 	};
 
-	const confirmEncryption = () => {
-		setEncryptionType(selectedEncryption);
-		step = 'backup';
+	const confirmEncryption = async () => {
+		encError = '';
+		encLoading = true;
+
+		try {
+			if (selectedEncryption === 'passkey') {
+				const snapshot = await exportWalletSnapshot();
+				const result = await encryptWithPasskey(snapshot);
+				localStorage.setItem('weby_encrypted_wallet', result.encrypted);
+				localStorage.setItem('weby_passkey_credential', result.credentialId);
+			} else if (selectedEncryption === 'password') {
+				if (!encPassword || encPassword !== encPasswordConfirm) {
+					encError = 'Passwords do not match';
+					encLoading = false;
+					return;
+				}
+				if (encPassword.length < 8) {
+					encError = 'Password must be at least 8 characters';
+					encLoading = false;
+					return;
+				}
+				const snapshot = await exportWalletSnapshot();
+				const encrypted = await encryptWithPassword(snapshot, encPassword);
+				localStorage.setItem('weby_encrypted_wallet', encrypted);
+			}
+
+			setEncryptionType(selectedEncryption);
+			step = 'backup';
+		} catch (e: any) {
+			encError = e.message || 'Encryption failed';
+		}
+
+		encLoading = false;
 	};
 
 	const finish = () => {
@@ -127,6 +206,17 @@
 				</div>
 				<input type="file" accept=".json" class="hidden" onchange={importFile} />
 			</label>
+
+			<button onclick={() => { step = 'qrscan' }}
+				class="w-full flex items-center gap-4 rounded-2xl border border-border bg-card p-5 text-left hover:border-primary/30 hover:bg-primary/5 transition-all">
+				<div class="rounded-xl bg-pink-500/10 p-2.5">
+					<ScanLine class="w-5 h-5 text-pink-500" />
+				</div>
+				<div>
+					<span class="font-semibold text-foreground text-sm">Scan QR Code</span>
+					<span class="block text-xs text-muted-foreground mt-0.5">Import wallet from another device via camera</span>
+				</div>
+			</button>
 		</div>
 
 	{:else if step === 'recover'}
@@ -148,6 +238,39 @@
 				class="flex-1 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-40"
 				disabled={loading || recoverInput.trim().length !== 64}>
 				{loading ? 'Scanning...' : 'Recover'}
+			</button>
+		</div>
+
+	{:else if step === 'qrscan'}
+		<h2 class="text-xl font-bold text-foreground mb-2">Scan QR Code</h2>
+		<p class="text-sm text-muted-foreground mb-4">
+			Open your wallet on the other device, go to Settings > QR Export, and scan the code with your camera.
+		</p>
+		<div class="rounded-2xl border border-border overflow-hidden bg-black aspect-square relative mb-4">
+			<!-- svelte-ignore element_invalid_self_closing_tag -->
+			<video bind:this={videoEl} autoplay playsinline class="w-full h-full object-cover" />
+			<div class="absolute inset-0 border-2 border-primary/30 rounded-2xl pointer-events-none"></div>
+			<div class="absolute inset-[20%] border-2 border-primary rounded-xl pointer-events-none"></div>
+		</div>
+		<p class="text-xs text-muted-foreground text-center mb-4">
+			Or paste the master secret manually:
+		</p>
+		<textarea
+			bind:value={recoverInput}
+			placeholder="64-character hex master secret..."
+			class="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm font-mono h-16 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
+			autocomplete="off"
+			spellcheck="false"
+		></textarea>
+		<div class="flex gap-2 mt-4">
+			<button onclick={() => { stopCamera(); step = 'choose'; error = '' }}
+				class="flex-1 rounded-xl border border-border px-4 py-3 text-sm font-medium hover:bg-muted/50 transition-all">
+				Back
+			</button>
+			<button onclick={recoverFromSecret}
+				class="flex-1 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-40"
+				disabled={loading || recoverInput.trim().length !== 64}>
+				{loading ? 'Importing...' : 'Import'}
 			</button>
 		</div>
 
@@ -192,9 +315,41 @@
 			{/if}
 		</div>
 
+		{#if selectedEncryption === 'password'}
+			<div class="space-y-2 mb-4">
+				<input
+					type="password"
+					bind:value={encPassword}
+					placeholder="Password (min 8 characters)"
+					class="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
+				/>
+				<input
+					type="password"
+					bind:value={encPasswordConfirm}
+					placeholder="Confirm password"
+					class="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
+				/>
+			</div>
+		{/if}
+
+		{#if encError}
+			<div class="mb-4 rounded-2xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-600 dark:text-red-400">
+				{encError}
+			</div>
+		{/if}
+
 		<button onclick={confirmEncryption}
-			class="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all">
-			Continue
+			class="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-40"
+			disabled={encLoading || (selectedEncryption === 'password' && (!encPassword || encPassword.length < 8))}>
+			{#if encLoading}
+				{selectedEncryption === 'passkey' ? 'Authenticate with biometrics...' : 'Encrypting...'}
+			{:else if selectedEncryption === 'passkey'}
+				Authenticate & Encrypt
+			{:else if selectedEncryption === 'password'}
+				Encrypt Wallet
+			{:else}
+				Continue Without Encryption
+			{/if}
 		</button>
 
 	{:else if step === 'backup'}

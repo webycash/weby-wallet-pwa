@@ -1,18 +1,18 @@
 // Server client — all network I/O contained here.
-// Calls webcash protocol endpoints directly (no proxy).
+// Wallet is proxied under weby.cash, so use relative /api/ paths for testnet.
+// Production calls webcash.org directly.
 
 import type {
 	NetworkMode, HealthResponse, ReplaceRequest, ReplaceResponse,
 	TargetResponse, MiningReportRequest, MiningReportResponse
 } from './types';
 
-const ENDPOINTS: Record<NetworkMode, string> = {
-	production: 'https://webcash.org',
-	testnet: 'https://weby.cash/api/webcash/testnet'
+const apiUrl = (network: NetworkMode, path: string): string => {
+	if (network === 'testnet') {
+		return `/api/webcash/testnet/api/v1/${path}`;
+	}
+	return `https://webcash.org/api/v1/${path}`;
 };
-
-const apiUrl = (network: NetworkMode, path: string): string =>
-	`${ENDPOINTS[network]}/api/v1/${path}`;
 
 const post = async <T>(url: string, body: unknown): Promise<T> => {
 	const res = await fetch(url, {

@@ -49,7 +49,7 @@ export const startMining = async (
 	worker.postMessage({
 		masterSecret,
 		miningDepth,
-		difficulty: target.difficulty,
+		difficulty: target.difficulty_target_bits,
 		miningAmount: target.mining_amount,
 	});
 

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { startMining, stopMining, isMining, type MinerStats } from '$lib/core/miner';
-	import { getMasterSecret, getDb } from '$lib/stores/wallet.svelte';
-	import { getDepth } from '$lib/core/storage';
+	import { getMasterSecret, getDb, insertWebcash } from '$lib/stores/wallet.svelte';
+	import { getDepth, setDepth } from '$lib/core/storage';
 	import type { NetworkMode } from '$lib/core/types';
 	import { Pickaxe, Square, Zap, Clock, Target, Hash, Trophy } from '@lucide/svelte';
 
@@ -45,12 +45,25 @@
 
 			running = true;
 
-			await startMining(network, secret, depth, (state) => {
+			await startMining(network, secret, depth, async (state) => {
 				running = state.running;
 				stats = state.stats;
-				if (state.found) {
-					result = state.result ?? '';
+				if (state.found && state.result) {
+					result = state.result;
 					resultHash = state.resultHash ?? '';
+					// Store mined webcash in wallet
+					try {
+						const db = await getDb();
+						await setDepth(db, 'MINING', depth + 1);
+						// The mined webcash needs to be inserted via the wallet engine
+						// so it goes through the replace flow with ownership transfer
+						const insertResult = await insertWebcash(network, state.result);
+						if (!insertResult.ok) {
+							error = `Mined but failed to store: ${insertResult.error}`;
+						}
+					} catch (e: any) {
+						error = `Mined but failed to store: ${e.message}`;
+					}
 					onBalanceUpdate();
 				}
 			});

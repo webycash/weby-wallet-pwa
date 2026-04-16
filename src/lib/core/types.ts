@@ -70,9 +70,10 @@ export interface ReplaceResponse {
 }
 
 export interface TargetResponse {
-	readonly difficulty: number;
-	readonly mining_amount: number;
-	readonly mining_subsidy_amount?: number;
+	readonly difficulty_target_bits: number;
+	readonly mining_amount: string;
+	readonly mining_subsidy_amount?: string;
+	readonly epoch?: number;
 }
 
 export interface MiningReportRequest {

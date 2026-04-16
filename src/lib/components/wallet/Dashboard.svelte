@@ -8,7 +8,7 @@
 	import { getWasm } from '$lib/core/wasm';
 	import type { SecretWebcash, WalletStats, NetworkMode } from '$lib/core/types';
 	import { ArrowDownToLine, ArrowUpFromLine, ShieldCheck, Merge, Pickaxe,
-		Download, Settings, Trash2, Plus, TestTube, Globe, RefreshCw } from '@lucide/svelte';
+		Download, Settings, Trash2, Plus, RefreshCw, QrCode } from '@lucide/svelte';
 
 	import BalanceCard from './BalanceCard.svelte';
 	import InsertForm from './InsertForm.svelte';
@@ -29,6 +29,7 @@
 	let formatAmount = $state<((wats: number) => string) | null>(null);
 	let showBackupWarning = $state(!backedUp() && !backupDismissed());
 	let showSettings = $state(false);
+	let qrDataUrl = $state('');
 
 	const showMessage = (msg: string, type: 'success' | 'error' = 'success') => {
 		message = msg;
@@ -99,6 +100,14 @@
 		showMessage('Backup downloaded');
 	};
 
+	const handleQrExport = async () => {
+		const { getMasterSecret } = await import('$lib/stores/wallet.svelte');
+		const secret = await getMasterSecret();
+		if (!secret) return;
+		const QRCode = (await import('qrcode')).default;
+		qrDataUrl = await QRCode.toDataURL(secret, { width: 256, margin: 2, color: { dark: '#000', light: '#fff' } });
+	};
+
 	const handleDeleteWallet = () => {
 		if (confirm('Delete this wallet? Make sure you have a backup. This cannot be undone.')) {
 			indexedDB.deleteDatabase('weby-wallet');
@@ -148,22 +157,24 @@
 		</div>
 	{/if}
 
-	<!-- Network switch + settings -->
+	<!-- Network selector + actions -->
 	<div class="flex items-center justify-between">
-		<button onclick={toggleNetwork}
-			class="group flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all border
-				{network === 'testnet'
-					? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 hover:bg-amber-500/20'
-					: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20'}">
-			{#if network === 'testnet'}
-				<TestTube class="w-4 h-4" />
-				<span>Testnet</span>
-			{:else}
-				<Globe class="w-4 h-4" />
-				<span>Mainnet</span>
-			{/if}
-			<span class="text-xs opacity-50 group-hover:opacity-80">Switch</span>
-		</button>
+		<div class="flex rounded-full border border-border/60 bg-muted/30 p-0.5">
+			<button onclick={() => { network = 'production'; setNetwork('production'); refresh(); }}
+				class="rounded-full px-4 py-1.5 text-xs font-semibold transition-all
+					{network === 'production'
+						? 'bg-card text-foreground shadow-sm'
+						: 'text-muted-foreground hover:text-foreground'}">
+				Mainnet
+			</button>
+			<button onclick={() => { network = 'testnet'; setNetwork('testnet'); refresh(); }}
+				class="rounded-full px-4 py-1.5 text-xs font-semibold transition-all
+					{network === 'testnet'
+						? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 shadow-sm'
+						: 'text-muted-foreground hover:text-foreground'}">
+				Testnet
+			</button>
+		</div>
 		<div class="flex items-center gap-1">
 			<button onclick={refresh}
 				class="rounded-full p-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all"
@@ -171,7 +182,8 @@
 				<RefreshCw class="w-4 h-4 {loading ? 'animate-spin' : ''}" />
 			</button>
 			<button onclick={() => showSettings = !showSettings}
-				class="rounded-full p-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all">
+				class="rounded-full p-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all
+					{showSettings ? 'text-primary bg-primary/10' : ''}">
 				<Settings class="w-4 h-4" />
 			</button>
 		</div>
@@ -224,18 +236,34 @@
 
 			<EncryptionSetup />
 
-			<div class="flex gap-2 pt-2 border-t border-border/50">
+			<div class="grid grid-cols-3 gap-2 pt-2 border-t border-border/50">
+				<button onclick={handleQrExport}
+					class="flex items-center justify-center gap-2 rounded-xl border border-border/50 px-3 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:border-border transition-all">
+					<QrCode class="w-4 h-4" />
+					QR Export
+				</button>
 				<button onclick={handleNewWallet}
-					class="flex items-center gap-2 rounded-xl border border-border/50 px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:border-border transition-all flex-1">
+					class="flex items-center justify-center gap-2 rounded-xl border border-border/50 px-3 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:border-border transition-all">
 					<Plus class="w-4 h-4" />
 					New Wallet
 				</button>
 				<button onclick={handleDeleteWallet}
-					class="flex items-center gap-2 rounded-xl border border-red-500/20 px-4 py-2.5 text-sm text-red-500/70 hover:text-red-500 hover:border-red-500/40 hover:bg-red-500/5 transition-all flex-1">
+					class="flex items-center justify-center gap-2 rounded-xl border border-red-500/20 px-3 py-2.5 text-sm text-red-500/70 hover:text-red-500 hover:border-red-500/40 hover:bg-red-500/5 transition-all">
 					<Trash2 class="w-4 h-4" />
-					Delete Wallet
+					Delete
 				</button>
 			</div>
+
+			<!-- QR Code display -->
+			{#if qrDataUrl}
+				<div class="pt-3 border-t border-border/50">
+					<p class="text-xs font-medium text-muted-foreground mb-2">Scan on mobile to import wallet</p>
+					<div class="flex justify-center bg-white rounded-xl p-4">
+						<img src={qrDataUrl} alt="Wallet QR Code" class="w-48 h-48" />
+					</div>
+					<p class="text-[10px] text-muted-foreground/50 text-center mt-2">Contains your master secret — keep private</p>
+				</div>
+			{/if}
 		</div>
 	{/if}
 
