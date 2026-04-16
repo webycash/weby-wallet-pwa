@@ -1,0 +1,17 @@
+{
+	"name": "Weby Wallet",
+	"short_name": "Weby",
+	"start_url": "/",
+	"scope": "/",
+	"display": "standalone",
+	"background_color": "#0A0A0F",
+	"theme_color": "#055DFF",
+	"description": "Private webcash wallet — runs entirely in your browser",
+	"icons": [
+		{
+			"src": "/logo.svg",
+			"sizes": "any",
+			"type": "image/svg+xml"
+		}
+	]
+}
