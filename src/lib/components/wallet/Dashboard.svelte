@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { getBalance, getStats, getWebcash, getMasterSecret, exportWalletSnapshot,
+	import { getBalance, getStats, getWebcash, exportWalletSnapshot,
 		insertWebcash, payWebcash, checkWallet, mergeOutputs } from '$lib/stores/wallet.svelte';
 	import { getNetwork, setNetwork } from '$lib/stores/network.svelte';
-	import { markBackedUp } from '$lib/stores/settings.svelte';
+	import { markBackedUp, backedUp, dismissBackup, backupDismissed } from '$lib/stores/settings.svelte';
 	import { getWasm } from '$lib/core/wasm';
 	import type { SecretWebcash, WalletStats, NetworkMode } from '$lib/core/types';
 
@@ -23,6 +23,7 @@
 	let messageType = $state<'success' | 'error'>('success');
 	let loading = $state(false);
 	let formatAmount = $state<((wats: number) => string) | null>(null);
+	let showBackupWarning = $state(!backedUp() && !backupDismissed());
 
 	const showMessage = (msg: string, type: 'success' | 'error' = 'success') => {
 		message = msg;
@@ -63,7 +64,7 @@
 		const result = await checkWallet(network);
 		if (result.ok) {
 			const { validCount, spentCount } = result.value;
-			showMessage(`Check complete: ${validCount} valid, ${spentCount} spent`);
+			showMessage(`Check: ${validCount} valid, ${spentCount} spent`);
 			await refresh();
 		} else showMessage(result.error, 'error');
 		loading = false;
@@ -87,15 +88,8 @@
 		a.click();
 		URL.revokeObjectURL(url);
 		markBackedUp();
+		showBackupWarning = false;
 		showMessage('Backup downloaded');
-	};
-
-	const handleShowSecret = async () => {
-		const secret = await getMasterSecret();
-		if (secret) {
-			await navigator.clipboard.writeText(secret);
-			showMessage('Master secret copied to clipboard');
-		}
 	};
 
 	onMount(async () => {
@@ -105,19 +99,30 @@
 	});
 </script>
 
-<div class="container mx-auto px-4 py-6 max-w-2xl space-y-4">
-	<!-- Network toggle -->
+<div class="container mx-auto px-6 py-8 max-w-2xl space-y-6">
+	<!-- Backup warning -->
+	{#if showBackupWarning}
+		<div class="flex items-center justify-between rounded-xl bg-amber-500/10 border border-amber-500/20 px-4 py-2.5">
+			<p class="text-xs text-amber-600 dark:text-amber-400">
+				Wallet not backed up.
+				<button onclick={handleBackup} class="underline font-medium hover:no-underline ml-1">Back up now</button>
+			</p>
+			<button onclick={() => { dismissBackup(); showBackupWarning = false; }} class="text-amber-500/50 hover:text-amber-500 text-lg leading-none">&times;</button>
+		</div>
+	{/if}
+
+	<!-- Network toggle + refresh -->
 	<div class="flex items-center justify-between">
 		<button onclick={toggleNetwork}
-			class="rounded-full px-3 py-1 text-xs font-medium transition-colors {network === 'testnet'
-				? 'bg-warning/20 text-warning border border-warning/30'
-				: 'bg-primary/10 text-primary border border-primary/20'}">
+			class="rounded-full px-4 py-1.5 text-xs font-semibold tracking-wide uppercase transition-all {network === 'testnet'
+				? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25 hover:bg-amber-500/25'
+				: 'bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20'}">
 			{network === 'testnet' ? 'Testnet' : 'Production'}
 		</button>
 		<button onclick={refresh}
-			class="text-xs text-muted-foreground hover:text-foreground transition-colors"
+			class="rounded-full px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all"
 			disabled={loading}>
-			Refresh
+			{loading ? 'Loading...' : 'Refresh'}
 		</button>
 	</div>
 
@@ -126,28 +131,31 @@
 
 	<!-- Status message -->
 	{#if message}
-		<div class="rounded-lg px-4 py-2 text-sm {messageType === 'error'
-			? 'bg-destructive/10 text-destructive border border-destructive/20'
-			: 'bg-primary/10 text-primary border border-primary/20'}">
+		<div class="rounded-xl px-4 py-3 text-sm font-medium transition-all {messageType === 'error'
+			? 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20'
+			: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'}">
 			{message}
 		</div>
 	{/if}
 
 	<!-- Action buttons -->
-	<div class="grid grid-cols-3 gap-2 sm:grid-cols-6">
+	<div class="grid grid-cols-3 gap-3 sm:grid-cols-6">
 		{#each [
-			{ id: 'insert', label: 'Insert' },
-			{ id: 'pay', label: 'Pay' },
-			{ id: 'check', label: 'Check', action: handleCheck },
-			{ id: 'merge', label: 'Merge', action: handleMerge },
-			...(network === 'testnet' ? [{ id: 'mine', label: 'Mine' }] : []),
-			{ id: 'backup', label: 'Backup', action: handleBackup }
+			{ id: 'insert', label: 'Insert', icon: '↓' },
+			{ id: 'pay', label: 'Pay', icon: '↑' },
+			{ id: 'check', label: 'Check', icon: '✓', action: handleCheck },
+			{ id: 'merge', label: 'Merge', icon: '⊕', action: handleMerge },
+			...(network === 'testnet' ? [{ id: 'mine', label: 'Mine', icon: '⛏' }] : []),
+			{ id: 'backup', label: 'Backup', icon: '↗', action: handleBackup }
 		] as btn}
 			<button
 				onclick={() => btn.action ? btn.action() : activePanel = activePanel === btn.id ? null : btn.id}
-				class="rounded-lg border border-border bg-card px-3 py-2.5 text-xs font-medium hover:border-primary/40 hover:text-primary transition-colors
-					{activePanel === btn.id ? 'border-primary text-primary bg-primary/5' : 'text-muted-foreground'}"
+				class="flex flex-col items-center gap-1 rounded-xl border px-3 py-3 text-xs font-medium transition-all
+					{activePanel === btn.id
+						? 'border-primary bg-primary/10 text-primary shadow-sm shadow-primary/10'
+						: 'border-border/60 bg-card text-muted-foreground hover:border-primary/30 hover:text-primary hover:bg-primary/5'}"
 				disabled={loading}>
+				<span class="text-base">{btn.icon}</span>
 				{btn.label}
 			</button>
 		{/each}
@@ -162,18 +170,17 @@
 		<MinerPanel {network} />
 	{/if}
 
-	<!-- Stats + Webcash list -->
+	<!-- Stats -->
 	{#if walletStats}
 		<StatsPanel stats={walletStats} {formatAmount} />
 	{/if}
 
+	<!-- Webcash list -->
 	<WebcashList webcash={webcashList} {formatAmount} />
 
-	<!-- Footer actions -->
-	<div class="flex justify-center gap-4 pt-4 border-t border-border/40">
-		<button onclick={handleShowSecret}
-			class="text-xs text-muted-foreground hover:text-foreground transition-colors">
-			Copy Master Secret
-		</button>
-	</div>
+	<!-- Privacy footer -->
+	<p class="text-center text-xs text-muted-foreground/60 pt-2">
+		All data stays on your device.
+		<a href="https://github.com/webycash/weby-wallet-pwa" target="_blank" rel="noopener" class="hover:text-muted-foreground transition-colors">Source</a>
+	</p>
 </div>
