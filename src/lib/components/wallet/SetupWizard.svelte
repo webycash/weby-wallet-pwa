@@ -124,6 +124,8 @@
 			const result = await importWalletSnapshot(snapshot);
 			if (result.ok) {
 				masterSecret = snapshot.master_secret;
+				// Auto-recover to find any webcash on the server
+				await recoverWallet(getNetwork(), snapshot.master_secret, 20);
 				step = 'encrypt';
 			} else {
 				error = result.error;
@@ -192,7 +194,7 @@
 			<button onclick={createNew}
 				class="w-full flex items-center gap-4 rounded-2xl border border-border bg-card p-5 text-left hover:border-primary/30 hover:bg-primary/5 transition-all"
 				disabled={loading}>
-				<div class="rounded-xl bg-primary/10 p-2.5">
+				<div class="rounded-full bg-primary/10 p-2.5">
 					<Plus class="w-5 h-5 text-primary" />
 				</div>
 				<div>
@@ -247,11 +249,11 @@
 		></textarea>
 		<div class="flex gap-2 mt-4">
 			<button onclick={() => { step = 'choose'; error = '' }}
-				class="flex-1 rounded-xl border border-border px-4 py-3 text-sm font-medium hover:bg-muted/50 transition-all">
+				class="flex-1 rounded-full border border-border px-4 py-3 text-sm font-medium hover:bg-muted/50 transition-all">
 				Back
 			</button>
 			<button onclick={recoverFromSecret}
-				class="flex-1 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-40"
+				class="flex-1 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-40"
 				disabled={loading || recoverInput.trim().length !== 64}>
 				{loading ? 'Scanning...' : 'Recover'}
 			</button>
@@ -285,11 +287,11 @@
 		></textarea>
 		<div class="flex gap-2 mt-4">
 			<button onclick={() => { stopCamera(); step = 'choose'; error = '' }}
-				class="flex-1 rounded-xl border border-border px-4 py-3 text-sm font-medium hover:bg-muted/50 transition-all">
+				class="flex-1 rounded-full border border-border px-4 py-3 text-sm font-medium hover:bg-muted/50 transition-all">
 				Back
 			</button>
 			<button onclick={recoverFromSecret}
-				class="flex-1 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-40"
+				class="flex-1 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-40"
 				disabled={loading || recoverInput.trim().length !== 64}>
 				{loading ? 'Importing...' : 'Import'}
 			</button>
@@ -360,7 +362,7 @@
 		{/if}
 
 		<button onclick={confirmEncryption}
-			class="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-40"
+			class="w-full rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-40"
 			disabled={encLoading || (selectedEncryption === 'password' && (!encPassword || encPassword.length < 8))}>
 			{#if encLoading}
 				{selectedEncryption === 'passkey' ? 'Authenticate with biometrics...' : 'Encrypting...'}
@@ -393,7 +395,7 @@
 			</button>
 		</div>
 		<button onclick={finish}
-			class="w-full mt-5 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all">
+			class="w-full mt-5 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all">
 			I've Saved It — Open Wallet
 		</button>
 	{/if}

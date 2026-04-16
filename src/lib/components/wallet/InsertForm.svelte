@@ -8,7 +8,7 @@
 	};
 </script>
 
-<div class="rounded-2xl border border-border bg-card p-5">
+<div class="rounded-3xl border border-border bg-card p-5">
 	<label class="text-xs font-medium text-muted-foreground" for="insert-input">Paste webcash to receive</label>
 	<textarea
 		id="insert-input"
@@ -18,7 +18,7 @@
 		spellcheck="false"
 	></textarea>
 	<button onclick={submit}
-		class="mt-3 w-full flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-40"
+		class="mt-3 w-full flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-40"
 		disabled={disabled || !input.trim()}>
 		<ArrowDownToLine class="w-4 h-4" />
 		Receive

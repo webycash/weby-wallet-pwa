@@ -26,7 +26,7 @@
 	const maxDisplay = $derived(formatAmount ? formatAmount(balanceWats) : (balanceWats / 1e8).toFixed(8));
 </script>
 
-<div class="rounded-2xl border border-border bg-card p-5 space-y-3">
+<div class="rounded-3xl border border-border bg-card p-5 space-y-3">
 	<div>
 		<div class="flex items-center justify-between mb-1.5">
 			<label class="text-xs font-medium text-muted-foreground" for="pay-amount">Amount</label>
@@ -49,7 +49,7 @@
 		class="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
 	/>
 	<button onclick={submit}
-		class="w-full flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-40"
+		class="w-full flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-40"
 		disabled={disabled || !amountStr}>
 		<ArrowUpFromLine class="w-4 h-4" />
 		Send

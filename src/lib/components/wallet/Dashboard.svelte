@@ -8,11 +8,12 @@
 	import { getWasm } from '$lib/core/wasm';
 	import type { SecretWebcash, WalletStats, NetworkMode } from '$lib/core/types';
 	import { ArrowDownToLine, ArrowUpFromLine, ShieldCheck, Merge, Pickaxe,
-		Download, Settings, Trash2, Plus, RefreshCw, QrCode } from '@lucide/svelte';
+		Download, Settings, Trash2, Plus, RefreshCw, QrCode, RotateCcw } from '@lucide/svelte';
 
 	import BalanceCard from './BalanceCard.svelte';
 	import InsertForm from './InsertForm.svelte';
 	import PayForm from './PayForm.svelte';
+	import VerifyForm from './VerifyForm.svelte';
 	import StatsPanel from './StatsPanel.svelte';
 	import WebcashList from './WebcashList.svelte';
 	import MinerPanel from './MinerPanel.svelte';
@@ -100,6 +101,19 @@
 		showMessage('Backup downloaded');
 	};
 
+	const handleRecover = async () => {
+		loading = true;
+		const { getMasterSecret, recoverWallet } = await import('$lib/stores/wallet.svelte');
+		const secret = await getMasterSecret();
+		if (!secret) { showMessage('No master secret', 'error'); loading = false; return; }
+		const result = await recoverWallet(network, secret, 20);
+		if (result.ok) {
+			showMessage(`Recovered ${result.value.recoveredCount} outputs`);
+			await refresh();
+		} else showMessage(result.error, 'error');
+		loading = false;
+	};
+
 	const handleQrExport = async () => {
 		const { getMasterSecret } = await import('$lib/stores/wallet.svelte');
 		const secret = await getMasterSecret();
@@ -137,8 +151,9 @@
 	const actions = $derived([
 		{ id: 'insert', label: 'Receive', icon: ArrowDownToLine, color: 'text-emerald-500' },
 		{ id: 'pay', label: 'Send', icon: ArrowUpFromLine, color: 'text-blue-500' },
-		{ id: 'check', label: 'Verify', icon: ShieldCheck, color: 'text-violet-500', action: handleCheck },
+		{ id: 'verify', label: 'Verify', icon: ShieldCheck, color: 'text-violet-500' },
 		{ id: 'merge', label: 'Merge', icon: Merge, color: 'text-orange-500', action: handleMerge },
+		{ id: 'recover', label: 'Recover', icon: RotateCcw, color: 'text-teal-500', action: handleRecover },
 		...(network === 'testnet' ? [{ id: 'mine', label: 'Mine', icon: Pickaxe, color: 'text-amber-500' }] : []),
 		{ id: 'backup', label: 'Backup', icon: Download, color: 'text-cyan-500', action: handleBackup },
 	]);
@@ -206,7 +221,7 @@
 		{#each actions as btn}
 			<button
 				onclick={() => btn.action ? btn.action() : toggle(btn.id)}
-				class="flex flex-col items-center gap-1.5 rounded-2xl border px-2 py-3 transition-all
+				class="flex flex-col items-center gap-1.5 rounded-3xl border px-2 py-3 transition-all
 					{activePanel === btn.id
 						? 'border-primary/40 bg-primary/5 shadow-sm'
 						: 'border-border/50 bg-card hover:border-border hover:bg-muted/30'}"
@@ -225,6 +240,8 @@
 		<InsertForm onSubmit={handleInsert} disabled={loading} />
 	{:else if activePanel === 'pay'}
 		<PayForm onSubmit={handlePay} disabled={loading} {formatAmount} {balanceWats} />
+	{:else if activePanel === 'verify'}
+		<VerifyForm />
 	{:else if activePanel === 'mine'}
 		<MinerPanel {network} onBalanceUpdate={refresh} />
 	{/if}
