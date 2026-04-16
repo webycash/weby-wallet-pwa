@@ -23,51 +23,57 @@
 
 	const webauthnAvailable = isWebAuthnAvailable();
 	let videoEl = $state<HTMLVideoElement>();
+	let canvasEl = $state<HTMLCanvasElement>();
 	let cameraStream: MediaStream | null = null;
-	let scanInterval: ReturnType<typeof setInterval> | null = null;
+	let scanTimer: ReturnType<typeof setInterval> | null = null;
 	let scanStatus = $state('Starting camera...');
 
 	const startCamera = async () => {
 		try {
 			cameraStream = await navigator.mediaDevices.getUserMedia({
-				video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }
+				video: { facingMode: 'environment', width: { ideal: 480 }, height: { ideal: 480 } }
 			});
 			if (videoEl) {
 				videoEl.srcObject = cameraStream;
 				await videoEl.play();
 			}
-			scanStatus = 'Point camera at QR code...';
+			scanStatus = 'Point camera at QR code';
 
-			// @ts-ignore — BarcodeDetector is available in Chrome/Edge/Safari 17+
-			if ('BarcodeDetector' in window) {
-				// @ts-ignore
-				const detector = new BarcodeDetector({ formats: ['qr_code'] });
-				scanInterval = setInterval(async () => {
-					if (!cameraStream || !videoEl || videoEl.readyState < 2) return;
-					try {
-						const barcodes = await detector.detect(videoEl);
-						for (const barcode of barcodes) {
-							const value = barcode.rawValue?.trim();
-							if (value && /^[0-9a-f]{64}$/i.test(value)) {
-								scanStatus = 'QR code detected!';
-								recoverInput = value;
-								stopCamera();
-								await recoverFromSecret();
-								return;
-							}
-						}
-					} catch {}
-				}, 300);
-			} else {
-				scanStatus = 'QR scanner not supported in this browser. Paste the secret below.';
-			}
+			const jsQR = (await import('jsqr')).default;
+
+			scanTimer = setInterval(() => {
+				if (!cameraStream || !videoEl || !canvasEl || videoEl.readyState < 2) return;
+				const ctx = canvasEl.getContext('2d', { willReadFrequently: true });
+				if (!ctx) return;
+
+				const w = videoEl.videoWidth;
+				const h = videoEl.videoHeight;
+				if (w === 0 || h === 0) return;
+
+				canvasEl.width = w;
+				canvasEl.height = h;
+				ctx.drawImage(videoEl, 0, 0, w, h);
+
+				const imageData = ctx.getImageData(0, 0, w, h);
+				const code = jsQR(imageData.data, w, h, { inversionAttempts: 'dontInvert' });
+
+				if (code?.data) {
+					const value = code.data.trim();
+					if (/^[0-9a-f]{64}$/i.test(value)) {
+						scanStatus = 'QR code found!';
+						recoverInput = value;
+						stopCamera();
+						recoverFromSecret();
+					}
+				}
+			}, 250);
 		} catch (e) {
-			scanStatus = 'Camera access denied. Paste the secret below.';
+			scanStatus = 'Camera not available. Paste the secret below.';
 		}
 	};
 
 	const stopCamera = () => {
-		if (scanInterval) { clearInterval(scanInterval); scanInterval = null; }
+		if (scanTimer) { clearInterval(scanTimer); scanTimer = null; }
 		cameraStream?.getTracks().forEach(t => t.stop());
 		cameraStream = null;
 	};
@@ -256,14 +262,15 @@
 		<p class="text-sm text-muted-foreground mb-4">
 			Open your wallet on the other device, go to Settings > QR Export, and scan the code with your camera.
 		</p>
-		<div class="rounded-2xl border border-border overflow-hidden bg-black aspect-video relative mb-4">
+		<div class="rounded-2xl border border-border overflow-hidden bg-black aspect-square relative mb-4 max-w-[320px] mx-auto">
 			<video bind:this={videoEl} autoplay playsinline muted class="w-full h-full object-cover"></video>
+			<canvas bind:this={canvasEl} class="hidden"></canvas>
 			<div class="absolute inset-0 pointer-events-none">
-				<div class="absolute inset-[15%] border-2 border-primary/50 rounded-xl"></div>
-				<div class="absolute inset-[15%] border-2 border-primary/20 rounded-xl animate-pulse"></div>
+				<div class="absolute inset-[12%] border-2 border-primary/60 rounded-2xl"></div>
+				<div class="absolute inset-[12%] border-2 border-primary/20 rounded-2xl animate-pulse"></div>
 			</div>
 			<div class="absolute bottom-3 left-0 right-0 text-center">
-				<span class="text-xs text-white/80 bg-black/50 px-3 py-1 rounded-full">{scanStatus}</span>
+				<span class="text-xs text-white/80 bg-black/60 backdrop-blur-sm px-3 py-1.5 rounded-full">{scanStatus}</span>
 			</div>
 		</div>
 		<p class="text-xs text-muted-foreground text-center mb-3">
