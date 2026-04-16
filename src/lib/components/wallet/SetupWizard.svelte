@@ -24,23 +24,32 @@
 	const webauthnAvailable = isWebAuthnAvailable();
 	let videoEl = $state<HTMLVideoElement>();
 	let cameraStream: MediaStream | null = null;
+	let scanInterval: ReturnType<typeof setInterval> | null = null;
+	let scanStatus = $state('Starting camera...');
 
 	const startCamera = async () => {
 		try {
-			cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-			if (videoEl) videoEl.srcObject = cameraStream;
+			cameraStream = await navigator.mediaDevices.getUserMedia({
+				video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }
+			});
+			if (videoEl) {
+				videoEl.srcObject = cameraStream;
+				await videoEl.play();
+			}
+			scanStatus = 'Point camera at QR code...';
 
-			// Use BarcodeDetector if available (Chrome, Edge)
+			// @ts-ignore — BarcodeDetector is available in Chrome/Edge/Safari 17+
 			if ('BarcodeDetector' in window) {
 				// @ts-ignore
 				const detector = new BarcodeDetector({ formats: ['qr_code'] });
-				const scan = async () => {
-					if (!cameraStream || !videoEl) return;
+				scanInterval = setInterval(async () => {
+					if (!cameraStream || !videoEl || videoEl.readyState < 2) return;
 					try {
 						const barcodes = await detector.detect(videoEl);
-						if (barcodes.length > 0) {
-							const value = barcodes[0].rawValue;
+						for (const barcode of barcodes) {
+							const value = barcode.rawValue?.trim();
 							if (value && /^[0-9a-f]{64}$/i.test(value)) {
+								scanStatus = 'QR code detected!';
 								recoverInput = value;
 								stopCamera();
 								await recoverFromSecret();
@@ -48,23 +57,24 @@
 							}
 						}
 					} catch {}
-					if (cameraStream) requestAnimationFrame(scan);
-				};
-				requestAnimationFrame(scan);
+				}, 300);
+			} else {
+				scanStatus = 'QR scanner not supported in this browser. Paste the secret below.';
 			}
 		} catch (e) {
-			error = 'Camera access denied. Paste the secret manually.';
+			scanStatus = 'Camera access denied. Paste the secret below.';
 		}
 	};
 
 	const stopCamera = () => {
+		if (scanInterval) { clearInterval(scanInterval); scanInterval = null; }
 		cameraStream?.getTracks().forEach(t => t.stop());
 		cameraStream = null;
 	};
 
 	$effect(() => {
 		if (step === 'qrscan') startCamera();
-		return () => { if (step !== 'qrscan') stopCamera(); };
+		return () => stopCamera();
 	});
 
 	const createNew = async () => {
@@ -246,13 +256,17 @@
 		<p class="text-sm text-muted-foreground mb-4">
 			Open your wallet on the other device, go to Settings > QR Export, and scan the code with your camera.
 		</p>
-		<div class="rounded-2xl border border-border overflow-hidden bg-black aspect-square relative mb-4">
-			<!-- svelte-ignore element_invalid_self_closing_tag -->
-			<video bind:this={videoEl} autoplay playsinline class="w-full h-full object-cover" />
-			<div class="absolute inset-0 border-2 border-primary/30 rounded-2xl pointer-events-none"></div>
-			<div class="absolute inset-[20%] border-2 border-primary rounded-xl pointer-events-none"></div>
+		<div class="rounded-2xl border border-border overflow-hidden bg-black aspect-video relative mb-4">
+			<video bind:this={videoEl} autoplay playsinline muted class="w-full h-full object-cover"></video>
+			<div class="absolute inset-0 pointer-events-none">
+				<div class="absolute inset-[15%] border-2 border-primary/50 rounded-xl"></div>
+				<div class="absolute inset-[15%] border-2 border-primary/20 rounded-xl animate-pulse"></div>
+			</div>
+			<div class="absolute bottom-3 left-0 right-0 text-center">
+				<span class="text-xs text-white/80 bg-black/50 px-3 py-1 rounded-full">{scanStatus}</span>
+			</div>
 		</div>
-		<p class="text-xs text-muted-foreground text-center mb-4">
+		<p class="text-xs text-muted-foreground text-center mb-3">
 			Or paste the master secret manually:
 		</p>
 		<textarea
