@@ -3,6 +3,7 @@
 
 const KEYS = {
 	LICENSE: 'weby_license_accepted',
+	WEBCASH_TOS: 'weby_webcash_tos_accepted',
 	WALLET_EXISTS: 'weby_wallet_exists',
 	LAST_BACKUP: 'weby_last_backup',
 	ENCRYPTION_TYPE: 'weby_encryption_type',
@@ -22,8 +23,12 @@ const del = (key: string): void => {
 
 // ── License ──────────────────────────────────────────────────────
 
-export const licenseAccepted = (): boolean => get(KEYS.LICENSE) === 'true';
-export const acceptLicense = (): void => set(KEYS.LICENSE, 'true');
+export const licenseAccepted = (): boolean =>
+	get(KEYS.LICENSE) === 'true' && get(KEYS.WEBCASH_TOS) === 'true';
+export const acceptLicense = (): void => {
+	set(KEYS.LICENSE, 'true');
+	set(KEYS.WEBCASH_TOS, 'true');
+};
 
 // ── Wallet existence ─────────────────────────────────────────────
 
