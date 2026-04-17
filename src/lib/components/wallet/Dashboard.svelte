@@ -168,11 +168,16 @@
 	<div class="grid grid-cols-2 gap-2 max-w-md mx-auto w-full">
 		{#each actions as btn, i}
 			<Button
-				variant={activePanel === btn.id ? 'default' : 'outline'}
-				class="w-full {i === actions.length - 1 && actions.length % 2 === 1 ? 'col-span-2' : ''}"
+				variant="outline"
+				class="w-full {i === actions.length - 1 && actions.length % 2 === 1 ? 'col-span-2' : ''}
+					{activePanel === btn.id ? 'border-primary text-primary font-semibold' : ''}"
 				onclick={() => btn.action ? btn.action() : toggle(btn.id)}
 				disabled={loading}>
-				<btn.icon class="w-4 h-4" /> {btn.label}
+				{#if activePanel === btn.id}
+					<btn.icon class="w-4 h-4 text-primary" /> {btn.label} ✕
+				{:else}
+					<btn.icon class="w-4 h-4" /> {btn.label}
+				{/if}
 			</Button>
 		{/each}
 	</div>
