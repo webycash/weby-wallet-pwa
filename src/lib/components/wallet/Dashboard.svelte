@@ -17,7 +17,10 @@
 	import StatsPanel from './StatsPanel.svelte';
 	import WebcashList from './WebcashList.svelte';
 	import MinerPanel from './MinerPanel.svelte';
+	import PaymentResult from './PaymentResult.svelte';
 	import EncryptionSetup from './EncryptionSetup.svelte';
+
+	let { pendingWebcash = '' }: { pendingWebcash?: string } = $props();
 
 	let balanceWats = $state(0);
 	let walletStats = $state<WalletStats | null>(null);
@@ -31,6 +34,7 @@
 	let showBackupWarning = $state(!backedUp() && !backupDismissed());
 	let showSettings = $state(false);
 	let qrDataUrl = $state('');
+	let paymentResult = $state('');
 
 	const showMessage = (msg: string, type: 'success' | 'error' = 'success') => {
 		message = msg;
@@ -63,8 +67,11 @@
 	const handlePay = async (amountWats: number, memo: string) => {
 		loading = true;
 		const result = await payWebcash(network, amountWats, memo);
-		if (result.ok) { showMessage(`Payment sent: ${result.value}`); activePanel = null; await refresh(); }
-		else showMessage(result.error, 'error');
+		if (result.ok) {
+			paymentResult = result.value;
+			activePanel = 'payment-result';
+			await refresh();
+		} else showMessage(result.error, 'error');
 		loading = false;
 	};
 
@@ -148,6 +155,15 @@
 		const wasm = await getWasm();
 		formatAmount = wasm.format_amount;
 		await refresh();
+
+		// Auto-insert if opened with ?webcash= deep link
+		if (pendingWebcash) {
+			activePanel = 'insert';
+			// Small delay so user sees what's happening
+			setTimeout(async () => {
+				await handleInsert(pendingWebcash);
+			}, 500);
+		}
 	});
 
 	const actions = $derived([
@@ -270,6 +286,8 @@
 		<InsertForm onSubmit={handleInsert} disabled={loading} />
 	{:else if activePanel === 'pay'}
 		<PayForm onSubmit={handlePay} disabled={loading} {formatAmount} {balanceWats} />
+	{:else if activePanel === 'payment-result'}
+		<PaymentResult webcash={paymentResult} onDone={() => { activePanel = null; paymentResult = ''; }} />
 	{:else if activePanel === 'verify'}
 		<VerifyForm />
 	{:else if activePanel === 'mine'}
