@@ -25,14 +25,14 @@
 <div class="container mx-auto px-4 py-8 max-w-lg">
 	<!-- Gift banner if receiving -->
 	{#if hasGift}
-		<div class="rounded-3xl border-2 border-primary/20 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-6 text-center mb-6">
-			<div class="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-3">
+		<div class="rounded-3xl border-2 border-primary bg-gradient-to-br from-primary via-primary to-transparent p-6 text-center mb-6">
+			<div class="w-12 h-12 rounded-full bg-primary flex items-center justify-center mx-auto mb-3">
 				<Gift class="w-6 h-6 text-primary" />
 			</div>
 			<p class="text-sm text-muted-foreground mb-1">Someone sent you</p>
 			<p class="text-3xl font-bold text-foreground">₩{giftAmount || '?'}</p>
 			{#if giftMemo}<p class="text-sm text-muted-foreground mt-2 italic">"{giftMemo}"</p>{/if}
-			<p class="text-xs text-muted-foreground/60 mt-2">Accept the terms below to claim it</p>
+			<p class="text-xs text-muted-foreground mt-2">Accept the terms below to claim it</p>
 		</div>
 	{/if}
 
@@ -44,13 +44,13 @@
 			</p>
 		</div>
 
-		<div class="rounded-2xl border-2 border-border bg-muted/30 p-4">
+		<div class="rounded-2xl border-2 border-border bg-muted p-4">
 			<h3 class="text-xs font-semibold text-foreground mb-2">Webcash Terms of Service</h3>
 			<a
 				href="https://webcash.org/terms"
 				target="_blank"
 				rel="noopener noreferrer"
-				class="inline-flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80 underline transition-colors"
+				class="inline-flex items-center gap-1 text-sm font-medium text-primary hover:text-primary underline transition-colors"
 			>
 				Read at webcash.org/terms
 				<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -59,7 +59,7 @@
 			</a>
 		</div>
 
-		<div class="rounded-2xl border-2 border-border bg-muted/30 p-4">
+		<div class="rounded-2xl border-2 border-border bg-muted p-4">
 			<h3 class="text-xs font-semibold text-foreground mb-2">Weby Wallet License (MIT)</h3>
 			<pre class="text-[10px] text-muted-foreground overflow-auto max-h-32 whitespace-pre-wrap leading-relaxed">MIT License — Copyright (c) 2026 Webycash
 
@@ -83,7 +83,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 			onclick={accept}
 			disabled={!tosChecked}
 			class="w-full rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-all
-				{tosChecked ? 'hover:bg-primary/90' : 'opacity-50 cursor-not-allowed'}"
+				{tosChecked ? 'hover:bg-primary' : 'opacity-50 cursor-not-allowed'}"
 		>
 			{hasGift ? 'Accept & Claim Webcash' : 'Accept & Continue'}
 		</button>

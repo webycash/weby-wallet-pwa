@@ -30,8 +30,8 @@
 			<button onclick={() => select(opt.value)}
 				class="flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all
 					{current === opt.value
-						? 'border-primary/40 bg-primary/5'
-						: 'border-border hover:border-border hover:bg-muted/20'}">
+						? 'border-primary bg-primary'
+						: 'border-border hover:border-border hover:bg-muted'}">
 				<opt.icon
 					class="w-4 h-4 shrink-0 {current === opt.value ? 'text-primary' : 'text-muted-foreground'}" />
 				<div class="flex-1 min-w-0">

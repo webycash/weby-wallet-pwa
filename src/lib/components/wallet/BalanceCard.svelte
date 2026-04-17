@@ -37,18 +37,18 @@
 	const usdDisplay = $derived(usdValue < 0.01 ? '< $0.01' : `$${usdValue.toFixed(2)}`);
 </script>
 
-<div class="relative overflow-hidden rounded-3xl border-2 border-primary/15 bg-gradient-to-br from-primary/8 via-primary/3 to-transparent p-8">
-	<div class="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl"></div>
+<div class="relative overflow-hidden rounded-3xl border-2 border-primary bg-gradient-to-br from-primary via-primary to-transparent p-8">
+	<div class="absolute top-0 right-0 w-32 h-32 bg-primary rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl"></div>
 
 	<!-- Toggle buttons -->
 	<div class="absolute top-4 right-4 flex gap-1">
 		<button onclick={() => showUsd = !showUsd}
 			class="rounded-full px-2.5 py-1 text-[10px] font-semibold transition-all
-				{showUsd ? 'bg-primary/10 text-primary' : 'text-muted-foreground/40 hover:text-muted-foreground'}">
+				{showUsd ? 'bg-primary text-primary' : 'text-muted-foreground hover:text-muted-foreground'}">
 			USD
 		</button>
 		<button onclick={() => hidden = !hidden}
-			class="rounded-full p-1.5 text-muted-foreground/40 hover:text-muted-foreground transition-all">
+			class="rounded-full p-1.5 text-muted-foreground hover:text-muted-foreground transition-all">
 			{#if hidden}
 				<EyeOff class="w-3.5 h-3.5" />
 			{:else}
@@ -58,7 +58,7 @@
 	</div>
 
 	<div class="relative text-center">
-		<p class="text-xs font-medium text-muted-foreground/70 tracking-widest uppercase mb-3">
+		<p class="text-xs font-medium text-muted-foreground tracking-widest uppercase mb-3">
 			{network === 'testnet' ? 'Testnet Balance' : 'Balance'}
 		</p>
 
@@ -70,7 +70,7 @@
 			<p class="text-4xl sm:text-5xl font-bold text-foreground tracking-tight tabular-nums">
 				{usdDisplay}
 			</p>
-			<p class="text-sm text-muted-foreground/50 mt-2 font-medium">
+			<p class="text-sm text-muted-foreground mt-2 font-medium">
 				{WEBCASH_SYMBOL} {display}
 			</p>
 		{:else}
@@ -78,14 +78,14 @@
 				{WEBCASH_SYMBOL} {display}
 			</p>
 			{#if network !== 'testnet' && balanceWats > 0}
-				<p class="text-sm text-muted-foreground/50 mt-2 font-medium tabular-nums">
+				<p class="text-sm text-muted-foreground mt-2 font-medium tabular-nums">
 					~ {usdDisplay}
 				</p>
 			{/if}
 		{/if}
 
 		{#if network !== 'testnet'}
-			<p class="text-[10px] text-muted-foreground/30 mt-3">
+			<p class="text-[10px] text-muted-foreground mt-3">
 				Mining cost: {WEBCASH_SYMBOL}1 ~ ${usdPrice.toFixed(6)}
 			</p>
 		{/if}

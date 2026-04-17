@@ -90,7 +90,7 @@
 <div class="container mx-auto px-4 py-16 max-w-sm text-center">
 	<div class="rounded-3xl border-2 border-border bg-card p-8 space-y-6">
 		{#if encType === 'passkey'}
-			<div class="rounded-full bg-primary/10 w-16 h-16 flex items-center justify-center mx-auto">
+			<div class="rounded-full bg-primary w-16 h-16 flex items-center justify-center mx-auto">
 				<Fingerprint class="w-8 h-8 text-primary" />
 			</div>
 			<div>
@@ -98,12 +98,12 @@
 				<p class="text-sm text-muted-foreground mt-1">Authenticate to access your wallet</p>
 			</div>
 			<button onclick={unlockPasskey}
-				class="w-full rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-40"
+				class="w-full rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary transition-all disabled:opacity-40"
 				disabled={loading}>
 				{loading ? 'Authenticating...' : 'Unlock with Passkey'}
 			</button>
 		{:else}
-			<div class="rounded-full bg-primary/10 w-16 h-16 flex items-center justify-center mx-auto">
+			<div class="rounded-full bg-primary w-16 h-16 flex items-center justify-center mx-auto">
 				<Lock class="w-8 h-8 text-primary" />
 			</div>
 			<div>
@@ -114,11 +114,11 @@
 				type="password"
 				bind:value={password}
 				placeholder="Password"
-				class="w-full rounded-full border-2 border-input bg-background px-5 py-3 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
+				class="w-full rounded-full border-2 border-input bg-background px-5 py-3 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
 				onkeydown={(e) => { if (e.key === 'Enter') unlockWithPassword(); }}
 			/>
 			<button onclick={unlockWithPassword}
-				class="w-full rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-40"
+				class="w-full rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary transition-all disabled:opacity-40"
 				disabled={loading || !password}>
 				{loading ? 'Decrypting...' : 'Unlock'}
 			</button>

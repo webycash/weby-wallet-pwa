@@ -42,6 +42,9 @@ export const setup = async (db: IDBDatabase, masterSecretHex?: string): Promise<
 			return err('Master secret must be 64 hex characters (32 bytes)');
 		}
 
+		// Clear old outputs/hashes from previous wallet (keep meta clean)
+		await Storage.clearAll(db);
+		// Now set the new master secret
 		await Storage.setMeta(db, 'master_secret', masterSecret);
 		for (const code of ['RECEIVE', 'PAY', 'CHANGE', 'MINING']) {
 			await Storage.setDepth(db, code, 0);

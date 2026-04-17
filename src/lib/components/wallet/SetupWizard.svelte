@@ -192,9 +192,9 @@
 
 		<div class="space-y-3">
 			<button onclick={createNew}
-				class="w-full flex items-center gap-4 rounded-2xl border-2 border-border bg-card p-5 text-left hover:border-primary/30 hover:bg-primary/5 transition-all"
+				class="w-full flex items-center gap-4 rounded-2xl border-2 border-border bg-card p-5 text-left hover:border-primary hover:bg-primary transition-all"
 				disabled={loading}>
-				<div class="rounded-full bg-primary/10 p-2.5">
+				<div class="rounded-full bg-primary p-2.5">
 					<Plus class="w-5 h-5 text-primary" />
 				</div>
 				<div>
@@ -204,8 +204,8 @@
 			</button>
 
 			<button onclick={() => { step = 'recover' }}
-				class="w-full flex items-center gap-4 rounded-2xl border-2 border-border bg-card p-5 text-left hover:border-primary/30 hover:bg-primary/5 transition-all">
-				<div class="rounded-xl bg-violet-500/10 p-2.5">
+				class="w-full flex items-center gap-4 rounded-2xl border-2 border-border bg-card p-5 text-left hover:border-primary hover:bg-primary transition-all">
+				<div class="rounded-xl bg-violet-500 p-2.5">
 					<KeyRound class="w-5 h-5 text-violet-500" />
 				</div>
 				<div>
@@ -214,8 +214,8 @@
 				</div>
 			</button>
 
-			<label class="w-full flex items-center gap-4 rounded-2xl border-2 border-border bg-card p-5 text-left hover:border-primary/30 hover:bg-primary/5 transition-all cursor-pointer">
-				<div class="rounded-xl bg-cyan-500/10 p-2.5">
+			<label class="w-full flex items-center gap-4 rounded-2xl border-2 border-border bg-card p-5 text-left hover:border-primary hover:bg-primary transition-all cursor-pointer">
+				<div class="rounded-xl bg-cyan-500 p-2.5">
 					<Upload class="w-5 h-5 text-cyan-500" />
 				</div>
 				<div>
@@ -226,8 +226,8 @@
 			</label>
 
 			<button onclick={() => { step = 'qrscan' }}
-				class="w-full flex items-center gap-4 rounded-2xl border-2 border-border bg-card p-5 text-left hover:border-primary/30 hover:bg-primary/5 transition-all">
-				<div class="rounded-xl bg-pink-500/10 p-2.5">
+				class="w-full flex items-center gap-4 rounded-2xl border-2 border-border bg-card p-5 text-left hover:border-primary hover:bg-primary transition-all">
+				<div class="rounded-xl bg-pink-500 p-2.5">
 					<ScanLine class="w-5 h-5 text-pink-500" />
 				</div>
 				<div>
@@ -243,17 +243,17 @@
 		<textarea
 			bind:value={recoverInput}
 			placeholder="64-character hex master secret..."
-			class="w-full rounded-2xl border-2 border-input bg-background px-4 py-3 text-sm font-mono h-24 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
+			class="w-full rounded-2xl border-2 border-input bg-background px-4 py-3 text-sm font-mono h-24 resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
 			autocomplete="off"
 			spellcheck="false"
 		></textarea>
 		<div class="flex gap-2 mt-4">
 			<button onclick={() => { step = 'choose'; error = '' }}
-				class="flex-1 rounded-full border-2 border-border px-4 py-3 text-sm font-medium hover:bg-muted/50 transition-all">
+				class="flex-1 rounded-full border-2 border-border px-4 py-3 text-sm font-medium hover:bg-muted transition-all">
 				Back
 			</button>
 			<button onclick={recoverFromSecret}
-				class="flex-1 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-40"
+				class="flex-1 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary transition-all disabled:opacity-40"
 				disabled={loading || recoverInput.trim().length !== 64}>
 				{loading ? 'Scanning...' : 'Recover'}
 			</button>
@@ -268,11 +268,11 @@
 			<video bind:this={videoEl} autoplay playsinline muted class="w-full h-full object-cover"></video>
 			<canvas bind:this={canvasEl} class="hidden"></canvas>
 			<div class="absolute inset-0 pointer-events-none">
-				<div class="absolute inset-[12%] border-2 border-primary/60 rounded-2xl"></div>
-				<div class="absolute inset-[12%] border-2 border-primary/20 rounded-2xl animate-pulse"></div>
+				<div class="absolute inset-[12%] border-2 border-primary rounded-2xl"></div>
+				<div class="absolute inset-[12%] border-2 border-primary rounded-2xl animate-pulse"></div>
 			</div>
 			<div class="absolute bottom-3 left-0 right-0 text-center">
-				<span class="text-xs text-white/80 bg-black/60 backdrop-blur-sm px-3 py-1.5 rounded-full">{scanStatus}</span>
+				<span class="text-xs text-white bg-black backdrop-blur-sm px-3 py-1.5 rounded-full">{scanStatus}</span>
 			</div>
 		</div>
 		<p class="text-xs text-muted-foreground text-center mb-3">
@@ -281,17 +281,17 @@
 		<textarea
 			bind:value={recoverInput}
 			placeholder="64-character hex master secret..."
-			class="w-full rounded-xl border-2 border-input bg-background px-4 py-3 text-sm font-mono h-16 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
+			class="w-full rounded-xl border-2 border-input bg-background px-4 py-3 text-sm font-mono h-16 resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
 			autocomplete="off"
 			spellcheck="false"
 		></textarea>
 		<div class="flex gap-2 mt-4">
 			<button onclick={() => { stopCamera(); step = 'choose'; error = '' }}
-				class="flex-1 rounded-full border-2 border-border px-4 py-3 text-sm font-medium hover:bg-muted/50 transition-all">
+				class="flex-1 rounded-full border-2 border-border px-4 py-3 text-sm font-medium hover:bg-muted transition-all">
 				Back
 			</button>
 			<button onclick={recoverFromSecret}
-				class="flex-1 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-40"
+				class="flex-1 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary transition-all disabled:opacity-40"
 				disabled={loading || recoverInput.trim().length !== 64}>
 				{loading ? 'Importing...' : 'Import'}
 			</button>
@@ -304,7 +304,7 @@
 		<div class="space-y-2 mb-5">
 			<button onclick={() => selectedEncryption = 'none'}
 				class="w-full flex items-center gap-3 rounded-2xl border px-4 py-4 text-left transition-all
-					{selectedEncryption === 'none' ? 'border-primary/40 bg-primary/5' : 'border-border hover:border-border'}">
+					{selectedEncryption === 'none' ? 'border-primary bg-primary' : 'border-border hover:border-border'}">
 				<ShieldOff class="w-5 h-5 {selectedEncryption === 'none' ? 'text-primary' : 'text-muted-foreground'}" />
 				<div class="flex-1">
 					<p class="text-sm font-medium">No encryption</p>
@@ -315,7 +315,7 @@
 
 			<button onclick={() => selectedEncryption = 'password'}
 				class="w-full flex items-center gap-3 rounded-2xl border px-4 py-4 text-left transition-all
-					{selectedEncryption === 'password' ? 'border-primary/40 bg-primary/5' : 'border-border hover:border-border'}">
+					{selectedEncryption === 'password' ? 'border-primary bg-primary' : 'border-border hover:border-border'}">
 				<Lock class="w-5 h-5 {selectedEncryption === 'password' ? 'text-primary' : 'text-muted-foreground'}" />
 				<div class="flex-1">
 					<p class="text-sm font-medium">Password</p>
@@ -327,7 +327,7 @@
 			{#if webauthnAvailable}
 				<button onclick={() => selectedEncryption = 'passkey'}
 					class="w-full flex items-center gap-3 rounded-2xl border px-4 py-4 text-left transition-all
-						{selectedEncryption === 'passkey' ? 'border-primary/40 bg-primary/5' : 'border-border hover:border-border'}">
+						{selectedEncryption === 'passkey' ? 'border-primary bg-primary' : 'border-border hover:border-border'}">
 					<Fingerprint class="w-5 h-5 {selectedEncryption === 'passkey' ? 'text-primary' : 'text-muted-foreground'}" />
 					<div class="flex-1">
 						<p class="text-sm font-medium">Passkey</p>
@@ -344,25 +344,25 @@
 					type="password"
 					bind:value={encPassword}
 					placeholder="Password (min 8 characters)"
-					class="w-full rounded-xl border-2 border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
+					class="w-full rounded-xl border-2 border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
 				/>
 				<input
 					type="password"
 					bind:value={encPasswordConfirm}
 					placeholder="Confirm password"
-					class="w-full rounded-xl border-2 border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
+					class="w-full rounded-xl border-2 border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
 				/>
 			</div>
 		{/if}
 
 		{#if encError}
-			<div class="mb-4 rounded-2xl bg-red-500/10 border-2 border-red-500/20 px-4 py-3 text-sm text-red-600 dark:text-red-400">
+			<div class="mb-4 rounded-2xl bg-red-500 border-2 border-red-500 px-4 py-3 text-sm text-red-600 dark:text-red-400">
 				{encError}
 			</div>
 		{/if}
 
 		<button onclick={confirmEncryption}
-			class="w-full rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-40"
+			class="w-full rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary transition-all disabled:opacity-40"
 			disabled={encLoading || (selectedEncryption === 'password' && (!encPassword || encPassword.length < 8))}>
 			{#if encLoading}
 				{selectedEncryption === 'passkey' ? 'Authenticate with biometrics...' : 'Encrypting...'}
@@ -377,11 +377,11 @@
 
 	{:else if step === 'backup'}
 		<h2 class="text-xl font-bold text-foreground mb-2">Back Up Your Secret</h2>
-		<div class="rounded-2xl bg-amber-500/10 border-2 border-amber-500/20 p-4 mb-5">
+		<div class="rounded-2xl bg-amber-500 border-2 border-amber-500 p-4 mb-5">
 			<p class="text-sm font-medium text-amber-600 dark:text-amber-400">This is the only way to recover your wallet.</p>
 			<p class="text-xs text-muted-foreground mt-1">Write it down or save it somewhere secure. It cannot be recovered later.</p>
 		</div>
-		<div class="relative rounded-2xl border-2 border-border bg-muted/30 p-4">
+		<div class="relative rounded-2xl border-2 border-border bg-muted p-4">
 			<code class="text-xs font-mono break-all select-all text-foreground leading-relaxed">
 				{masterSecret}
 			</code>
@@ -395,13 +395,13 @@
 			</button>
 		</div>
 		<button onclick={finish}
-			class="w-full mt-5 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all">
+			class="w-full mt-5 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary transition-all">
 			I've Saved It — Open Wallet
 		</button>
 	{/if}
 
 	{#if error}
-		<div class="mt-4 rounded-2xl bg-red-500/10 border-2 border-red-500/20 px-4 py-3 text-sm text-red-600 dark:text-red-400">
+		<div class="mt-4 rounded-2xl bg-red-500 border-2 border-red-500 px-4 py-3 text-sm text-red-600 dark:text-red-400">
 			{error}
 		</div>
 	{/if}

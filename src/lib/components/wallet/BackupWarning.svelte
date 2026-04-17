@@ -16,7 +16,7 @@
 				Wallet not backed up.
 				<a href="#backup" class="underline hover:no-underline ml-1">Back up now</a>
 			</span>
-			<button onclick={dismiss} class="text-warning/60 hover:text-warning p-1" aria-label="Dismiss">
+			<button onclick={dismiss} class="text-warning hover:text-warning p-1" aria-label="Dismiss">
 				&times;
 			</button>
 		</div>

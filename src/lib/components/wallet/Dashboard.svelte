@@ -158,20 +158,34 @@
 		qrDataUrl = await QRCode.toDataURL(secret, { width: 256, margin: 2, color: { dark: '#000', light: '#fff' } });
 	};
 
-	const handleDeleteWallet = () => {
+	const deleteAllDatabases = () => Promise.all([
+		new Promise<void>((res) => { const r = indexedDB.deleteDatabase('weby-wallet-production'); r.onsuccess = () => res(); r.onerror = () => res(); r.onblocked = () => res(); }),
+		new Promise<void>((res) => { const r = indexedDB.deleteDatabase('weby-wallet-testnet'); r.onsuccess = () => res(); r.onerror = () => res(); r.onblocked = () => res(); }),
+	]);
+
+	const handleDeleteWallet = async () => {
 		if (confirm('Delete this wallet? Make sure you have a backup. This cannot be undone.')) {
-			indexedDB.deleteDatabase('weby-wallet-production');
-			indexedDB.deleteDatabase('weby-wallet-testnet');
+			await deleteAllDatabases();
 			clearWallet();
+			localStorage.removeItem('weby_master_secret');
+			localStorage.removeItem('weby_encrypted_wallet');
+			localStorage.removeItem('weby_passkey_credential');
+			localStorage.removeItem('weby_network_mode');
+			localStorage.removeItem('weby_encryption_type');
+			localStorage.removeItem('weby_last_backup');
 			window.location.reload();
 		}
 	};
 
-	const handleNewWallet = () => {
+	const handleNewWallet = async () => {
 		if (confirm('Create a new wallet? The current wallet will be replaced. Back up first!')) {
-			indexedDB.deleteDatabase('weby-wallet-production');
-			indexedDB.deleteDatabase('weby-wallet-testnet');
+			await deleteAllDatabases();
 			clearWallet();
+			localStorage.removeItem('weby_master_secret');
+			localStorage.removeItem('weby_encrypted_wallet');
+			localStorage.removeItem('weby_passkey_credential');
+			localStorage.removeItem('weby_encryption_type');
+			localStorage.removeItem('weby_last_backup');
 			window.location.reload();
 		}
 	};
@@ -221,19 +235,19 @@
 <div class="container mx-auto px-4 sm:px-6 py-6 max-w-2xl space-y-5">
 	<!-- Backup warning -->
 	{#if showBackupWarning}
-		<div class="flex items-center gap-3 rounded-2xl bg-amber-500/10 border-2 border-amber-500/20 px-4 py-3">
+		<div class="flex items-center gap-3 rounded-2xl bg-amber-500 border-2 border-amber-500 px-4 py-3">
 			<div class="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0"></div>
 			<p class="text-sm text-amber-600 dark:text-amber-400 flex-1">
 				Wallet not backed up
 			</p>
 			<button onclick={handleBackup} class="text-xs font-semibold text-amber-600 dark:text-amber-400 hover:underline shrink-0">Back up</button>
-			<button onclick={() => { dismissBackup(); showBackupWarning = false; }} class="text-amber-400/50 hover:text-amber-400 ml-1 shrink-0">&times;</button>
+			<button onclick={() => { dismissBackup(); showBackupWarning = false; }} class="text-amber-400 hover:text-amber-400 ml-1 shrink-0">&times;</button>
 		</div>
 	{/if}
 
 	<!-- Network + settings centered -->
 	<div class="flex items-center justify-center gap-3">
-		<div class="flex rounded-full border-2 border-border bg-muted/30 p-0.5">
+		<div class="flex rounded-full border-2 border-border bg-muted p-0.5">
 			<button onclick={() => { network = 'production'; setNetwork('production'); resetDb(); refresh(); }}
 				class="rounded-full px-5 py-1.5 text-xs font-semibold transition-all
 					{network === 'production'
@@ -244,7 +258,7 @@
 			<button onclick={() => { network = 'testnet'; setNetwork('testnet'); resetDb(); refresh(); }}
 				class="rounded-full px-5 py-1.5 text-xs font-semibold transition-all
 					{network === 'testnet'
-						? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 shadow-sm'
+						? 'bg-amber-500 text-amber-600 dark:text-amber-400 shadow-sm'
 						: 'text-muted-foreground hover:text-foreground'}">
 				Testnet
 			</button>
@@ -252,7 +266,7 @@
 		<button onclick={() => showSettings = !showSettings}
 			class="flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-all
 				{showSettings
-					? 'border-primary/40 bg-primary/10 text-primary'
+					? 'border-primary bg-primary text-primary'
 					: 'border-border text-muted-foreground hover:text-foreground hover:border-border'}">
 			<Settings class="w-4 h-4" />
 			Settings
@@ -265,8 +279,8 @@
 	<!-- Status message -->
 	{#if message}
 		<div class="rounded-2xl px-4 py-3 text-sm font-medium animate-in fade-in {messageType === 'error'
-			? 'bg-red-500/10 text-red-600 dark:text-red-400 border-2 border-red-500/20'
-			: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-2 border-emerald-500/20'}">
+			? 'bg-red-500 text-red-600 dark:text-red-400 border-2 border-red-500'
+			: 'bg-emerald-500 text-emerald-600 dark:text-emerald-400 border-2 border-emerald-500'}">
 			{message}
 		</div>
 	{/if}
@@ -290,7 +304,7 @@
 					Create New Wallet
 				</button>
 				<button onclick={handleDeleteWallet}
-					class="flex items-center justify-center gap-3 rounded-full border-2 border-red-500/20 px-5 py-3 text-sm text-red-500/60 hover:text-red-500 hover:border-red-500/40 hover:bg-red-500/5 transition-all w-full">
+					class="flex items-center justify-center gap-3 rounded-full border-2 border-red-500 px-5 py-3 text-sm text-red-500 hover:text-red-500 hover:border-red-500 hover:bg-red-500 transition-all w-full">
 					<Trash2 class="w-4 h-4 shrink-0" />
 					Delete Wallet
 				</button>
@@ -302,7 +316,7 @@
 					<div class="inline-block bg-white rounded-3xl p-4">
 						<img src={qrDataUrl} alt="Wallet QR Code" class="w-52 h-52" />
 					</div>
-					<p class="text-[10px] text-muted-foreground/40 mt-2">Contains your master secret — keep private</p>
+					<p class="text-[10px] text-muted-foreground mt-2">Contains your master secret — keep private</p>
 				</div>
 			{/if}
 		</div>
@@ -316,8 +330,8 @@
 				class="flex items-center justify-center gap-3 rounded-full border px-5 py-3 text-sm font-medium transition-all w-full
 					{i === actions.length - 1 && actions.length % 2 === 1 ? 'col-span-2' : ''}
 					{activePanel === btn.id
-						? 'border-primary/40 bg-primary/5 text-primary shadow-sm'
-						: 'border-border bg-card text-muted-foreground hover:border-border hover:text-foreground hover:bg-muted/30'}"
+						? 'border-primary bg-primary text-primary shadow-sm'
+						: 'border-border bg-card text-muted-foreground hover:border-border hover:text-foreground hover:bg-muted'}"
 				disabled={loading}>
 				<btn.icon class="w-4 h-4 shrink-0 {activePanel === btn.id ? 'text-primary' : btn.color}" />
 				{btn.label}
@@ -347,7 +361,7 @@
 	<WebcashList webcash={webcashList} {formatAmount} />
 
 	<!-- Privacy -->
-	<p class="text-center text-[11px] text-muted-foreground/40 pt-2">
+	<p class="text-center text-[11px] text-muted-foreground pt-2">
 		All data stays on your device
 	</p>
 </div>

@@ -39,17 +39,17 @@
 			min="0"
 			bind:value={amountStr}
 			placeholder="0.00"
-			class="w-full rounded-xl border-2 border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
+			class="w-full rounded-xl border-2 border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
 		/>
 	</div>
 	<input
 		type="text"
 		bind:value={memo}
 		placeholder="Memo (optional)"
-		class="w-full rounded-xl border-2 border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
+		class="w-full rounded-xl border-2 border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
 	/>
 	<button onclick={submit}
-		class="w-full flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-40"
+		class="w-full flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary transition-all disabled:opacity-40"
 		disabled={disabled || !amountStr}>
 		<ArrowUpFromLine class="w-4 h-4" />
 		Send

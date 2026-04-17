@@ -90,13 +90,13 @@
 		<div class="flex items-center gap-2">
 			<Pickaxe class="w-4 h-4 text-amber-500" />
 			<span class="text-sm font-semibold text-foreground">CPU Miner</span>
-			<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-500 font-medium">Testnet</span>
+			<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500 text-amber-500 font-medium">Testnet</span>
 		</div>
 		<button onclick={toggle}
 			class="flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold transition-all
 				{running
-					? 'bg-red-500/10 text-red-500 border-2 border-red-500/20 hover:bg-red-500/20'
-					: 'bg-primary text-primary-foreground hover:bg-primary/90'}">
+					? 'bg-red-500 text-red-500 border-2 border-red-500 hover:bg-red-500'
+					: 'bg-primary text-primary-foreground hover:bg-primary'}">
 			{#if running}
 				<Square class="w-3.5 h-3.5" />
 				Stop
@@ -109,7 +109,7 @@
 
 	<!-- Live stats -->
 	{#if running || stats.totalAttempts > 0}
-		<div class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border/30">
+		<div class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border">
 			<div class="bg-card px-4 py-3">
 				<div class="flex items-center gap-1.5 text-muted-foreground mb-1">
 					<Zap class="w-3 h-3" />
@@ -142,7 +142,7 @@
 
 		<!-- Progress bar -->
 		{#if running && stats.progress !== undefined}
-			<div class="h-1 bg-muted/50">
+			<div class="h-1 bg-muted">
 				<div class="h-full bg-amber-500 transition-all duration-300" style="width: {Math.min(stats.progress, 100)}%"></div>
 			</div>
 		{/if}
@@ -150,7 +150,7 @@
 
 	<!-- Solution found -->
 	{#if result}
-		<div class="px-5 py-4 bg-emerald-500/5 border-t border-emerald-500/20">
+		<div class="px-5 py-4 bg-emerald-500 border-t border-emerald-500">
 			<div class="flex items-center gap-2 mb-2">
 				<Trophy class="w-4 h-4 text-emerald-500" />
 				<span class="text-sm font-semibold text-emerald-600 dark:text-emerald-400">Solution Found!</span>
@@ -167,7 +167,7 @@
 	{/if}
 
 	{#if error}
-		<div class="px-5 py-3 bg-red-500/5 border-t border-red-500/20">
+		<div class="px-5 py-3 bg-red-500 border-t border-red-500">
 			<p class="text-sm text-red-500">{error}</p>
 		</div>
 	{/if}

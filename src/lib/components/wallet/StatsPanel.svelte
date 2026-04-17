@@ -5,7 +5,7 @@
 </script>
 
 <div class="rounded-2xl border-2 border-border bg-card overflow-hidden">
-	<div class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border/30">
+	<div class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border">
 		<div class="bg-card px-4 py-3">
 			<div class="flex items-center gap-1.5 text-muted-foreground mb-1">
 				<CircleCheck class="w-3 h-3 text-emerald-500" />
