@@ -125,7 +125,7 @@
 		{/if}
 
 		{#if error}
-			<p class="text-sm text-red-500">{error}</p>
+			<p class="text-sm text-danger-foreground">{error}</p>
 		{/if}
 	</div>
 </div>

@@ -49,9 +49,17 @@ const config: Config = {
 					DEFAULT: "hsl(var(--card) / <alpha-value>)",
 					foreground: "hsl(var(--card-foreground) / <alpha-value>)"
 				},
+				success: {
+					DEFAULT: "hsl(var(--success))",
+					foreground: "hsl(var(--success-foreground))"
+				},
 				warning: {
-					DEFAULT: "hsl(38 92% 50%)",
-					foreground: "hsl(38 92% 10%)"
+					DEFAULT: "hsl(var(--warning))",
+					foreground: "hsl(var(--warning-foreground))"
+				},
+				danger: {
+					DEFAULT: "hsl(var(--danger))",
+					foreground: "hsl(var(--danger-foreground))"
 				}
 			},
 			borderRadius: {

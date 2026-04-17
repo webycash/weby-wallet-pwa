@@ -40,7 +40,7 @@
 							<button onclick={() => copySecret(wc.secret, i)}
 								class="rounded-lg p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-all">
 								{#if copiedIdx === i}
-									<Check class="w-3.5 h-3.5 text-emerald-500" />
+									<Check class="w-3.5 h-3.5 text-success" />
 								{:else}
 									<Copy class="w-3.5 h-3.5" />
 								{/if}

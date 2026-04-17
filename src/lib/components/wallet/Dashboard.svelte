@@ -107,12 +107,12 @@
 
 <div class="container mx-auto px-4 sm:px-6 py-6 max-w-2xl space-y-5">
 	{#if showBackupWarning}
-		<Card.Root class="border-amber-500 bg-amber-50 dark:bg-amber-950">
+		<Card.Root class="border-warning bg-warning/10 dark:bg-warning/10">
 			<Card.Content class="flex items-center gap-3 py-3 px-4">
-				<div class="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0"></div>
-				<p class="text-sm text-amber-700 dark:text-amber-300 flex-1">Wallet not backed up</p>
-				<Button variant="ghost" size="sm" onclick={handleBackup} class="text-amber-700 dark:text-amber-300 h-8">Back up</Button>
-				<button onclick={() => { dismissBackup(); showBackupWarning = false; }} class="text-amber-400 hover:text-amber-600">&times;</button>
+				<div class="w-2 h-2 rounded-full bg-warning animate-pulse shrink-0"></div>
+				<p class="text-sm text-warning-foreground dark:text-warning-foreground flex-1">Wallet not backed up</p>
+				<Button variant="ghost" size="sm" onclick={handleBackup} class="text-warning-foreground dark:text-warning-foreground h-8">Back up</Button>
+				<button onclick={() => { dismissBackup(); showBackupWarning = false; }} class="text-warning-foreground hover:text-warning-foreground">&times;</button>
 			</Card.Content>
 		</Card.Root>
 	{/if}
@@ -124,7 +124,7 @@
 				Mainnet
 			</button>
 			<button onclick={() => { network = 'testnet'; setNetwork('testnet'); resetDb(); refresh(); }}
-				class="rounded-full px-5 py-1.5 text-xs font-semibold transition-all {network === 'testnet' ? 'bg-amber-500 text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}">
+				class="rounded-full px-5 py-1.5 text-xs font-semibold transition-all {network === 'testnet' ? 'bg-warning text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}">
 				Testnet
 			</button>
 		</div>
@@ -137,9 +137,9 @@
 	<BalanceCard {balanceWats} {formatAmount} {network} />
 
 	{#if message}
-		<Card.Root class={messageType === 'error' ? 'border-red-500 bg-red-50 dark:bg-red-950' : 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950'}>
+		<Card.Root class={messageType === 'error' ? 'border-danger bg-danger/10 dark:bg-danger/10' : 'border-success bg-success/10 dark:bg-success/10'}>
 			<Card.Content class="py-3 px-4">
-				<p class="text-sm font-medium {messageType === 'error' ? 'text-red-700 dark:text-red-300' : 'text-emerald-700 dark:text-emerald-300'}">{message}</p>
+				<p class="text-sm font-medium {messageType === 'error' ? 'text-danger-foreground dark:text-danger-foreground' : 'text-success-foreground dark:text-success-foreground'}">{message}</p>
 			</Card.Content>
 		</Card.Root>
 	{/if}

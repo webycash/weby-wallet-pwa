@@ -206,7 +206,7 @@
 			<button onclick={() => { step = 'recover' }}
 				class="w-full flex items-center gap-4 rounded-2xl border-2 border-border bg-card p-5 text-left hover:border-primary hover:bg-primary transition-all">
 				<div class="rounded-xl bg-violet-500 p-2.5">
-					<KeyRound class="w-5 h-5 text-violet-500" />
+					<KeyRound class="w-5 h-5 text-white" />
 				</div>
 				<div>
 					<span class="font-semibold text-foreground text-sm">Recover from Secret</span>
@@ -216,7 +216,7 @@
 
 			<label class="w-full flex items-center gap-4 rounded-2xl border-2 border-border bg-card p-5 text-left hover:border-primary hover:bg-primary transition-all cursor-pointer">
 				<div class="rounded-xl bg-cyan-500 p-2.5">
-					<Upload class="w-5 h-5 text-cyan-500" />
+					<Upload class="w-5 h-5 text-white" />
 				</div>
 				<div>
 					<span class="font-semibold text-foreground text-sm">Import Backup</span>
@@ -228,7 +228,7 @@
 			<button onclick={() => { step = 'qrscan' }}
 				class="w-full flex items-center gap-4 rounded-2xl border-2 border-border bg-card p-5 text-left hover:border-primary hover:bg-primary transition-all">
 				<div class="rounded-xl bg-pink-500 p-2.5">
-					<ScanLine class="w-5 h-5 text-pink-500" />
+					<ScanLine class="w-5 h-5 text-white" />
 				</div>
 				<div>
 					<span class="font-semibold text-foreground text-sm">Scan QR Code</span>
@@ -356,7 +356,7 @@
 		{/if}
 
 		{#if encError}
-			<div class="mb-4 rounded-2xl bg-red-500 border-2 border-red-500 px-4 py-3 text-sm text-red-600 dark:text-red-400">
+			<div class="mb-4 rounded-2xl bg-danger border-2 border-danger px-4 py-3 text-sm text-danger-foreground dark:text-danger-foreground">
 				{encError}
 			</div>
 		{/if}
@@ -377,8 +377,8 @@
 
 	{:else if step === 'backup'}
 		<h2 class="text-xl font-bold text-foreground mb-2">Back Up Your Secret</h2>
-		<div class="rounded-2xl bg-amber-500 border-2 border-amber-500 p-4 mb-5">
-			<p class="text-sm font-medium text-amber-600 dark:text-amber-400">This is the only way to recover your wallet.</p>
+		<div class="rounded-2xl bg-warning border-2 border-warning p-4 mb-5">
+			<p class="text-sm font-medium text-warning-foreground dark:text-warning-foreground">This is the only way to recover your wallet.</p>
 			<p class="text-xs text-muted-foreground mt-1">Write it down or save it somewhere secure. It cannot be recovered later.</p>
 		</div>
 		<div class="relative rounded-2xl border-2 border-border bg-muted p-4">
@@ -388,7 +388,7 @@
 			<button onclick={copySecret}
 				class="absolute top-3 right-3 rounded-lg p-2 bg-card border-2 border-border hover:border-border transition-all">
 				{#if copied}
-					<Check class="w-3.5 h-3.5 text-emerald-500" />
+					<Check class="w-3.5 h-3.5 text-success" />
 				{:else}
 					<Copy class="w-3.5 h-3.5 text-muted-foreground" />
 				{/if}
@@ -401,7 +401,7 @@
 	{/if}
 
 	{#if error}
-		<div class="mt-4 rounded-2xl bg-red-500 border-2 border-red-500 px-4 py-3 text-sm text-red-600 dark:text-red-400">
+		<div class="mt-4 rounded-2xl bg-danger border-2 border-danger px-4 py-3 text-sm text-danger-foreground dark:text-danger-foreground">
 			{error}
 		</div>
 	{/if}

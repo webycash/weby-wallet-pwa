@@ -64,14 +64,14 @@
 	});
 </script>
 
-<div class="rounded-3xl border-2 border-emerald-500 bg-emerald-500 p-6 space-y-5">
+<div class="rounded-3xl border-2 border-success bg-success p-6 space-y-5">
 	<!-- Header -->
 	<div class="flex items-center justify-between">
 		<div class="flex items-center gap-2">
-			<div class="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center">
-				<Check class="w-4 h-4 text-emerald-500" />
+			<div class="w-8 h-8 rounded-full bg-success flex items-center justify-center">
+				<Check class="w-4 h-4 text-success" />
 			</div>
-			<h3 class="text-sm font-semibold text-emerald-600 dark:text-emerald-400">Payment Sent</h3>
+			<h3 class="text-sm font-semibold text-success-foreground dark:text-success-foreground">Payment Sent</h3>
 		</div>
 		<button onclick={onDone} class="rounded-full p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-all">
 			<X class="w-4 h-4" />
@@ -108,7 +108,7 @@
 		<button onclick={copyWebcash}
 			class="flex items-center justify-center gap-2 rounded-full border-2 border-border px-4 py-3 text-sm font-medium text-muted-foreground hover:text-foreground hover:border-border transition-all">
 			{#if copied}
-				<Check class="w-4 h-4 text-emerald-500" />
+				<Check class="w-4 h-4 text-success" />
 				Copied
 			{:else}
 				<Copy class="w-4 h-4" />

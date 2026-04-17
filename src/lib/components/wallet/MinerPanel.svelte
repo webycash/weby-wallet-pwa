@@ -88,14 +88,14 @@
 	<!-- Header -->
 	<div class="flex items-center justify-between px-5 py-4 border-b border-border">
 		<div class="flex items-center gap-2">
-			<Pickaxe class="w-4 h-4 text-amber-500" />
+			<Pickaxe class="w-4 h-4 text-warning-foreground" />
 			<span class="text-sm font-semibold text-foreground">CPU Miner</span>
-			<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500 text-white font-medium">Testnet</span>
+			<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-warning text-white font-medium">Testnet</span>
 		</div>
 		<button onclick={toggle}
 			class="flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold transition-all
 				{running
-					? 'bg-red-500 text-red-500 border-2 border-red-500 hover:bg-red-500'
+					? 'bg-danger text-danger-foreground border-2 border-danger hover:bg-danger'
 					: 'bg-primary text-primary-foreground hover:bg-primary'}">
 			{#if running}
 				<Square class="w-3.5 h-3.5" />
@@ -143,32 +143,32 @@
 		<!-- Progress bar -->
 		{#if running && stats.progress !== undefined}
 			<div class="h-1 bg-muted">
-				<div class="h-full bg-amber-500 transition-all duration-300" style="width: {Math.min(stats.progress, 100)}%"></div>
+				<div class="h-full bg-warning transition-all duration-300" style="width: {Math.min(stats.progress, 100)}%"></div>
 			</div>
 		{/if}
 	{/if}
 
 	<!-- Solution found -->
 	{#if result}
-		<div class="px-5 py-4 bg-emerald-500 border-t border-emerald-500">
+		<div class="px-5 py-4 bg-success border-t border-success text-success-foreground">
 			<div class="flex items-center gap-2 mb-2">
-				<Trophy class="w-4 h-4 text-emerald-500" />
-				<span class="text-sm font-semibold text-emerald-600 dark:text-emerald-400">Solution Found!</span>
+				<Trophy class="w-4 h-4" />
+				<span class="text-sm font-semibold">Solution Found!</span>
 			</div>
 			<div class="space-y-1">
-				<p class="text-[10px] text-muted-foreground uppercase tracking-wider">Hash</p>
-				<code class="text-xs font-mono text-muted-foreground break-all block">{resultHash}</code>
+				<p class="text-[10px] uppercase tracking-wider opacity-80">Hash</p>
+				<code class="text-xs font-mono break-all block opacity-90">{resultHash}</code>
 			</div>
 			<div class="mt-2 space-y-1">
-				<p class="text-[10px] text-muted-foreground uppercase tracking-wider">Webcash</p>
-				<code class="text-xs font-mono text-foreground break-all block">{result}</code>
+				<p class="text-[10px] uppercase tracking-wider opacity-80">Webcash</p>
+				<code class="text-xs font-mono break-all block">{result}</code>
 			</div>
 		</div>
 	{/if}
 
 	{#if error}
-		<div class="px-5 py-3 bg-red-500 border-t border-red-500">
-			<p class="text-sm text-red-500">{error}</p>
+		<div class="px-5 py-3 bg-danger border-t border-danger text-danger-foreground">
+			<p class="text-sm">{error}</p>
 		</div>
 	{/if}
 </div>

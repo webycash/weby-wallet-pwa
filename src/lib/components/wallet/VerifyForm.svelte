@@ -51,20 +51,20 @@
 	</button>
 
 	{#if result === 'valid'}
-		<div class="rounded-2xl bg-emerald-500 border-2 border-emerald-500 px-4 py-3 text-sm text-emerald-600 dark:text-emerald-400 font-medium">
+		<div class="rounded-2xl bg-success border-2 border-success px-4 py-3 text-sm text-success-foreground dark:text-success-foreground font-medium">
 			Valid — this webcash is unspent
 		</div>
 	{:else if result === 'spent'}
-		<div class="rounded-2xl bg-red-500 border-2 border-red-500 px-4 py-3 text-sm text-red-600 dark:text-red-400 font-medium">
+		<div class="rounded-2xl bg-danger border-2 border-danger px-4 py-3 text-sm text-danger-foreground dark:text-danger-foreground font-medium">
 			Spent — this webcash has already been used
 		</div>
 	{:else if result === 'unknown'}
-		<div class="rounded-2xl bg-amber-500 border-2 border-amber-500 px-4 py-3 text-sm text-amber-600 dark:text-amber-400 font-medium">
+		<div class="rounded-2xl bg-warning border-2 border-warning px-4 py-3 text-sm text-warning-foreground dark:text-warning-foreground font-medium">
 			Unknown — not found on the server
 		</div>
 	{/if}
 
 	{#if error}
-		<div class="rounded-2xl bg-red-500 border-2 border-red-500 px-4 py-3 text-sm text-red-500">{error}</div>
+		<div class="rounded-2xl bg-danger border-2 border-danger px-4 py-3 text-sm text-danger-foreground">{error}</div>
 	{/if}
 </div>

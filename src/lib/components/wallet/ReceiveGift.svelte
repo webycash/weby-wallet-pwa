@@ -27,10 +27,10 @@
 			<div class="relative">
 				{#if success}
 					<!-- Success state -->
-					<div class="w-16 h-16 rounded-full bg-emerald-500 flex items-center justify-center mx-auto mb-4">
-						<CheckCircle class="w-8 h-8 text-emerald-500" />
+					<div class="w-16 h-16 rounded-full bg-success flex items-center justify-center mx-auto mb-4">
+						<CheckCircle class="w-8 h-8 text-success" />
 					</div>
-					<p class="text-xs font-medium text-emerald-500 uppercase tracking-widest mb-3">Received</p>
+					<p class="text-xs font-medium text-success uppercase tracking-widest mb-3">Received</p>
 					<p class="text-5xl font-bold text-foreground tracking-tight tabular-nums mb-2">
 						{WEBCASH_SYMBOL}{displayAmount}
 					</p>
@@ -39,20 +39,20 @@
 						<p class="text-sm text-muted-foreground mt-3 italic">"{memo}"</p>
 					{/if}
 					{#if network === 'testnet'}
-						<span class="inline-block mt-3 rounded-full bg-amber-500 border-2 border-amber-500 px-3 py-1 text-xs font-medium text-amber-500">Testnet</span>
+						<span class="inline-block mt-3 rounded-full bg-warning border-2 border-warning px-3 py-1 text-xs font-medium text-warning-foreground">Testnet</span>
 					{/if}
 
 				{:else if error}
 					<!-- Error state -->
-					<div class="w-16 h-16 rounded-full bg-red-500 flex items-center justify-center mx-auto mb-4">
-						<AlertCircle class="w-8 h-8 text-red-500" />
+					<div class="w-16 h-16 rounded-full bg-danger flex items-center justify-center mx-auto mb-4">
+						<AlertCircle class="w-8 h-8 text-danger-foreground" />
 					</div>
-					<p class="text-xs font-medium text-red-500 uppercase tracking-widest mb-3">Failed</p>
+					<p class="text-xs font-medium text-danger-foreground uppercase tracking-widest mb-3">Failed</p>
 					<p class="text-5xl font-bold text-foreground tracking-tight tabular-nums mb-2">
 						{WEBCASH_SYMBOL}{displayAmount}
 					</p>
 					{#if memo}<p class="text-sm text-muted-foreground mt-2 italic">"{memo}"</p>{/if}
-					<p class="text-sm text-red-400 mt-3">{error}</p>
+					<p class="text-sm text-danger-foreground mt-3">{error}</p>
 
 				{:else}
 					<!-- Loading state -->
