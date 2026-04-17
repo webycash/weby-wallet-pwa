@@ -198,7 +198,7 @@
 
 		<div class="space-y-3">
 			<button onclick={createNew}
-				class="w-full flex items-center gap-4 rounded-full border-2 border-border bg-card p-5 text-left hover:border-primary transition-all"
+				class="w-full flex items-center gap-4 rounded-full border-2 border-border bg-card p-5 text-left hover:border-primary hover:bg-muted transition-all"
 				disabled={loading}>
 				<div class="rounded-full bg-primary p-2.5">
 					<Plus class="w-5 h-5 text-primary-foreground" />
@@ -210,7 +210,7 @@
 			</button>
 
 			<button onclick={() => { step = 'recover' }}
-				class="w-full flex items-center gap-4 rounded-full border-2 border-border bg-card p-5 text-left hover:border-primary transition-all">
+				class="w-full flex items-center gap-4 rounded-full border-2 border-border bg-card p-5 text-left hover:border-primary hover:bg-muted transition-all">
 				<div class="rounded-full bg-primary p-2.5">
 					<KeyRound class="w-5 h-5 text-primary-foreground" />
 				</div>
@@ -220,7 +220,7 @@
 				</div>
 			</button>
 
-			<label class="w-full flex items-center gap-4 rounded-full border-2 border-border bg-card p-5 text-left hover:border-primary transition-all cursor-pointer">
+			<label class="w-full flex items-center gap-4 rounded-full border-2 border-border bg-card p-5 text-left hover:border-primary hover:bg-muted transition-all cursor-pointer">
 				<div class="rounded-full bg-primary p-2.5">
 					<Upload class="w-5 h-5 text-primary-foreground" />
 				</div>
@@ -232,7 +232,7 @@
 			</label>
 
 			<button onclick={() => { step = 'qrscan' }}
-				class="w-full flex items-center gap-4 rounded-full border-2 border-border bg-card p-5 text-left hover:border-primary transition-all">
+				class="w-full flex items-center gap-4 rounded-full border-2 border-border bg-card p-5 text-left hover:border-primary hover:bg-muted transition-all">
 				<div class="rounded-full bg-primary p-2.5">
 					<ScanLine class="w-5 h-5 text-primary-foreground" />
 				</div>
