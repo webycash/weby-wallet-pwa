@@ -93,7 +93,7 @@
 	const handleVisibility = () => { if (document.visibilityState === 'hidden') saveEncryptedState(); };
 
 	onMount(async () => {
-		const wasm = await getWasm(); formatAmount = wasm.format_amount; await refresh();
+		const wasm = await getWasm(); formatAmount = (wats: number) => wasm.format_amount(BigInt(wats)); await refresh();
 		if (pendingWebcash) { activePanel = 'insert'; setTimeout(() => handleInsert(pendingWebcash), 500); }
 		document.addEventListener('visibilitychange', handleVisibility);
 		window.addEventListener('beforeunload', () => saveEncryptedState());

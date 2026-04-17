@@ -1,16 +1,17 @@
-// Lazy WASM module loader.
-// For now, we stub the WASM functions with pure TypeScript implementations
-// that produce identical output. Once @webycash/webylib-wasm is published
-// to npm, swap the import.
+// WASM module loader — lazily initializes the compiled wallet-wasm package.
 
-let wasmModule: typeof import('./wasm-stubs') | null = null;
+import type { InitOutput } from '../../../crates/wallet-wasm/pkg/wallet_wasm';
+
+let initialized = false;
+
+export const initWasm = async (): Promise<void> => {
+	if (initialized) return;
+	const mod = await import('../../../crates/wallet-wasm/pkg/wallet_wasm');
+	await mod.default();
+	initialized = true;
+};
 
 export const getWasm = async () => {
-	if (!wasmModule) {
-		// TODO: replace with actual WASM import once published:
-		// wasmModule = await import('@webycash/webylib-wasm');
-		// await wasmModule.default();
-		wasmModule = await import('./wasm-stubs');
-	}
-	return wasmModule;
+	await initWasm();
+	return await import('../../../crates/wallet-wasm/pkg/wallet_wasm');
 };
