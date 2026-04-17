@@ -192,10 +192,10 @@
 
 		<div class="space-y-3">
 			<button onclick={createNew}
-				class="w-full flex items-center gap-4 rounded-2xl border-2 border-border bg-card p-5 text-left hover:border-primary hover:bg-primary transition-all"
+				class="w-full flex items-center gap-4 rounded-full border-2 border-border bg-card p-5 text-left hover:border-primary transition-all"
 				disabled={loading}>
 				<div class="rounded-full bg-primary p-2.5">
-					<Plus class="w-5 h-5 text-primary" />
+					<Plus class="w-5 h-5 text-primary-foreground" />
 				</div>
 				<div>
 					<span class="font-semibold text-foreground text-sm">Create New Wallet</span>
@@ -204,9 +204,9 @@
 			</button>
 
 			<button onclick={() => { step = 'recover' }}
-				class="w-full flex items-center gap-4 rounded-2xl border-2 border-border bg-card p-5 text-left hover:border-primary hover:bg-primary transition-all">
-				<div class="rounded-xl bg-violet-500 p-2.5">
-					<KeyRound class="w-5 h-5 text-white" />
+				class="w-full flex items-center gap-4 rounded-full border-2 border-border bg-card p-5 text-left hover:border-primary transition-all">
+				<div class="rounded-full bg-secondary p-2.5">
+					<KeyRound class="w-5 h-5 text-secondary-foreground" />
 				</div>
 				<div>
 					<span class="font-semibold text-foreground text-sm">Recover from Secret</span>
@@ -214,9 +214,9 @@
 				</div>
 			</button>
 
-			<label class="w-full flex items-center gap-4 rounded-2xl border-2 border-border bg-card p-5 text-left hover:border-primary hover:bg-primary transition-all cursor-pointer">
-				<div class="rounded-xl bg-cyan-500 p-2.5">
-					<Upload class="w-5 h-5 text-white" />
+			<label class="w-full flex items-center gap-4 rounded-full border-2 border-border bg-card p-5 text-left hover:border-primary transition-all cursor-pointer">
+				<div class="rounded-full bg-success p-2.5">
+					<Upload class="w-5 h-5 text-success-foreground" />
 				</div>
 				<div>
 					<span class="font-semibold text-foreground text-sm">Import Backup</span>
@@ -226,9 +226,9 @@
 			</label>
 
 			<button onclick={() => { step = 'qrscan' }}
-				class="w-full flex items-center gap-4 rounded-2xl border-2 border-border bg-card p-5 text-left hover:border-primary hover:bg-primary transition-all">
-				<div class="rounded-xl bg-pink-500 p-2.5">
-					<ScanLine class="w-5 h-5 text-white" />
+				class="w-full flex items-center gap-4 rounded-full border-2 border-border bg-card p-5 text-left hover:border-primary transition-all">
+				<div class="rounded-full bg-warning p-2.5">
+					<ScanLine class="w-5 h-5 text-warning-foreground" />
 				</div>
 				<div>
 					<span class="font-semibold text-foreground text-sm">Scan QR Code</span>
