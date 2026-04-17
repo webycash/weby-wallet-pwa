@@ -90,7 +90,7 @@
 		<div class="flex items-center gap-2">
 			<Pickaxe class="w-4 h-4 text-amber-500" />
 			<span class="text-sm font-semibold text-foreground">CPU Miner</span>
-			<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500 text-amber-500 font-medium">Testnet</span>
+			<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500 text-white font-medium">Testnet</span>
 		</div>
 		<button onclick={toggle}
 			class="flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold transition-all
