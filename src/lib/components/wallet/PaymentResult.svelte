@@ -1,15 +1,32 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { Copy, Check, Mail, Share2, X, QrCode } from '@lucide/svelte';
+	import { getNetwork } from '$lib/stores/network.svelte';
+	import { getWasm } from '$lib/core/wasm';
 
 	let { webcash, onDone }: { webcash: string; onDone: () => void } = $props();
 
 	let copied = $state(false);
 	let qrDataUrl = $state('');
+	let displayAmount = $state('');
 
-	// Deep link URL — receiver clicks to auto-insert
-	const walletUrl = $derived(`https://weby.cash/wallet?webcash=${encodeURIComponent(webcash)}`);
-	const shareText = $derived(`Here's your webcash payment:\n\n${webcash}\n\nOpen in wallet: ${walletUrl}`);
+	const network = getNetwork();
+
+	// Extract amount for display and deep link
+	$effect(() => {
+		try {
+			const match = webcash.match(/^e([^:]+):secret:/);
+			if (match) displayAmount = match[1];
+		} catch {}
+	});
+
+	// Deep link with network + amount for OG card
+	const walletUrl = $derived(
+		`https://weby.cash/wallet?webcash=${encodeURIComponent(webcash)}&network=${network}&amount=${encodeURIComponent(displayAmount)}`
+	);
+	const shareText = $derived(
+		`You received ₩${displayAmount} webcash!\n\nOpen to claim: ${walletUrl}`
+	);
 
 	const copyWebcash = async () => {
 		await navigator.clipboard.writeText(webcash);
