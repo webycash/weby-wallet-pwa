@@ -75,16 +75,15 @@ export const startMining = async (
 					preimage: msg.preimage,
 					legalese: { terms: true }
 				});
-			} catch (e) {
-				console.error('Mining report submission failed:', e);
+			} catch {
+				// Mining report submission failed — output still stored locally
 			}
 
 			stopMining();
 		}
 	};
 
-	worker.onerror = (err) => {
-		console.error('Miner worker error:', err);
+	worker.onerror = () => {
 		onUpdate({ running: false, stats: emptyStats, found: false });
 		stopMining();
 	};

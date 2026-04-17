@@ -57,7 +57,7 @@
 			} else if (encType === 'password') {
 				localStorage.setItem('weby_encrypted_wallet', JSON.stringify(snapshot));
 			}
-		} catch (e) { console.warn('Failed to save encrypted state:', e); }
+		} catch { /* silent — encryption save is best-effort */ }
 	};
 
 	const refresh = async () => {
@@ -75,13 +75,8 @@
 	const handleBackup = async () => { const snap = await exportWalletSnapshot(); const b = new Blob([JSON.stringify(snap, null, 2)], { type: 'application/json' }); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = `weby-wallet-${new Date().toISOString().slice(0, 10)}.json`; a.click(); URL.revokeObjectURL(u); markBackedUp(); showBackupWarning = false; showMessage('Backup downloaded'); };
 	const handleQrExport = async () => { const { getMasterSecret } = await import('$lib/stores/wallet.svelte'); const s = await getMasterSecret(); if (!s) return; const QR = (await import('qrcode')).default; qrDataUrl = await QR.toDataURL(s, { width: 256, margin: 2, color: { dark: '#000', light: '#fff' } }); };
 
-	const deleteAllDatabases = () => Promise.all([
-		new Promise<void>((r) => { const req = indexedDB.deleteDatabase('weby-wallet-production'); req.onsuccess = () => r(); req.onerror = () => r(); req.onblocked = () => r(); }),
-		new Promise<void>((r) => { const req = indexedDB.deleteDatabase('weby-wallet-testnet'); req.onsuccess = () => r(); req.onerror = () => r(); req.onblocked = () => r(); }),
-	]);
-	const clearAllStorage = () => { for (const k of ['weby_master_secret','weby_encrypted_wallet','weby_passkey_credential','weby_network_mode','weby_encryption_type','weby_last_backup']) localStorage.removeItem(k); };
-	const handleDeleteWallet = async () => { if (confirm('Delete this wallet? Make sure you have a backup.')) { await deleteAllDatabases(); clearWallet(); clearAllStorage(); window.location.reload(); } };
-	const handleNewWallet = async () => { if (confirm('Create a new wallet? Back up first!')) { await deleteAllDatabases(); clearWallet(); clearAllStorage(); window.location.reload(); } };
+	const handleDeleteWallet = async () => { if (confirm('Delete this wallet? Make sure you have a backup.')) { const { resetWallet } = await import('$lib/core/reset'); await resetWallet(); window.location.reload(); } };
+	const handleNewWallet = async () => { if (confirm('Create a new wallet? Back up first!')) { const { resetWallet } = await import('$lib/core/reset'); await resetWallet(); window.location.reload(); } };
 
 	const toggle = (id: string) => { activePanel = activePanel === id ? null : id; };
 	const handleVisibility = () => { if (document.visibilityState === 'hidden') saveEncryptedState(); };
@@ -107,7 +102,7 @@
 
 <div class="container mx-auto px-4 sm:px-6 py-6 max-w-2xl space-y-5">
 	{#if showBackupWarning}
-		<Card.Root class="border-warning bg-warning/10 dark:bg-warning/10">
+		<Card.Root class="border-warning bg-muted">
 			<Card.Content class="flex items-center gap-3 py-3 px-4">
 				<div class="w-2 h-2 rounded-full bg-warning animate-pulse shrink-0"></div>
 				<p class="text-sm text-warning-foreground dark:text-warning-foreground flex-1">Wallet not backed up</p>
@@ -137,7 +132,7 @@
 	<BalanceCard {balanceWats} {formatAmount} {network} />
 
 	{#if message}
-		<Card.Root class={messageType === 'error' ? 'border-danger bg-danger/10 dark:bg-danger/10' : 'border-success bg-success/10 dark:bg-success/10'}>
+		<Card.Root class={messageType === 'error' ? 'border-danger bg-muted' : 'border-success bg-muted'}>
 			<Card.Content class="py-3 px-4">
 				<p class="text-sm font-medium {messageType === 'error' ? 'text-danger-foreground dark:text-danger-foreground' : 'text-success-foreground dark:text-success-foreground'}">{message}</p>
 			</Card.Content>

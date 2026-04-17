@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { encryptionType, clearWallet } from '$lib/stores/settings.svelte';
+	import { encryptionType } from '$lib/stores/settings.svelte';
+	import { resetWallet } from '$lib/core/reset';
 	import { decryptWithPasskey, decryptWithPassword } from '$lib/core/encryption';
 	import { importWalletSnapshot } from '$lib/stores/wallet.svelte';
 	import type { WalletSnapshot } from '$lib/core/types';
@@ -67,16 +68,9 @@
 		loading = false;
 	};
 
-	const resetWallet = async () => {
-		if (confirm('Delete wallet and start fresh? All data will be lost. Make sure you have your master secret backed up.')) {
-			await Promise.all([
-				new Promise<void>((r) => { const req = indexedDB.deleteDatabase('weby-wallet-production'); req.onsuccess = () => r(); req.onerror = () => r(); req.onblocked = () => r(); }),
-				new Promise<void>((r) => { const req = indexedDB.deleteDatabase('weby-wallet-testnet'); req.onsuccess = () => r(); req.onerror = () => r(); req.onblocked = () => r(); }),
-			]);
-			clearWallet();
-			for (const k of ['weby_master_secret','weby_encrypted_wallet','weby_passkey_credential','weby_network_mode','weby_encryption_type','weby_last_backup','weby_webcash_tos_accepted','weby_license_accepted']) {
-				localStorage.removeItem(k);
-			}
+	const handleReset = async () => {
+		if (confirm('Delete wallet and start fresh? All data will be lost.')) {
+			await resetWallet();
 			window.location.reload();
 		}
 	};
@@ -126,7 +120,7 @@
 		</Card.Content>
 	</Card.Root>
 
-	<Button variant="destructive" class="w-full" onclick={resetWallet}>
+	<Button variant="destructive" class="w-full" onclick={handleReset}>
 		<Trash2 class="w-4 h-4" /> Reset Wallet
 	</Button>
 	<p class="text-xs text-muted-foreground">Forgot your password? Reset deletes all wallet data.</p>

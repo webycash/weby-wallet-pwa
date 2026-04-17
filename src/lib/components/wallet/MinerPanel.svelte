@@ -69,8 +69,7 @@
 						});
 						await setDepth(db, 'MINING', depth + 1);
 						// Verify storage persisted
-						const verify = await getUnspent(db);
-						console.log(`[Miner] Stored output. Verified ${verify.length} unspent outputs in DB.`);
+						await getUnspent(db);
 					} catch (e: any) {
 						error = `Mined but failed to store: ${e.message}`;
 					}
