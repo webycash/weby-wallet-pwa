@@ -78,4 +78,13 @@
     padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     overflow-x: hidden;
   }
+
+  /* Semantic bg → foreground inheritance.
+     Any element with a semantic bg automatically gets its foreground color.
+     Prevents gray-on-orange / gray-on-green / gray-on-red contrast bugs. */
+  .bg-success { color: hsl(var(--success-foreground)); }
+  .bg-warning { color: hsl(var(--warning-foreground)); }
+  .bg-danger { color: hsl(var(--danger-foreground)); }
+  .bg-primary { color: hsl(var(--primary-foreground)); }
+  .bg-destructive { color: hsl(var(--destructive-foreground)); }
 }

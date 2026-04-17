@@ -374,9 +374,9 @@
 
 	{:else if step === 'backup'}
 		<h2 class="text-xl font-bold text-foreground mb-2">Back Up Your Secret</h2>
-		<div class="rounded-2xl bg-warning border-2 border-warning p-4 mb-5">
-			<p class="text-sm font-medium text-warning-foreground dark:text-warning-foreground">This is the only way to recover your wallet.</p>
-			<p class="text-xs text-muted-foreground mt-1">Write it down or save it somewhere secure. It cannot be recovered later.</p>
+		<div class="rounded-2xl bg-warning border-2 border-warning p-4 mb-5 text-warning-foreground">
+			<p class="text-sm font-medium">This is the only way to recover your wallet.</p>
+			<p class="text-xs opacity-90 mt-1">Write it down or save it somewhere secure. It cannot be recovered later.</p>
 		</div>
 		<div class="relative rounded-2xl border-2 border-border bg-muted p-4">
 			<code class="text-xs font-mono break-all select-all text-foreground leading-relaxed">
