@@ -248,12 +248,13 @@
 		</div>
 	{/if}
 
-	<!-- Action buttons — 2 col on both mobile and desktop, centered -->
+	<!-- Action buttons — 2 col, last spans full if odd count -->
 	<div class="grid grid-cols-2 gap-2 max-w-md mx-auto w-full">
-		{#each actions as btn}
+		{#each actions as btn, i}
 			<button
 				onclick={() => btn.action ? btn.action() : toggle(btn.id)}
 				class="flex items-center justify-center gap-3 rounded-full border px-5 py-3 text-sm font-medium transition-all w-full
+					{i === actions.length - 1 && actions.length % 2 === 1 ? 'col-span-2' : ''}
 					{activePanel === btn.id
 						? 'border-primary/40 bg-primary/5 text-primary shadow-sm'
 						: 'border-border/50 bg-card text-muted-foreground hover:border-border hover:text-foreground hover:bg-muted/30'}"
