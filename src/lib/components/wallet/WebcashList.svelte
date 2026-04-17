@@ -16,7 +16,7 @@
 </script>
 
 {#if webcash.length > 0}
-	<div class="rounded-2xl border border-border bg-card overflow-hidden">
+	<div class="rounded-2xl border-2 border-border bg-card overflow-hidden">
 		<button onclick={() => expanded = !expanded}
 			class="w-full px-5 py-3.5 flex items-center justify-between hover:bg-muted/20 transition-all">
 			<span class="text-xs font-semibold text-muted-foreground tracking-wider uppercase">

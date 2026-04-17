@@ -221,7 +221,7 @@
 <div class="container mx-auto px-4 sm:px-6 py-6 max-w-2xl space-y-5">
 	<!-- Backup warning -->
 	{#if showBackupWarning}
-		<div class="flex items-center gap-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 px-4 py-3">
+		<div class="flex items-center gap-3 rounded-2xl bg-amber-500/10 border-2 border-amber-500/20 px-4 py-3">
 			<div class="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0"></div>
 			<p class="text-sm text-amber-600 dark:text-amber-400 flex-1">
 				Wallet not backed up
@@ -233,7 +233,7 @@
 
 	<!-- Network + settings centered -->
 	<div class="flex items-center justify-center gap-3">
-		<div class="flex rounded-full border border-border bg-muted/30 p-0.5">
+		<div class="flex rounded-full border-2 border-border bg-muted/30 p-0.5">
 			<button onclick={() => { network = 'production'; setNetwork('production'); resetDb(); refresh(); }}
 				class="rounded-full px-5 py-1.5 text-xs font-semibold transition-all
 					{network === 'production'
@@ -265,32 +265,32 @@
 	<!-- Status message -->
 	{#if message}
 		<div class="rounded-2xl px-4 py-3 text-sm font-medium animate-in fade-in {messageType === 'error'
-			? 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20'
-			: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'}">
+			? 'bg-red-500/10 text-red-600 dark:text-red-400 border-2 border-red-500/20'
+			: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-2 border-emerald-500/20'}">
 			{message}
 		</div>
 	{/if}
 
 	<!-- Settings accordion (above action buttons) -->
 	{#if showSettings}
-		<div class="rounded-3xl border border-border bg-card p-5 space-y-4">
+		<div class="rounded-3xl border-2 border-border bg-card p-5 space-y-4">
 			<h3 class="text-sm font-semibold text-foreground text-center">Settings</h3>
 
 			<EncryptionSetup />
 
 			<div class="flex flex-col gap-2 pt-3 border-t border-border">
 				<button onclick={handleQrExport}
-					class="flex items-center justify-center gap-3 rounded-full border border-border px-5 py-3 text-sm text-muted-foreground hover:text-foreground hover:border-border transition-all w-full">
+					class="flex items-center justify-center gap-3 rounded-full border-2 border-border px-5 py-3 text-sm text-muted-foreground hover:text-foreground hover:border-border transition-all w-full">
 					<QrCode class="w-4 h-4 shrink-0" />
 					Pair QR Code
 				</button>
 				<button onclick={handleNewWallet}
-					class="flex items-center justify-center gap-3 rounded-full border border-border px-5 py-3 text-sm text-muted-foreground hover:text-foreground hover:border-border transition-all w-full">
+					class="flex items-center justify-center gap-3 rounded-full border-2 border-border px-5 py-3 text-sm text-muted-foreground hover:text-foreground hover:border-border transition-all w-full">
 					<Plus class="w-4 h-4 shrink-0" />
 					Create New Wallet
 				</button>
 				<button onclick={handleDeleteWallet}
-					class="flex items-center justify-center gap-3 rounded-full border border-red-500/20 px-5 py-3 text-sm text-red-500/60 hover:text-red-500 hover:border-red-500/40 hover:bg-red-500/5 transition-all w-full">
+					class="flex items-center justify-center gap-3 rounded-full border-2 border-red-500/20 px-5 py-3 text-sm text-red-500/60 hover:text-red-500 hover:border-red-500/40 hover:bg-red-500/5 transition-all w-full">
 					<Trash2 class="w-4 h-4 shrink-0" />
 					Delete Wallet
 				</button>

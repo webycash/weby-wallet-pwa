@@ -14,8 +14,8 @@
     --popover-foreground: 250 100% 23%;
     --card: 0 0% 100%;
     --card-foreground: 250 100% 23%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
+    --border: 220 20% 30%;
+    --input: 220 20% 30%;
     --primary: 223 100% 32%;
     --primary-foreground: 210 40% 98%;
     --secondary: 212 100% 65%;
@@ -37,8 +37,8 @@
     --popover-foreground: 210 40% 98%;
     --card: 240 23% 5%;
     --card-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
+    --border: 210 20% 70%;
+    --input: 210 20% 70%;
     --primary: 219 100% 51%;
     --primary-foreground: 0 0% 100%;
     --secondary: 217.2 32.6% 17.5%;

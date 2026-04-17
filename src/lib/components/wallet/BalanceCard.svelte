@@ -37,7 +37,7 @@
 	const usdDisplay = $derived(usdValue < 0.01 ? '< $0.01' : `$${usdValue.toFixed(2)}`);
 </script>
 
-<div class="relative overflow-hidden rounded-3xl border border-primary/15 bg-gradient-to-br from-primary/8 via-primary/3 to-transparent p-8">
+<div class="relative overflow-hidden rounded-3xl border-2 border-primary/15 bg-gradient-to-br from-primary/8 via-primary/3 to-transparent p-8">
 	<div class="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl"></div>
 
 	<!-- Toggle buttons -->

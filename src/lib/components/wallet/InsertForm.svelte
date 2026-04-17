@@ -8,13 +8,13 @@
 	};
 </script>
 
-<div class="rounded-3xl border border-border bg-card p-5">
+<div class="rounded-3xl border-2 border-border bg-card p-5">
 	<label class="text-xs font-medium text-muted-foreground" for="insert-input">Paste webcash to receive</label>
 	<textarea
 		id="insert-input"
 		bind:value={input}
 		placeholder="e0.001:secret:abc123..."
-		class="mt-2 w-full rounded-xl border border-input bg-background px-4 py-3 text-sm font-mono h-20 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
+		class="mt-2 w-full rounded-xl border-2 border-input bg-background px-4 py-3 text-sm font-mono h-20 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
 		spellcheck="false"
 	></textarea>
 	<button onclick={submit}

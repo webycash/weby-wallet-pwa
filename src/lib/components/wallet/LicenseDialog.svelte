@@ -25,7 +25,7 @@
 <div class="container mx-auto px-4 py-8 max-w-lg">
 	<!-- Gift banner if receiving -->
 	{#if hasGift}
-		<div class="rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-6 text-center mb-6">
+		<div class="rounded-3xl border-2 border-primary/20 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-6 text-center mb-6">
 			<div class="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-3">
 				<Gift class="w-6 h-6 text-primary" />
 			</div>
@@ -36,7 +36,7 @@
 		</div>
 	{/if}
 
-	<div class="rounded-3xl border border-border bg-card p-6 space-y-5">
+	<div class="rounded-3xl border-2 border-border bg-card p-6 space-y-5">
 		<div>
 			<h2 class="text-lg font-bold text-foreground mb-1">Terms of Service</h2>
 			<p class="text-xs text-muted-foreground">
@@ -44,7 +44,7 @@
 			</p>
 		</div>
 
-		<div class="rounded-2xl border border-border bg-muted/30 p-4">
+		<div class="rounded-2xl border-2 border-border bg-muted/30 p-4">
 			<h3 class="text-xs font-semibold text-foreground mb-2">Webcash Terms of Service</h3>
 			<a
 				href="https://webcash.org/terms"
@@ -59,7 +59,7 @@
 			</a>
 		</div>
 
-		<div class="rounded-2xl border border-border bg-muted/30 p-4">
+		<div class="rounded-2xl border-2 border-border bg-muted/30 p-4">
 			<h3 class="text-xs font-semibold text-foreground mb-2">Weby Wallet License (MIT)</h3>
 			<pre class="text-[10px] text-muted-foreground overflow-auto max-h-32 whitespace-pre-wrap leading-relaxed">MIT License — Copyright (c) 2026 Webycash
 

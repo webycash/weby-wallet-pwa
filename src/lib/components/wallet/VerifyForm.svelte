@@ -32,7 +32,7 @@
 	};
 </script>
 
-<div class="rounded-3xl border border-border bg-card p-5 space-y-3">
+<div class="rounded-3xl border-2 border-border bg-card p-5 space-y-3">
 	<label class="text-xs font-medium text-muted-foreground" for="verify-input">
 		Paste public or secret webcash to verify
 	</label>
@@ -40,7 +40,7 @@
 		id="verify-input"
 		bind:value={input}
 		placeholder="e1.5:public:abc123... or e1.5:secret:abc123..."
-		class="w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm font-mono h-16 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
+		class="w-full rounded-2xl border-2 border-input bg-background px-4 py-3 text-sm font-mono h-16 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
 		spellcheck="false"
 	></textarea>
 	<button onclick={verify}
@@ -51,20 +51,20 @@
 	</button>
 
 	{#if result === 'valid'}
-		<div class="rounded-2xl bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 text-sm text-emerald-600 dark:text-emerald-400 font-medium">
+		<div class="rounded-2xl bg-emerald-500/10 border-2 border-emerald-500/20 px-4 py-3 text-sm text-emerald-600 dark:text-emerald-400 font-medium">
 			Valid — this webcash is unspent
 		</div>
 	{:else if result === 'spent'}
-		<div class="rounded-2xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-600 dark:text-red-400 font-medium">
+		<div class="rounded-2xl bg-red-500/10 border-2 border-red-500/20 px-4 py-3 text-sm text-red-600 dark:text-red-400 font-medium">
 			Spent — this webcash has already been used
 		</div>
 	{:else if result === 'unknown'}
-		<div class="rounded-2xl bg-amber-500/10 border border-amber-500/20 px-4 py-3 text-sm text-amber-600 dark:text-amber-400 font-medium">
+		<div class="rounded-2xl bg-amber-500/10 border-2 border-amber-500/20 px-4 py-3 text-sm text-amber-600 dark:text-amber-400 font-medium">
 			Unknown — not found on the server
 		</div>
 	{/if}
 
 	{#if error}
-		<div class="rounded-2xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-500">{error}</div>
+		<div class="rounded-2xl bg-red-500/10 border-2 border-red-500/20 px-4 py-3 text-sm text-red-500">{error}</div>
 	{/if}
 </div>

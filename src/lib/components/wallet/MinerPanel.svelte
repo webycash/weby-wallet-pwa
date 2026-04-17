@@ -84,7 +84,7 @@
 	};
 </script>
 
-<div class="rounded-2xl border border-border bg-card overflow-hidden">
+<div class="rounded-2xl border-2 border-border bg-card overflow-hidden">
 	<!-- Header -->
 	<div class="flex items-center justify-between px-5 py-4 border-b border-border">
 		<div class="flex items-center gap-2">
@@ -95,7 +95,7 @@
 		<button onclick={toggle}
 			class="flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold transition-all
 				{running
-					? 'bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500/20'
+					? 'bg-red-500/10 text-red-500 border-2 border-red-500/20 hover:bg-red-500/20'
 					: 'bg-primary text-primary-foreground hover:bg-primary/90'}">
 			{#if running}
 				<Square class="w-3.5 h-3.5" />
