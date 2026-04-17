@@ -2,8 +2,9 @@
 	import type { NetworkMode } from '$lib/core/types';
 	import { Gift, CheckCircle, AlertCircle, Loader2 } from '@lucide/svelte';
 
-	let { amount, network, success, error, onContinue }: {
+	let { amount, memo = '', network, success, error, onContinue }: {
 		amount: string;
+		memo?: string;
 		network: NetworkMode;
 		success: boolean;
 		error: string;
@@ -34,6 +35,9 @@
 						{WEBCASH_SYMBOL}{displayAmount}
 					</p>
 					<p class="text-sm text-muted-foreground/60">webcash</p>
+					{#if memo}
+						<p class="text-sm text-muted-foreground mt-3 italic">"{memo}"</p>
+					{/if}
 					{#if network === 'testnet'}
 						<span class="inline-block mt-3 rounded-full bg-amber-500/10 border border-amber-500/20 px-3 py-1 text-xs font-medium text-amber-500">Testnet</span>
 					{/if}
@@ -47,6 +51,7 @@
 					<p class="text-5xl font-bold text-foreground tracking-tight tabular-nums mb-2">
 						{WEBCASH_SYMBOL}{displayAmount}
 					</p>
+					{#if memo}<p class="text-sm text-muted-foreground mt-2 italic">"{memo}"</p>{/if}
 					<p class="text-sm text-red-400 mt-3">{error}</p>
 
 				{:else}
@@ -58,7 +63,8 @@
 					<p class="text-5xl font-bold text-foreground tracking-tight tabular-nums mb-2">
 						{WEBCASH_SYMBOL}{displayAmount}
 					</p>
-					<p class="text-sm text-muted-foreground/60">Setting up your wallet...</p>
+					{#if memo}<p class="text-sm text-muted-foreground mt-2 italic">"{memo}"</p>{/if}
+					<p class="text-sm text-muted-foreground/60 mt-2">Setting up your wallet...</p>
 				{/if}
 			</div>
 		</div>

@@ -35,6 +35,7 @@
 	let showSettings = $state(false);
 	let qrDataUrl = $state('');
 	let paymentResult = $state('');
+	let paymentMemo = $state('');
 
 	const showMessage = (msg: string, type: 'success' | 'error' = 'success') => {
 		message = msg;
@@ -69,6 +70,7 @@
 		const result = await payWebcash(network, amountWats, memo);
 		if (result.ok) {
 			paymentResult = result.value;
+			paymentMemo = memo;
 			activePanel = 'payment-result';
 			await refresh();
 		} else showMessage(result.error, 'error');
@@ -290,7 +292,7 @@
 	{:else if activePanel === 'pay'}
 		<PayForm onSubmit={handlePay} disabled={loading} {formatAmount} {balanceWats} />
 	{:else if activePanel === 'payment-result'}
-		<PaymentResult webcash={paymentResult} onDone={() => { activePanel = null; paymentResult = ''; }} />
+		<PaymentResult webcash={paymentResult} memo={paymentMemo} onDone={() => { activePanel = null; paymentResult = ''; paymentMemo = ''; }} />
 	{:else if activePanel === 'verify'}
 		<VerifyForm />
 	{:else if activePanel === 'mine'}

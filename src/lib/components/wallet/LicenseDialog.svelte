@@ -2,10 +2,11 @@
 	import { acceptLicense } from '$lib/stores/settings.svelte';
 	import { Gift } from '@lucide/svelte';
 
-	let { onAccepted, hasGift = false, giftAmount = '' }: {
+	let { onAccepted, hasGift = false, giftAmount = '', giftMemo = '' }: {
 		onAccepted?: () => void;
 		hasGift?: boolean;
 		giftAmount?: string;
+		giftMemo?: string;
 	} = $props();
 
 	let tosChecked = $state(false);
@@ -30,6 +31,7 @@
 			</div>
 			<p class="text-sm text-muted-foreground mb-1">Someone sent you</p>
 			<p class="text-3xl font-bold text-foreground">₩{giftAmount || '?'}</p>
+			{#if giftMemo}<p class="text-sm text-muted-foreground mt-2 italic">"{giftMemo}"</p>{/if}
 			<p class="text-xs text-muted-foreground/60 mt-2">Accept the terms below to claim it</p>
 		</div>
 	{/if}

@@ -15,6 +15,7 @@
 	let pendingWebcash = $state('');
 	let pendingNetwork = $state<NetworkMode>('production');
 	let pendingAmount = $state('');
+	let pendingMemo = $state('');
 	let receiving = $state(false);
 	let receiveError = $state('');
 	let receiveSuccess = $state(false);
@@ -25,11 +26,13 @@
 		const wc = params.get('webcash');
 		const net = params.get('network') as NetworkMode | null;
 		const amt = params.get('amount');
+		const memo = params.get('memo');
 
 		if (wc) {
 			pendingWebcash = wc;
 			pendingNetwork = net === 'testnet' ? 'testnet' : 'production';
 			pendingAmount = amt || '';
+			pendingMemo = memo || '';
 			// Don't clean URL yet — keep params until license accepted
 		}
 	});
@@ -74,13 +77,14 @@
 {#if receiving}
 	<ReceiveGift
 		amount={pendingAmount}
+		memo={pendingMemo}
 		network={pendingNetwork}
 		success={receiveSuccess}
 		error={receiveError}
 		onContinue={continueToWallet}
 	/>
 {:else if !licenseAccepted()}
-	<LicenseDialog onAccepted={onLicenseAccepted} hasGift={!!pendingWebcash} giftAmount={pendingAmount} />
+	<LicenseDialog onAccepted={onLicenseAccepted} hasGift={!!pendingWebcash} giftAmount={pendingAmount} giftMemo={pendingMemo} />
 {:else if !walletExists()}
 	<SetupWizard />
 {:else if !unlocked}

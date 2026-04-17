@@ -4,7 +4,7 @@
 	import { getNetwork } from '$lib/stores/network.svelte';
 	import { getWasm } from '$lib/core/wasm';
 
-	let { webcash, onDone }: { webcash: string; onDone: () => void } = $props();
+	let { webcash, memo = '', onDone }: { webcash: string; memo?: string; onDone: () => void } = $props();
 
 	let copied = $state(false);
 	let qrDataUrl = $state('');
@@ -20,12 +20,12 @@
 		} catch {}
 	});
 
-	// Deep link with network + amount for OG card
+	// Deep link with network + amount + memo for OG card
 	const walletUrl = $derived(
-		`https://weby.cash/wallet?webcash=${encodeURIComponent(webcash)}&network=${network}&amount=${encodeURIComponent(displayAmount)}`
+		`https://weby.cash/wallet?webcash=${encodeURIComponent(webcash)}&network=${network}&amount=${encodeURIComponent(displayAmount)}${memo ? `&memo=${encodeURIComponent(memo)}` : ''}`
 	);
 	const shareText = $derived(
-		`You received ₩${displayAmount} webcash!\n\nOpen to claim: ${walletUrl}`
+		`You received ₩${displayAmount} webcash!${memo ? `\n\n"${memo}"` : ''}\n\nOpen to claim: ${walletUrl}`
 	);
 
 	const copyWebcash = async () => {
@@ -77,6 +77,13 @@
 			<X class="w-4 h-4" />
 		</button>
 	</div>
+
+	<!-- Memo -->
+	{#if memo}
+		<div class="rounded-2xl bg-muted/30 border border-border px-4 py-3 text-center">
+			<p class="text-sm text-foreground italic">"{memo}"</p>
+		</div>
+	{/if}
 
 	<!-- Webcash secret -->
 	<div>
