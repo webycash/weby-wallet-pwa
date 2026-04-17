@@ -192,7 +192,7 @@
 
 	<!-- Network + settings centered -->
 	<div class="flex items-center justify-center gap-3">
-		<div class="flex rounded-full border border-border/60 bg-muted/30 p-0.5">
+		<div class="flex rounded-full border border-border bg-muted/30 p-0.5">
 			<button onclick={() => { network = 'production'; setNetwork('production'); resetDb(); refresh(); }}
 				class="rounded-full px-5 py-1.5 text-xs font-semibold transition-all
 					{network === 'production'
@@ -212,7 +212,7 @@
 			class="flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-all
 				{showSettings
 					? 'border-primary/40 bg-primary/10 text-primary'
-					: 'border-border/50 text-muted-foreground hover:text-foreground hover:border-border'}">
+					: 'border-border text-muted-foreground hover:text-foreground hover:border-border'}">
 			<Settings class="w-4 h-4" />
 			Settings
 		</button>
@@ -237,14 +237,14 @@
 
 			<EncryptionSetup />
 
-			<div class="flex flex-col gap-2 pt-3 border-t border-border/50">
+			<div class="flex flex-col gap-2 pt-3 border-t border-border">
 				<button onclick={handleQrExport}
-					class="flex items-center justify-center gap-3 rounded-full border border-border/50 px-5 py-3 text-sm text-muted-foreground hover:text-foreground hover:border-border transition-all w-full">
+					class="flex items-center justify-center gap-3 rounded-full border border-border px-5 py-3 text-sm text-muted-foreground hover:text-foreground hover:border-border transition-all w-full">
 					<QrCode class="w-4 h-4 shrink-0" />
 					Pair QR Code
 				</button>
 				<button onclick={handleNewWallet}
-					class="flex items-center justify-center gap-3 rounded-full border border-border/50 px-5 py-3 text-sm text-muted-foreground hover:text-foreground hover:border-border transition-all w-full">
+					class="flex items-center justify-center gap-3 rounded-full border border-border px-5 py-3 text-sm text-muted-foreground hover:text-foreground hover:border-border transition-all w-full">
 					<Plus class="w-4 h-4 shrink-0" />
 					Create New Wallet
 				</button>
@@ -256,7 +256,7 @@
 			</div>
 
 			{#if qrDataUrl}
-				<div class="pt-3 border-t border-border/50 text-center">
+				<div class="pt-3 border-t border-border text-center">
 					<p class="text-xs font-medium text-muted-foreground mb-3">Scan on mobile to import wallet</p>
 					<div class="inline-block bg-white rounded-3xl p-4">
 						<img src={qrDataUrl} alt="Wallet QR Code" class="w-52 h-52" />
@@ -276,7 +276,7 @@
 					{i === actions.length - 1 && actions.length % 2 === 1 ? 'col-span-2' : ''}
 					{activePanel === btn.id
 						? 'border-primary/40 bg-primary/5 text-primary shadow-sm'
-						: 'border-border/50 bg-card text-muted-foreground hover:border-border hover:text-foreground hover:bg-muted/30'}"
+						: 'border-border bg-card text-muted-foreground hover:border-border hover:text-foreground hover:bg-muted/30'}"
 				disabled={loading}>
 				<btn.icon class="w-4 h-4 shrink-0 {activePanel === btn.id ? 'text-primary' : btn.color}" />
 				{btn.label}

@@ -29,7 +29,7 @@
 		</button>
 
 		{#if expanded}
-			<div class="border-t border-border/50 divide-y divide-border/30 max-h-72 overflow-y-auto">
+			<div class="border-t border-border divide-y divide-border/30 max-h-72 overflow-y-auto">
 				{#each webcash as wc, i}
 					<div class="px-5 py-3 flex items-center justify-between gap-3 hover:bg-muted/10 transition-all">
 						<code class="text-xs text-muted-foreground font-mono truncate flex-1 min-w-0">

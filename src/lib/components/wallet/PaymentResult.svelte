@@ -99,7 +99,7 @@
 	<!-- Action buttons -->
 	<div class="grid grid-cols-2 gap-2">
 		<button onclick={copyWebcash}
-			class="flex items-center justify-center gap-2 rounded-full border border-border/50 px-4 py-3 text-sm font-medium text-muted-foreground hover:text-foreground hover:border-border transition-all">
+			class="flex items-center justify-center gap-2 rounded-full border border-border px-4 py-3 text-sm font-medium text-muted-foreground hover:text-foreground hover:border-border transition-all">
 			{#if copied}
 				<Check class="w-4 h-4 text-emerald-500" />
 				Copied
@@ -109,7 +109,7 @@
 			{/if}
 		</button>
 		<button onclick={copyLink}
-			class="flex items-center justify-center gap-2 rounded-full border border-border/50 px-4 py-3 text-sm font-medium text-muted-foreground hover:text-foreground hover:border-border transition-all">
+			class="flex items-center justify-center gap-2 rounded-full border border-border px-4 py-3 text-sm font-medium text-muted-foreground hover:text-foreground hover:border-border transition-all">
 			<QrCode class="w-4 h-4" />
 			Copy Link
 		</button>
@@ -123,7 +123,7 @@
 			WhatsApp
 		</button>
 		<button onclick={shareEmail}
-			class="flex items-center justify-center gap-2 rounded-full border border-border/50 px-4 py-3 text-sm font-medium text-muted-foreground hover:text-foreground hover:border-border transition-all">
+			class="flex items-center justify-center gap-2 rounded-full border border-border px-4 py-3 text-sm font-medium text-muted-foreground hover:text-foreground hover:border-border transition-all">
 			<Mail class="w-4 h-4" />
 			Email
 		</button>

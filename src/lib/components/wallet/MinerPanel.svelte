@@ -83,7 +83,7 @@
 
 <div class="rounded-2xl border border-border bg-card overflow-hidden">
 	<!-- Header -->
-	<div class="flex items-center justify-between px-5 py-4 border-b border-border/50">
+	<div class="flex items-center justify-between px-5 py-4 border-b border-border">
 		<div class="flex items-center gap-2">
 			<Pickaxe class="w-4 h-4 text-amber-500" />
 			<span class="text-sm font-semibold text-foreground">CPU Miner</span>

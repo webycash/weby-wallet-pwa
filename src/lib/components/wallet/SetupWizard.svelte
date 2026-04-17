@@ -304,7 +304,7 @@
 		<div class="space-y-2 mb-5">
 			<button onclick={() => selectedEncryption = 'none'}
 				class="w-full flex items-center gap-3 rounded-2xl border px-4 py-4 text-left transition-all
-					{selectedEncryption === 'none' ? 'border-primary/40 bg-primary/5' : 'border-border/50 hover:border-border'}">
+					{selectedEncryption === 'none' ? 'border-primary/40 bg-primary/5' : 'border-border hover:border-border'}">
 				<ShieldOff class="w-5 h-5 {selectedEncryption === 'none' ? 'text-primary' : 'text-muted-foreground'}" />
 				<div class="flex-1">
 					<p class="text-sm font-medium">No encryption</p>
@@ -315,7 +315,7 @@
 
 			<button onclick={() => selectedEncryption = 'password'}
 				class="w-full flex items-center gap-3 rounded-2xl border px-4 py-4 text-left transition-all
-					{selectedEncryption === 'password' ? 'border-primary/40 bg-primary/5' : 'border-border/50 hover:border-border'}">
+					{selectedEncryption === 'password' ? 'border-primary/40 bg-primary/5' : 'border-border hover:border-border'}">
 				<Lock class="w-5 h-5 {selectedEncryption === 'password' ? 'text-primary' : 'text-muted-foreground'}" />
 				<div class="flex-1">
 					<p class="text-sm font-medium">Password</p>
@@ -327,7 +327,7 @@
 			{#if webauthnAvailable}
 				<button onclick={() => selectedEncryption = 'passkey'}
 					class="w-full flex items-center gap-3 rounded-2xl border px-4 py-4 text-left transition-all
-						{selectedEncryption === 'passkey' ? 'border-primary/40 bg-primary/5' : 'border-border/50 hover:border-border'}">
+						{selectedEncryption === 'passkey' ? 'border-primary/40 bg-primary/5' : 'border-border hover:border-border'}">
 					<Fingerprint class="w-5 h-5 {selectedEncryption === 'passkey' ? 'text-primary' : 'text-muted-foreground'}" />
 					<div class="flex-1">
 						<p class="text-sm font-medium">Passkey</p>
@@ -386,7 +386,7 @@
 				{masterSecret}
 			</code>
 			<button onclick={copySecret}
-				class="absolute top-3 right-3 rounded-lg p-2 bg-card border border-border/50 hover:border-border transition-all">
+				class="absolute top-3 right-3 rounded-lg p-2 bg-card border border-border hover:border-border transition-all">
 				{#if copied}
 					<Check class="w-3.5 h-3.5 text-emerald-500" />
 				{:else}
