@@ -6,6 +6,7 @@
 	import type { WalletSnapshot } from '$lib/core/types';
 	import { exportWalletSnapshot } from '$lib/stores/wallet.svelte';
 	import { Plus, KeyRound, Upload, Lock, Fingerprint, ShieldOff, Copy, Check, ScanLine } from '@lucide/svelte';
+	import SelectionButton from '$lib/components/ui/selection-button.svelte';
 
 	type Step = 'choose' | 'recover' | 'qrscan' | 'encrypt' | 'backup';
 
@@ -302,39 +303,30 @@
 		<p class="text-sm text-muted-foreground mb-5">Choose how to encrypt your wallet data.</p>
 
 		<div class="space-y-2 mb-5">
-			<button onclick={() => selectedEncryption = 'none'}
-				class="w-full flex items-center gap-3 rounded-2xl border px-4 py-4 text-left transition-all
-					{selectedEncryption === 'none' ? 'border-primary bg-primary' : 'border-border hover:border-border'}">
-				<ShieldOff class="w-5 h-5 {selectedEncryption === 'none' ? 'text-primary' : 'text-muted-foreground'}" />
+			<SelectionButton selected={selectedEncryption === 'none'} onclick={() => selectedEncryption = 'none'}>
+				<ShieldOff class="w-5 h-5 shrink-0" />
 				<div class="flex-1">
 					<p class="text-sm font-medium">No encryption</p>
-					<p class="text-[11px] text-muted-foreground">Quick access, less secure</p>
+					<p class="text-[11px] {selectedEncryption === 'none' ? 'opacity-80' : 'text-muted-foreground'}">Quick access, less secure</p>
 				</div>
-				{#if selectedEncryption === 'none'}<div class="w-2 h-2 rounded-full bg-primary"></div>{/if}
-			</button>
+			</SelectionButton>
 
-			<button onclick={() => selectedEncryption = 'password'}
-				class="w-full flex items-center gap-3 rounded-2xl border px-4 py-4 text-left transition-all
-					{selectedEncryption === 'password' ? 'border-primary bg-primary' : 'border-border hover:border-border'}">
-				<Lock class="w-5 h-5 {selectedEncryption === 'password' ? 'text-primary' : 'text-muted-foreground'}" />
+			<SelectionButton selected={selectedEncryption === 'password'} onclick={() => selectedEncryption = 'password'}>
+				<Lock class="w-5 h-5 shrink-0" />
 				<div class="flex-1">
 					<p class="text-sm font-medium">Password</p>
-					<p class="text-[11px] text-muted-foreground">Argon2 + AES-256-GCM — enter password each time</p>
+					<p class="text-[11px] {selectedEncryption === 'password' ? 'opacity-80' : 'text-muted-foreground'}">Argon2 + AES-256-GCM — enter password each time</p>
 				</div>
-				{#if selectedEncryption === 'password'}<div class="w-2 h-2 rounded-full bg-primary"></div>{/if}
-			</button>
+			</SelectionButton>
 
 			{#if webauthnAvailable}
-				<button onclick={() => selectedEncryption = 'passkey'}
-					class="w-full flex items-center gap-3 rounded-2xl border px-4 py-4 text-left transition-all
-						{selectedEncryption === 'passkey' ? 'border-primary bg-primary' : 'border-border hover:border-border'}">
-					<Fingerprint class="w-5 h-5 {selectedEncryption === 'passkey' ? 'text-primary' : 'text-muted-foreground'}" />
+				<SelectionButton selected={selectedEncryption === 'passkey'} onclick={() => selectedEncryption = 'passkey'}>
+					<Fingerprint class="w-5 h-5 shrink-0" />
 					<div class="flex-1">
 						<p class="text-sm font-medium">Passkey</p>
-						<p class="text-[11px] text-muted-foreground">Face ID / Touch ID / fingerprint — biometric unlock</p>
+						<p class="text-[11px] {selectedEncryption === 'passkey' ? 'opacity-80' : 'text-muted-foreground'}">Face ID / Touch ID / fingerprint — biometric unlock</p>
 					</div>
-					{#if selectedEncryption === 'passkey'}<div class="w-2 h-2 rounded-full bg-primary"></div>{/if}
-				</button>
+				</SelectionButton>
 			{/if}
 		</div>
 

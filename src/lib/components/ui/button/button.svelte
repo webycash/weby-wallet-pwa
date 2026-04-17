@@ -10,9 +10,9 @@
 				default: "bg-primary text-primary-foreground hover:opacity-90",
 				destructive: "bg-destructive text-destructive-foreground hover:opacity-90",
 				outline:
-					"border-2 border-border bg-background hover:bg-accent hover:text-accent-foreground",
-				secondary: "bg-secondary text-secondary-foreground hover:opacity-80",
-				ghost: "hover:bg-accent hover:text-accent-foreground",
+					"border-2 border-border bg-card text-foreground hover:border-primary",
+				secondary: "bg-secondary text-secondary-foreground hover:opacity-90",
+				ghost: "text-foreground hover:bg-muted",
 				link: "text-primary underline-offset-4 hover:underline",
 			},
 			size: {
