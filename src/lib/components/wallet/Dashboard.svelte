@@ -211,21 +211,18 @@
 		</div>
 	{/if}
 
-	<!-- Action buttons -->
-	<div class="grid grid-cols-4 gap-2">
+	<!-- Action buttons — 1 col mobile, 2 col desktop, all centered -->
+	<div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-md mx-auto w-full">
 		{#each actions as btn}
 			<button
 				onclick={() => btn.action ? btn.action() : toggle(btn.id)}
-				class="flex flex-col items-center gap-1.5 rounded-3xl border px-2 py-3 transition-all
+				class="flex items-center justify-center gap-3 rounded-full border px-5 py-3 text-sm font-medium transition-all w-full
 					{activePanel === btn.id
-						? 'border-primary/40 bg-primary/5 shadow-sm'
-						: 'border-border/50 bg-card hover:border-border hover:bg-muted/30'}"
+						? 'border-primary/40 bg-primary/5 text-primary shadow-sm'
+						: 'border-border/50 bg-card text-muted-foreground hover:border-border hover:text-foreground hover:bg-muted/30'}"
 				disabled={loading}>
-				<btn.icon
-					class="w-5 h-5 {activePanel === btn.id ? 'text-primary' : btn.color}" />
-				<span class="text-[11px] font-medium {activePanel === btn.id ? 'text-primary' : 'text-muted-foreground'}">
-					{btn.label}
-				</span>
+				<btn.icon class="w-4 h-4 shrink-0 {activePanel === btn.id ? 'text-primary' : btn.color}" />
+				{btn.label}
 			</button>
 		{/each}
 	</div>
@@ -248,21 +245,21 @@
 
 			<EncryptionSetup />
 
-			<div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-3 border-t border-border/50">
+			<div class="flex flex-col gap-2 pt-3 border-t border-border/50">
 				<button onclick={handleQrExport}
-					class="flex items-center gap-3 rounded-full border border-border/50 px-5 py-3 text-sm text-muted-foreground hover:text-foreground hover:border-border transition-all">
+					class="flex items-center justify-center gap-3 rounded-full border border-border/50 px-5 py-3 text-sm text-muted-foreground hover:text-foreground hover:border-border transition-all w-full">
 					<QrCode class="w-4 h-4 shrink-0" />
-					<span>Export as QR Code</span>
+					Pair QR Code
 				</button>
 				<button onclick={handleNewWallet}
-					class="flex items-center gap-3 rounded-full border border-border/50 px-5 py-3 text-sm text-muted-foreground hover:text-foreground hover:border-border transition-all">
+					class="flex items-center justify-center gap-3 rounded-full border border-border/50 px-5 py-3 text-sm text-muted-foreground hover:text-foreground hover:border-border transition-all w-full">
 					<Plus class="w-4 h-4 shrink-0" />
-					<span>Create New Wallet</span>
+					Create New Wallet
 				</button>
 				<button onclick={handleDeleteWallet}
-					class="flex items-center gap-3 rounded-full border border-red-500/20 px-5 py-3 text-sm text-red-500/60 hover:text-red-500 hover:border-red-500/40 hover:bg-red-500/5 transition-all sm:col-span-2">
+					class="flex items-center justify-center gap-3 rounded-full border border-red-500/20 px-5 py-3 text-sm text-red-500/60 hover:text-red-500 hover:border-red-500/40 hover:bg-red-500/5 transition-all w-full">
 					<Trash2 class="w-4 h-4 shrink-0" />
-					<span>Delete Wallet</span>
+					Delete Wallet
 				</button>
 			</div>
 
