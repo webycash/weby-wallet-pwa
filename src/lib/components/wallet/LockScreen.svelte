@@ -69,10 +69,9 @@
 	};
 
 	const handleReset = async () => {
-		if (confirm('Delete wallet and start fresh? All data will be lost.')) {
-			await resetWallet();
-			window.location.reload();
-		}
+		if (!confirm('Delete wallet and start fresh? All data will be lost.')) return;
+		await resetWallet();
+		setTimeout(() => { window.location.href = window.location.pathname; }, 100);
 	};
 
 	onMount(() => {

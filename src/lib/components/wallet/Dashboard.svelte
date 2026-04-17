@@ -75,8 +75,19 @@
 	const handleBackup = async () => { const snap = await exportWalletSnapshot(); const b = new Blob([JSON.stringify(snap, null, 2)], { type: 'application/json' }); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = `weby-wallet-${new Date().toISOString().slice(0, 10)}.json`; a.click(); URL.revokeObjectURL(u); markBackedUp(); showBackupWarning = false; showMessage('Backup downloaded'); };
 	const handleQrExport = async () => { const { getMasterSecret } = await import('$lib/stores/wallet.svelte'); const s = await getMasterSecret(); if (!s) return; const QR = (await import('qrcode')).default; qrDataUrl = await QR.toDataURL(s, { width: 256, margin: 2, color: { dark: '#000', light: '#fff' } }); };
 
-	const handleDeleteWallet = async () => { if (confirm('Delete this wallet? Make sure you have a backup.')) { const { resetWallet } = await import('$lib/core/reset'); await resetWallet(); window.location.reload(); } };
-	const handleNewWallet = async () => { if (confirm('Create a new wallet? Back up first!')) { const { resetWallet } = await import('$lib/core/reset'); await resetWallet(); window.location.reload(); } };
+	const handleDeleteWallet = async () => {
+		if (!confirm('Delete this wallet? Make sure you have a backup.')) return;
+		const { resetWallet } = await import('$lib/core/reset');
+		await resetWallet();
+		// Safari needs a short delay before reload after async IndexedDB ops
+		setTimeout(() => { window.location.href = window.location.pathname; }, 100);
+	};
+	const handleNewWallet = async () => {
+		if (!confirm('Create a new wallet? Back up first!')) return;
+		const { resetWallet } = await import('$lib/core/reset');
+		await resetWallet();
+		setTimeout(() => { window.location.href = window.location.pathname; }, 100);
+	};
 
 	const toggle = (id: string) => { activePanel = activePanel === id ? null : id; };
 	const handleVisibility = () => { if (document.visibilityState === 'hidden') saveEncryptedState(); };

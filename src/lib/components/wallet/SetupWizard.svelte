@@ -6,6 +6,8 @@
 	import type { WalletSnapshot } from '$lib/core/types';
 	import { exportWalletSnapshot } from '$lib/stores/wallet.svelte';
 	import { Plus, KeyRound, Upload, Lock, Fingerprint, ShieldOff, Copy, Check, ScanLine } from '@lucide/svelte';
+	import Button from '$lib/components/ui/button/button.svelte';
+	import * as Card from '$lib/components/ui/card';
 	import SelectionButton from '$lib/components/ui/selection-button.svelte';
 
 	type Step = 'choose' | 'recover' | 'qrscan' | 'encrypt' | 'backup';
@@ -181,6 +183,58 @@
 		await navigator.clipboard.writeText(masterSecret);
 		copied = true;
 		setTimeout(() => { copied = false; }, 2000);
+	};
+
+	const saveToPasswordManager = async () => {
+		try {
+			// Use Credential Management API to trigger browser password manager
+			if ('PasswordCredential' in window) {
+				// @ts-ignore — PasswordCredential constructor
+				const cred = new PasswordCredential({
+					id: 'weby-wallet',
+					name: 'Weby Wallet Master Secret',
+					password: masterSecret,
+				});
+				await navigator.credentials.store(cred);
+				copied = true;
+				setTimeout(() => { copied = false; }, 2000);
+			} else {
+				// Fallback: create a hidden form that triggers the browser's "save password" prompt
+				const form = document.createElement('form');
+				form.style.display = 'none';
+				form.method = 'POST';
+				form.action = '#';
+
+				const userInput = document.createElement('input');
+				userInput.type = 'text';
+				userInput.name = 'username';
+				userInput.autocomplete = 'username';
+				userInput.value = 'weby-wallet';
+
+				const passInput = document.createElement('input');
+				passInput.type = 'password';
+				passInput.name = 'password';
+				passInput.autocomplete = 'new-password';
+				passInput.value = masterSecret;
+
+				form.appendChild(userInput);
+				form.appendChild(passInput);
+				document.body.appendChild(form);
+
+				// Submit triggers the browser's "Save password?" prompt
+				form.addEventListener('submit', (e) => { e.preventDefault(); });
+				form.requestSubmit();
+
+				setTimeout(() => { document.body.removeChild(form); }, 1000);
+				copied = true;
+				setTimeout(() => { copied = false; }, 2000);
+			}
+		} catch {
+			// Fallback: just copy to clipboard
+			await navigator.clipboard.writeText(masterSecret);
+			copied = true;
+			setTimeout(() => { copied = false; }, 2000);
+		}
 	};
 </script>
 
@@ -374,27 +428,34 @@
 
 	{:else if step === 'backup'}
 		<h2 class="text-xl font-bold text-foreground mb-2">Back Up Your Secret</h2>
-		<div class="rounded-2xl bg-warning border-2 border-warning p-4 mb-5 text-warning-foreground">
-			<p class="text-sm font-medium">This is the only way to recover your wallet.</p>
-			<p class="text-xs opacity-90 mt-1">Write it down or save it somewhere secure. It cannot be recovered later.</p>
-		</div>
-		<div class="relative rounded-2xl border-2 border-border bg-muted p-4">
-			<code class="text-xs font-mono break-all select-all text-foreground leading-relaxed">
-				{masterSecret}
-			</code>
-			<button onclick={copySecret}
-				class="absolute top-3 right-3 rounded-lg p-2 bg-card border-2 border-border hover:border-border transition-all">
+		<Card.Root class="border-warning mb-5">
+			<Card.Content class="p-4">
+				<p class="text-sm font-medium text-foreground">This is the only way to recover your wallet.</p>
+				<p class="text-xs text-muted-foreground mt-1">Write it down or save it somewhere secure. It cannot be recovered later.</p>
+			</Card.Content>
+		</Card.Root>
+		<Card.Root>
+			<Card.Content class="p-4">
+				<code class="text-xs font-mono break-all select-all text-foreground leading-relaxed block">
+					{masterSecret}
+				</code>
+			</Card.Content>
+		</Card.Root>
+		<div class="grid grid-cols-2 gap-2 mt-4">
+			<Button variant="outline" onclick={copySecret}>
 				{#if copied}
-					<Check class="w-3.5 h-3.5 text-success" />
+					<Check class="w-4 h-4" /> Copied
 				{:else}
-					<Copy class="w-3.5 h-3.5 text-muted-foreground" />
+					<Copy class="w-4 h-4" /> Copy Secret
 				{/if}
-			</button>
+			</Button>
+			<Button variant="outline" onclick={saveToPasswordManager}>
+				<KeyRound class="w-4 h-4" /> Save to Password Manager
+			</Button>
 		</div>
-		<button onclick={finish}
-			class="w-full mt-5 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary transition-all">
+		<Button class="w-full mt-4" onclick={finish}>
 			I've Saved It — Open Wallet
-		</button>
+		</Button>
 	{/if}
 
 	{#if error}
