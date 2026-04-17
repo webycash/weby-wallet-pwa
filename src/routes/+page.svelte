@@ -30,33 +30,33 @@
 			pendingWebcash = wc;
 			pendingNetwork = net === 'testnet' ? 'testnet' : 'production';
 			pendingAmount = amt || '';
-			window.history.replaceState({}, '', window.location.pathname);
-
-			// If user has no wallet, fast-track: accept license + create wallet + insert
-			if (!licenseAccepted() || !walletExists()) {
-				receiving = true;
-				fastTrackReceive(wc, pendingNetwork);
-			}
+			// Don't clean URL yet — keep params until license accepted
 		}
 	});
 
-	const fastTrackReceive = async (wc: string, net: NetworkMode) => {
-		try {
-			acceptLicense();
-			setNetwork(net);
-			resetDb();
-			const result = await setupWallet();
-			if (!result.ok) { receiveError = result.error; return; }
-			markWalletCreated();
+	const onLicenseAccepted = async () => {
+		if (pendingWebcash) {
+			// After license: auto-create wallet + insert
+			receiving = true;
+			window.history.replaceState({}, '', window.location.pathname);
+			try {
+				setNetwork(pendingNetwork);
+				resetDb();
+				const result = await setupWallet();
+				if (!result.ok) { receiveError = result.error; return; }
+				markWalletCreated();
 
-			const insertResult = await insertWebcash(net, wc);
-			if (insertResult.ok) {
-				receiveSuccess = true;
-			} else {
-				receiveError = insertResult.error;
+				const insertResult = await insertWebcash(pendingNetwork, pendingWebcash);
+				if (insertResult.ok) {
+					receiveSuccess = true;
+				} else {
+					receiveError = insertResult.error;
+				}
+			} catch (e: any) {
+				receiveError = e.message || 'Failed to receive';
 			}
-		} catch (e: any) {
-			receiveError = e.message || 'Failed to receive';
+		} else {
+			window.location.reload();
 		}
 	};
 
@@ -80,7 +80,7 @@
 		onContinue={continueToWallet}
 	/>
 {:else if !licenseAccepted()}
-	<LicenseDialog />
+	<LicenseDialog onAccepted={onLicenseAccepted} hasGift={!!pendingWebcash} giftAmount={pendingAmount} />
 {:else if !walletExists()}
 	<SetupWizard />
 {:else if !unlocked}
