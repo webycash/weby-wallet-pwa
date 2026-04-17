@@ -211,8 +211,8 @@
 
 			<button onclick={() => { step = 'recover' }}
 				class="w-full flex items-center gap-4 rounded-full border-2 border-border bg-card p-5 text-left hover:border-primary transition-all">
-				<div class="rounded-full bg-secondary p-2.5">
-					<KeyRound class="w-5 h-5 text-secondary-foreground" />
+				<div class="rounded-full bg-primary p-2.5">
+					<KeyRound class="w-5 h-5 text-primary-foreground" />
 				</div>
 				<div>
 					<span class="font-semibold text-foreground text-sm">Recover from Secret</span>
@@ -221,8 +221,8 @@
 			</button>
 
 			<label class="w-full flex items-center gap-4 rounded-full border-2 border-border bg-card p-5 text-left hover:border-primary transition-all cursor-pointer">
-				<div class="rounded-full bg-success p-2.5">
-					<Upload class="w-5 h-5 text-success-foreground" />
+				<div class="rounded-full bg-primary p-2.5">
+					<Upload class="w-5 h-5 text-primary-foreground" />
 				</div>
 				<div>
 					<span class="font-semibold text-foreground text-sm">Import Backup</span>
@@ -233,8 +233,8 @@
 
 			<button onclick={() => { step = 'qrscan' }}
 				class="w-full flex items-center gap-4 rounded-full border-2 border-border bg-card p-5 text-left hover:border-primary transition-all">
-				<div class="rounded-full bg-warning p-2.5">
-					<ScanLine class="w-5 h-5 text-warning-foreground" />
+				<div class="rounded-full bg-primary p-2.5">
+					<ScanLine class="w-5 h-5 text-primary-foreground" />
 				</div>
 				<div>
 					<span class="font-semibold text-foreground text-sm">Scan QR Code</span>

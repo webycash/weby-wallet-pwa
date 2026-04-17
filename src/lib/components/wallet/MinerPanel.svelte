@@ -88,7 +88,7 @@
 	<!-- Header -->
 	<div class="flex items-center justify-between px-5 py-4 border-b border-border">
 		<div class="flex items-center gap-2">
-			<Pickaxe class="w-4 h-4 text-warning-foreground" />
+			<Pickaxe class="w-4 h-4 text-primary" />
 			<span class="text-sm font-semibold text-foreground">CPU Miner</span>
 			<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-warning text-white font-medium">Testnet</span>
 		</div>

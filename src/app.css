@@ -37,25 +37,25 @@
   }
 
   .dark {
-    --background: 240 23% 5%;
-    --foreground: 210 40% 98%;
-    --muted: 217 33% 18%;
-    --muted-foreground: 215 20% 65%;
-    --popover: 240 23% 5%;
-    --popover-foreground: 210 40% 98%;
-    --card: 240 23% 5%;
-    --card-foreground: 210 40% 98%;
-    --border: 210 15% 75%;
-    --input: 210 15% 75%;
-    --primary: 219 100% 51%;
+    --background: 230 20% 7%;
+    --foreground: 210 40% 96%;
+    --muted: 225 15% 15%;
+    --muted-foreground: 215 15% 60%;
+    --popover: 230 20% 9%;
+    --popover-foreground: 210 40% 96%;
+    --card: 230 20% 10%;
+    --card-foreground: 210 40% 96%;
+    --border: 215 15% 40%;
+    --input: 215 15% 40%;
+    --primary: 217 90% 58%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 217 33% 18%;
-    --secondary-foreground: 210 40% 98%;
-    --accent: 217 33% 18%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 63% 31%;
+    --secondary: 225 15% 18%;
+    --secondary-foreground: 210 40% 96%;
+    --accent: 225 15% 15%;
+    --accent-foreground: 210 40% 96%;
+    --destructive: 0 63% 45%;
     --destructive-foreground: 0 0% 100%;
-    --ring: 219 100% 51%;
+    --ring: 217 90% 58%;
 
     /* Semantic states — dark theme */
     --success: 152 69% 25%;

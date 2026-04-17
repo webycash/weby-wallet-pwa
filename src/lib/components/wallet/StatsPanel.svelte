@@ -8,21 +8,21 @@
 	<div class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border">
 		<div class="bg-card px-4 py-3">
 			<div class="flex items-center gap-1.5 text-muted-foreground mb-1">
-				<CircleCheck class="w-3 h-3 text-success" />
+				<CircleCheck class="w-3 h-3 text-primary" />
 				<span class="text-[10px] uppercase tracking-wider font-medium">Unspent</span>
 			</div>
 			<p class="text-lg font-bold text-foreground tabular-nums">{stats.unspentWebcash}</p>
 		</div>
 		<div class="bg-card px-4 py-3">
 			<div class="flex items-center gap-1.5 text-muted-foreground mb-1">
-				<CircleX class="w-3 h-3 text-danger-foreground" />
+				<CircleX class="w-3 h-3 text-muted-foreground" />
 				<span class="text-[10px] uppercase tracking-wider font-medium">Spent</span>
 			</div>
 			<p class="text-lg font-bold text-foreground tabular-nums">{stats.spentWebcash}</p>
 		</div>
 		<div class="bg-card px-4 py-3">
 			<div class="flex items-center gap-1.5 text-muted-foreground mb-1">
-				<Database class="w-3 h-3" />
+				<Database class="w-3 h-3 text-muted-foreground" />
 				<span class="text-[10px] uppercase tracking-wider font-medium">Total</span>
 			</div>
 			<p class="text-lg font-bold text-foreground tabular-nums">{stats.totalWebcash}</p>
