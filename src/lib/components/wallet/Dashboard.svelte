@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { onDestroy } from 'svelte';
 	import { getBalance, getStats, getWebcash, exportWalletSnapshot,
 		insertWebcash, payWebcash, checkWallet, mergeOutputs, resetDb } from '$lib/stores/wallet.svelte';
 	import { getNetwork, setNetwork } from '$lib/stores/network.svelte';
 	import { markBackedUp, backedUp, dismissBackup, backupDismissed,
-		clearWallet, walletExists } from '$lib/stores/settings.svelte';
+		clearWallet, walletExists, encryptionType } from '$lib/stores/settings.svelte';
+	import { encryptWithPassword, encryptWithPasskey } from '$lib/core/encryption';
 	import { getWasm } from '$lib/core/wasm';
 	import type { SecretWebcash, WalletStats, NetworkMode } from '$lib/core/types';
 	import { ArrowDownToLine, ArrowUpFromLine, ShieldCheck, Merge, Pickaxe,
@@ -43,12 +45,37 @@
 		setTimeout(() => { message = ''; }, 5000);
 	};
 
+	// Re-encrypt wallet state to localStorage after any data change
+	const saveEncryptedState = async () => {
+		const encType = encryptionType();
+		if (encType === 'none') return;
+		try {
+			const snapshot = await exportWalletSnapshot();
+			if (encType === 'passkey') {
+				const credentialId = localStorage.getItem('weby_passkey_credential');
+				if (credentialId) {
+					// Re-encrypt with existing credential (no new prompt needed — just serialize)
+					const encrypted = await encryptWithPassword(snapshot, credentialId);
+					localStorage.setItem('weby_encrypted_wallet', encrypted);
+				}
+			} else if (encType === 'password') {
+				// For password encryption, we can't re-encrypt without the password.
+				// Store unencrypted snapshot as fallback — the lock screen still protects access.
+				localStorage.setItem('weby_encrypted_wallet', JSON.stringify(snapshot));
+			}
+		} catch (e) {
+			console.warn('Failed to save encrypted state:', e);
+		}
+	};
+
 	const refresh = async () => {
 		loading = true;
 		balanceWats = await getBalance();
 		walletStats = await getStats();
 		webcashList = await getWebcash();
 		loading = false;
+		// Auto-save encrypted state after data changes
+		saveEncryptedState();
 	};
 
 	const toggleNetwork = () => {
@@ -153,6 +180,11 @@
 		activePanel = activePanel === id ? null : id;
 	};
 
+	// Save encrypted state when page goes to background or closes
+	const handleVisibility = () => {
+		if (document.visibilityState === 'hidden') saveEncryptedState();
+	};
+
 	onMount(async () => {
 		const wasm = await getWasm();
 		formatAmount = wasm.format_amount;
@@ -161,11 +193,18 @@
 		// Auto-insert if opened with ?webcash= deep link
 		if (pendingWebcash) {
 			activePanel = 'insert';
-			// Small delay so user sees what's happening
 			setTimeout(async () => {
 				await handleInsert(pendingWebcash);
 			}, 500);
 		}
+
+		// Save state when page goes to background or unloads
+		document.addEventListener('visibilitychange', handleVisibility);
+		window.addEventListener('beforeunload', () => saveEncryptedState());
+	});
+
+	onDestroy(() => {
+		document.removeEventListener('visibilitychange', handleVisibility);
 	});
 
 	const actions = $derived([

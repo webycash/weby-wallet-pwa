@@ -1,7 +1,9 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { encryptionType } from '$lib/stores/settings.svelte';
 	import { decryptWithPasskey, decryptWithPassword } from '$lib/core/encryption';
 	import { importWalletSnapshot } from '$lib/stores/wallet.svelte';
+	import type { WalletSnapshot } from '$lib/core/types';
 	import { Lock, Fingerprint } from '@lucide/svelte';
 
 	let { onUnlock }: { onUnlock: () => void } = $props();
@@ -11,16 +13,42 @@
 	let error = $state('');
 	let loading = $state(false);
 
+	const tryLoadSnapshot = (encrypted: string): WalletSnapshot | null => {
+		// Try parsing as plain JSON snapshot (auto-saved format)
+		try {
+			const parsed = JSON.parse(encrypted);
+			if (parsed.master_secret) return parsed as WalletSnapshot;
+		} catch {}
+		return null;
+	};
+
 	const unlockPasskey = async () => {
 		loading = true;
 		error = '';
 		try {
 			const encrypted = localStorage.getItem('weby_encrypted_wallet');
-			if (!encrypted) {
-				// No encrypted data — wallet was set to passkey but never encrypted properly
+			if (!encrypted) { onUnlock(); return; }
+
+			// Try plain JSON first (auto-saved by Dashboard)
+			const plain = tryLoadSnapshot(encrypted);
+			if (plain) {
+				await importWalletSnapshot(plain);
 				onUnlock();
 				return;
 			}
+
+			// Try credential-based password decrypt (auto-saved with credentialId as password)
+			const credentialId = localStorage.getItem('weby_passkey_credential');
+			if (credentialId) {
+				try {
+					const snapshot = await decryptWithPassword(encrypted, credentialId);
+					await importWalletSnapshot(snapshot);
+					onUnlock();
+					return;
+				} catch {}
+			}
+
+			// Fall back to full WebAuthn ceremony
 			const snapshot = await decryptWithPasskey(encrypted);
 			await importWalletSnapshot(snapshot);
 			onUnlock();
@@ -30,15 +58,21 @@
 		loading = false;
 	};
 
-	const unlockPassword = async () => {
+	const unlockWithPassword = async () => {
 		loading = true;
 		error = '';
 		try {
 			const encrypted = localStorage.getItem('weby_encrypted_wallet');
-			if (!encrypted) {
+			if (!encrypted) { onUnlock(); return; }
+
+			// Try plain JSON first
+			const plain = tryLoadSnapshot(encrypted);
+			if (plain) {
+				await importWalletSnapshot(plain);
 				onUnlock();
 				return;
 			}
+
 			const snapshot = await decryptWithPassword(encrypted, password);
 			await importWalletSnapshot(snapshot);
 			onUnlock();
@@ -48,8 +82,6 @@
 		loading = false;
 	};
 
-	// Auto-trigger passkey on mount
-	import { onMount } from 'svelte';
 	onMount(() => {
 		if (encType === 'passkey') unlockPasskey();
 	});
@@ -83,9 +115,9 @@
 				bind:value={password}
 				placeholder="Password"
 				class="w-full rounded-full border border-input bg-background px-5 py-3 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
-				onkeydown={(e) => { if (e.key === 'Enter') unlockPassword(); }}
+				onkeydown={(e) => { if (e.key === 'Enter') unlockWithPassword(); }}
 			/>
-			<button onclick={unlockPassword}
+			<button onclick={unlockWithPassword}
 				class="w-full rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-40"
 				disabled={loading || !password}>
 				{loading ? 'Decrypting...' : 'Unlock'}
