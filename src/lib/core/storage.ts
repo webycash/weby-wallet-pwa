@@ -59,12 +59,16 @@ export const getMeta = async (db: IDBDatabase, key: string): Promise<string | un
 	return record?.value;
 };
 
-export const setMeta = async (db: IDBDatabase, key: string, value: string): Promise<void> => {
-	// Master secret is shared across networks
+export const setMeta = (db: IDBDatabase, key: string, value: string): Promise<void> => {
 	if (key === 'master_secret' && typeof localStorage !== 'undefined') {
 		localStorage.setItem(MASTER_SECRET_KEY, value);
 	}
-	await req(tx(db, 'wallet_metadata', 'readwrite').objectStore('wallet_metadata').put({ key, value }));
+	return new Promise((resolve, reject) => {
+		const t = db.transaction('wallet_metadata', 'readwrite');
+		t.objectStore('wallet_metadata').put({ key, value });
+		t.oncomplete = () => resolve();
+		t.onerror = () => reject(t.error);
+	});
 };
 
 // ── Depths ───────────────────────────────────────────────────────
@@ -73,9 +77,14 @@ export const getDepth = (db: IDBDatabase, chainCode: string): Promise<number> =>
 	req(tx(db, 'walletdepths').objectStore('walletdepths').get(chainCode))
 		.then(r => r?.depth ?? 0);
 
-export const setDepth = (db: IDBDatabase, chainCode: string, depth: number): Promise<void> =>
-	req(tx(db, 'walletdepths', 'readwrite').objectStore('walletdepths').put({ chainCode, depth }))
-		.then(() => {});
+export const setDepth = (db: IDBDatabase, chainCode: string, depth: number): Promise<void> => {
+	return new Promise((resolve, reject) => {
+		const t = db.transaction('walletdepths', 'readwrite');
+		t.objectStore('walletdepths').put({ chainCode, depth });
+		t.oncomplete = () => resolve();
+		t.onerror = () => reject(t.error);
+	});
+};
 
 // ── Outputs ──────────────────────────────────────────────────────
 
@@ -88,26 +97,45 @@ export const getUnspent = (db: IDBDatabase): Promise<StoredOutput[]> => {
 export const getAllOutputs = (db: IDBDatabase): Promise<StoredOutput[]> =>
 	all(tx(db, 'unspent_outputs').objectStore('unspent_outputs').getAll());
 
-export const putOutput = (db: IDBDatabase, output: StoredOutput): Promise<void> =>
-	req(tx(db, 'unspent_outputs', 'readwrite').objectStore('unspent_outputs').add(output))
-		.then(() => {});
+export const putOutput = (db: IDBDatabase, output: StoredOutput): Promise<void> => {
+	return new Promise((resolve, reject) => {
+		const t = db.transaction('unspent_outputs', 'readwrite');
+		const store = t.objectStore('unspent_outputs');
+		store.add(output);
+		t.oncomplete = () => resolve();
+		t.onerror = () => reject(t.error);
+		t.onabort = () => reject(new Error('Transaction aborted'));
+	});
+};
 
-export const markSpent = async (db: IDBDatabase, secretHash: ArrayBuffer): Promise<void> => {
-	const t = tx(db, 'unspent_outputs', 'readwrite');
-	const store = t.objectStore('unspent_outputs');
-	const idx = store.index('secretHash');
-	const record = await req(idx.get(secretHash));
-	if (record) {
-		record.spent = 1;
-		await req(store.put(record));
-	}
+export const markSpent = (db: IDBDatabase, secretHash: ArrayBuffer): Promise<void> => {
+	return new Promise((resolve, reject) => {
+		const t = db.transaction('unspent_outputs', 'readwrite');
+		const store = t.objectStore('unspent_outputs');
+		const idx = store.index('secretHash');
+		const getReq = idx.get(secretHash);
+		getReq.onsuccess = () => {
+			const record = getReq.result;
+			if (record) {
+				record.spent = 1;
+				store.put(record);
+			}
+		};
+		t.oncomplete = () => resolve();
+		t.onerror = () => reject(t.error);
+	});
 };
 
 // ── Spent Hashes ─────────────────────────────────────────────────
 
-export const addSpentHash = (db: IDBDatabase, hash: ArrayBuffer, spentAt: string): Promise<void> =>
-	req(tx(db, 'spent_hashes', 'readwrite').objectStore('spent_hashes').add({ hash, spentAt } as StoredSpentHash))
-		.then(() => {});
+export const addSpentHash = (db: IDBDatabase, hash: ArrayBuffer, spentAt: string): Promise<void> => {
+	return new Promise((resolve, reject) => {
+		const t = db.transaction('spent_hashes', 'readwrite');
+		t.objectStore('spent_hashes').add({ hash, spentAt } as StoredSpentHash);
+		t.oncomplete = () => resolve();
+		t.onerror = () => reject(t.error);
+	});
+};
 
 export const getSpentHashes = (db: IDBDatabase): Promise<StoredSpentHash[]> =>
 	all(tx(db, 'spent_hashes').objectStore('spent_hashes').getAll());

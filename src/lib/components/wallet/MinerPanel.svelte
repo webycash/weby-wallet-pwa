@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { startMining, stopMining, isMining, type MinerStats } from '$lib/core/miner';
 	import { getMasterSecret, getDb } from '$lib/stores/wallet.svelte';
-	import { getDepth, setDepth, putOutput } from '$lib/core/storage';
+	import { getDepth, setDepth, putOutput, getUnspent } from '$lib/core/storage';
 	import { getWasm } from '$lib/core/wasm';
 	import type { NetworkMode } from '$lib/core/types';
 	import { Pickaxe, Square, Zap, Clock, Target, Hash, Trophy } from '@lucide/svelte';
@@ -68,6 +68,9 @@
 							spent: 0
 						});
 						await setDepth(db, 'MINING', depth + 1);
+						// Verify storage persisted
+						const verify = await getUnspent(db);
+						console.log(`[Miner] Stored output. Verified ${verify.length} unspent outputs in DB.`);
 					} catch (e: any) {
 						error = `Mined but failed to store: ${e.message}`;
 					}
