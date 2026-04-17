@@ -64,7 +64,7 @@
 		{/if}
 
 		{#if network !== 'testnet'}
-			<p class="text-xs text-muted-foreground mt-3">Mining cost: {WEBCASH_SYMBOL}1 ~ ${usdPrice.toFixed(6)}</p>
+			<p class="text-sm text-muted-foreground mt-4 font-medium">Mining cost: {WEBCASH_SYMBOL}1 ~ ${usdPrice.toFixed(6)}</p>
 		{/if}
 	</Card.Content>
 </Card.Root>
