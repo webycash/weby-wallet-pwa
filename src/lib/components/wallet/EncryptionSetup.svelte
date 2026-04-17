@@ -28,18 +28,18 @@
 	<div class="grid gap-2">
 		{#each options as opt}
 			<button onclick={() => select(opt.value)}
-				class="flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all
+				class="flex items-center gap-3 rounded-xl border-2 px-4 py-3 text-left transition-all
 					{current === opt.value
-						? 'border-primary bg-primary'
+						? 'border-primary bg-primary text-primary-foreground'
 						: 'border-border hover:border-border hover:bg-muted'}">
 				<opt.icon
-					class="w-4 h-4 shrink-0 {current === opt.value ? 'text-primary' : 'text-muted-foreground'}" />
+					class="w-4 h-4 shrink-0 {current === opt.value ? 'text-primary-foreground' : 'text-muted-foreground'}" />
 				<div class="flex-1 min-w-0">
-					<p class="text-sm font-medium {current === opt.value ? 'text-primary' : 'text-foreground'}">{opt.label}</p>
-					<p class="text-[11px] text-muted-foreground">{opt.desc}</p>
+					<p class="text-sm font-medium {current === opt.value ? 'text-primary-foreground' : 'text-foreground'}">{opt.label}</p>
+					<p class="text-[11px] {current === opt.value ? 'text-primary-foreground opacity-80' : 'text-muted-foreground'}">{opt.desc}</p>
 				</div>
 				{#if current === opt.value}
-					<div class="w-2 h-2 rounded-full bg-primary shrink-0"></div>
+					<div class="w-2 h-2 rounded-full bg-primary-foreground shrink-0"></div>
 				{/if}
 			</button>
 		{/each}
