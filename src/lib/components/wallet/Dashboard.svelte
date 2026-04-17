@@ -211,34 +211,7 @@
 		</div>
 	{/if}
 
-	<!-- Action buttons — 1 col mobile, 2 col desktop, all centered -->
-	<div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-md mx-auto w-full">
-		{#each actions as btn}
-			<button
-				onclick={() => btn.action ? btn.action() : toggle(btn.id)}
-				class="flex items-center justify-center gap-3 rounded-full border px-5 py-3 text-sm font-medium transition-all w-full
-					{activePanel === btn.id
-						? 'border-primary/40 bg-primary/5 text-primary shadow-sm'
-						: 'border-border/50 bg-card text-muted-foreground hover:border-border hover:text-foreground hover:bg-muted/30'}"
-				disabled={loading}>
-				<btn.icon class="w-4 h-4 shrink-0 {activePanel === btn.id ? 'text-primary' : btn.color}" />
-				{btn.label}
-			</button>
-		{/each}
-	</div>
-
-	<!-- Panels -->
-	{#if activePanel === 'insert'}
-		<InsertForm onSubmit={handleInsert} disabled={loading} />
-	{:else if activePanel === 'pay'}
-		<PayForm onSubmit={handlePay} disabled={loading} {formatAmount} {balanceWats} />
-	{:else if activePanel === 'verify'}
-		<VerifyForm />
-	{:else if activePanel === 'mine'}
-		<MinerPanel {network} onBalanceUpdate={refresh} />
-	{/if}
-
-	<!-- Settings panel -->
+	<!-- Settings accordion (above action buttons) -->
 	{#if showSettings}
 		<div class="rounded-3xl border border-border bg-card p-5 space-y-4">
 			<h3 class="text-sm font-semibold text-foreground text-center">Settings</h3>
@@ -273,6 +246,33 @@
 				</div>
 			{/if}
 		</div>
+	{/if}
+
+	<!-- Action buttons — 2 col on both mobile and desktop, centered -->
+	<div class="grid grid-cols-2 gap-2 max-w-md mx-auto w-full">
+		{#each actions as btn}
+			<button
+				onclick={() => btn.action ? btn.action() : toggle(btn.id)}
+				class="flex items-center justify-center gap-3 rounded-full border px-5 py-3 text-sm font-medium transition-all w-full
+					{activePanel === btn.id
+						? 'border-primary/40 bg-primary/5 text-primary shadow-sm'
+						: 'border-border/50 bg-card text-muted-foreground hover:border-border hover:text-foreground hover:bg-muted/30'}"
+				disabled={loading}>
+				<btn.icon class="w-4 h-4 shrink-0 {activePanel === btn.id ? 'text-primary' : btn.color}" />
+				{btn.label}
+			</button>
+		{/each}
+	</div>
+
+	<!-- Panels -->
+	{#if activePanel === 'insert'}
+		<InsertForm onSubmit={handleInsert} disabled={loading} />
+	{:else if activePanel === 'pay'}
+		<PayForm onSubmit={handlePay} disabled={loading} {formatAmount} {balanceWats} />
+	{:else if activePanel === 'verify'}
+		<VerifyForm />
+	{:else if activePanel === 'mine'}
+		<MinerPanel {network} onBalanceUpdate={refresh} />
 	{/if}
 
 	<!-- Stats -->
