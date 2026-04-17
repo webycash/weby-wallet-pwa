@@ -1,1 +1,0 @@
-/Users/george/workspace/webycash/weby-wallet-pwa/crates/wallet-wasm/target/wasm32-unknown-unknown/release/wallet_wasm.wasm: /Users/george/workspace/webycash/weby-wallet-pwa/crates/wallet-wasm/src/lib.rs
