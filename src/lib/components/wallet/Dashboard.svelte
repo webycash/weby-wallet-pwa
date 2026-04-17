@@ -209,9 +209,12 @@
 			</button>
 		</div>
 		<button onclick={() => showSettings = !showSettings}
-			class="rounded-full p-2.5 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all
-				{showSettings ? 'text-primary bg-primary/10' : ''}">
+			class="flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-all
+				{showSettings
+					? 'border-primary/40 bg-primary/10 text-primary'
+					: 'border-border/50 text-muted-foreground hover:text-foreground hover:border-border'}">
 			<Settings class="w-4 h-4" />
+			Settings
 		</button>
 	</div>
 
