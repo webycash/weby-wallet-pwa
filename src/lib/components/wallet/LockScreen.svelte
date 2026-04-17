@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { encryptionType } from '$lib/stores/settings.svelte';
+	import { encryptionType, clearWallet } from '$lib/stores/settings.svelte';
 	import { decryptWithPasskey, decryptWithPassword } from '$lib/core/encryption';
 	import { importWalletSnapshot } from '$lib/stores/wallet.svelte';
 	import type { WalletSnapshot } from '$lib/core/types';
-	import { Lock, Fingerprint } from '@lucide/svelte';
+	import { Lock, Fingerprint, Trash2 } from '@lucide/svelte';
+	import Button from '$lib/components/ui/button/button.svelte';
+	import * as Card from '$lib/components/ui/card';
 
 	let { onUnlock }: { onUnlock: () => void } = $props();
 
@@ -14,7 +16,6 @@
 	let loading = $state(false);
 
 	const tryLoadSnapshot = (encrypted: string): WalletSnapshot | null => {
-		// Try parsing as plain JSON snapshot (auto-saved format)
 		try {
 			const parsed = JSON.parse(encrypted);
 			if (parsed.master_secret) return parsed as WalletSnapshot;
@@ -29,29 +30,19 @@
 			const encrypted = localStorage.getItem('weby_encrypted_wallet');
 			if (!encrypted) { onUnlock(); return; }
 
-			// Try plain JSON first (auto-saved by Dashboard)
 			const plain = tryLoadSnapshot(encrypted);
-			if (plain) {
-				await importWalletSnapshot(plain);
-				onUnlock();
-				return;
-			}
+			if (plain) { await importWalletSnapshot(plain); onUnlock(); return; }
 
-			// Try credential-based password decrypt (auto-saved with credentialId as password)
 			const credentialId = localStorage.getItem('weby_passkey_credential');
 			if (credentialId) {
 				try {
 					const snapshot = await decryptWithPassword(encrypted, credentialId);
-					await importWalletSnapshot(snapshot);
-					onUnlock();
-					return;
+					await importWalletSnapshot(snapshot); onUnlock(); return;
 				} catch {}
 			}
 
-			// Fall back to full WebAuthn ceremony
 			const snapshot = await decryptWithPasskey(encrypted);
-			await importWalletSnapshot(snapshot);
-			onUnlock();
+			await importWalletSnapshot(snapshot); onUnlock();
 		} catch (e: any) {
 			error = e.message || 'Authentication failed';
 		}
@@ -65,21 +56,29 @@
 			const encrypted = localStorage.getItem('weby_encrypted_wallet');
 			if (!encrypted) { onUnlock(); return; }
 
-			// Try plain JSON first
 			const plain = tryLoadSnapshot(encrypted);
-			if (plain) {
-				await importWalletSnapshot(plain);
-				onUnlock();
-				return;
-			}
+			if (plain) { await importWalletSnapshot(plain); onUnlock(); return; }
 
 			const snapshot = await decryptWithPassword(encrypted, password);
-			await importWalletSnapshot(snapshot);
-			onUnlock();
+			await importWalletSnapshot(snapshot); onUnlock();
 		} catch (e: any) {
 			error = 'Wrong password';
 		}
 		loading = false;
+	};
+
+	const resetWallet = async () => {
+		if (confirm('Delete wallet and start fresh? All data will be lost. Make sure you have your master secret backed up.')) {
+			await Promise.all([
+				new Promise<void>((r) => { const req = indexedDB.deleteDatabase('weby-wallet-production'); req.onsuccess = () => r(); req.onerror = () => r(); req.onblocked = () => r(); }),
+				new Promise<void>((r) => { const req = indexedDB.deleteDatabase('weby-wallet-testnet'); req.onsuccess = () => r(); req.onerror = () => r(); req.onblocked = () => r(); }),
+			]);
+			clearWallet();
+			for (const k of ['weby_master_secret','weby_encrypted_wallet','weby_passkey_credential','weby_network_mode','weby_encryption_type','weby_last_backup','weby_webcash_tos_accepted','weby_license_accepted']) {
+				localStorage.removeItem(k);
+			}
+			window.location.reload();
+		}
 	};
 
 	onMount(() => {
@@ -87,45 +86,48 @@
 	});
 </script>
 
-<div class="container mx-auto px-4 py-16 max-w-sm text-center">
-	<div class="rounded-3xl border-2 border-border bg-card p-8 space-y-6">
-		{#if encType === 'passkey'}
-			<div class="rounded-full bg-primary w-16 h-16 flex items-center justify-center mx-auto">
-				<Fingerprint class="w-8 h-8 text-primary" />
-			</div>
-			<div>
-				<h2 class="text-lg font-bold text-foreground">Unlock Wallet</h2>
-				<p class="text-sm text-muted-foreground mt-1">Authenticate to access your wallet</p>
-			</div>
-			<button onclick={unlockPasskey}
-				class="w-full rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary transition-all disabled:opacity-40"
-				disabled={loading}>
-				{loading ? 'Authenticating...' : 'Unlock with Passkey'}
-			</button>
-		{:else}
-			<div class="rounded-full bg-primary w-16 h-16 flex items-center justify-center mx-auto">
-				<Lock class="w-8 h-8 text-primary" />
-			</div>
-			<div>
-				<h2 class="text-lg font-bold text-foreground">Unlock Wallet</h2>
-				<p class="text-sm text-muted-foreground mt-1">Enter your password</p>
-			</div>
-			<input
-				type="password"
-				bind:value={password}
-				placeholder="Password"
-				class="w-full rounded-full border-2 border-input bg-background px-5 py-3 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
-				onkeydown={(e) => { if (e.key === 'Enter') unlockWithPassword(); }}
-			/>
-			<button onclick={unlockWithPassword}
-				class="w-full rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary transition-all disabled:opacity-40"
-				disabled={loading || !password}>
-				{loading ? 'Decrypting...' : 'Unlock'}
-			</button>
-		{/if}
+<div class="container mx-auto px-4 py-16 max-w-sm text-center space-y-4">
+	<Card.Root>
+		<Card.Content class="p-8 space-y-6">
+			{#if encType === 'passkey'}
+				<div class="rounded-full bg-primary w-16 h-16 flex items-center justify-center mx-auto">
+					<Fingerprint class="w-8 h-8 text-primary-foreground" />
+				</div>
+				<div>
+					<h2 class="text-lg font-bold text-foreground">Unlock Wallet</h2>
+					<p class="text-sm text-muted-foreground mt-1">Authenticate to access your wallet</p>
+				</div>
+				<Button class="w-full" onclick={unlockPasskey} disabled={loading}>
+					{loading ? 'Authenticating...' : 'Unlock with Passkey'}
+				</Button>
+			{:else}
+				<div class="rounded-full bg-primary w-16 h-16 flex items-center justify-center mx-auto">
+					<Lock class="w-8 h-8 text-primary-foreground" />
+				</div>
+				<div>
+					<h2 class="text-lg font-bold text-foreground">Unlock Wallet</h2>
+					<p class="text-sm text-muted-foreground mt-1">Enter your password</p>
+				</div>
+				<input
+					type="password"
+					bind:value={password}
+					placeholder="Password"
+					class="w-full rounded-full border-2 border-border bg-background px-5 py-3 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+					onkeydown={(e) => { if (e.key === 'Enter') unlockWithPassword(); }}
+				/>
+				<Button class="w-full" onclick={unlockWithPassword} disabled={loading || !password}>
+					{loading ? 'Decrypting...' : 'Unlock'}
+				</Button>
+			{/if}
 
-		{#if error}
-			<p class="text-sm text-danger-foreground">{error}</p>
-		{/if}
-	</div>
+			{#if error}
+				<p class="text-sm text-danger-foreground bg-danger rounded-xl px-3 py-2">{error}</p>
+			{/if}
+		</Card.Content>
+	</Card.Root>
+
+	<Button variant="destructive" class="w-full" onclick={resetWallet}>
+		<Trash2 class="w-4 h-4" /> Reset Wallet
+	</Button>
+	<p class="text-xs text-muted-foreground">Forgot your password? Reset deletes all wallet data.</p>
 </div>
