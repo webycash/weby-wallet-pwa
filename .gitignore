@@ -11,3 +11,5 @@ build/
 # WASM build artifacts
 *.wasm
 pkg/
+crates/wallet-wasm/target/
+crates/wallet-wasm/pkg/
