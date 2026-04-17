@@ -1,16 +1,18 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { onDestroy } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { getBalance, getStats, getWebcash, exportWalletSnapshot,
 		insertWebcash, payWebcash, checkWallet, mergeOutputs, resetDb } from '$lib/stores/wallet.svelte';
 	import { getNetwork, setNetwork } from '$lib/stores/network.svelte';
 	import { markBackedUp, backedUp, dismissBackup, backupDismissed,
-		clearWallet, walletExists, encryptionType } from '$lib/stores/settings.svelte';
-	import { encryptWithPassword, encryptWithPasskey } from '$lib/core/encryption';
+		clearWallet, encryptionType } from '$lib/stores/settings.svelte';
+	import { encryptWithPassword } from '$lib/core/encryption';
 	import { getWasm } from '$lib/core/wasm';
 	import type { SecretWebcash, WalletStats, NetworkMode } from '$lib/core/types';
 	import { ArrowDownToLine, ArrowUpFromLine, ShieldCheck, Merge, Pickaxe,
 		Download, Settings, Trash2, Plus, QrCode, RotateCcw } from '@lucide/svelte';
+
+	import Button from '$lib/components/ui/button/button.svelte';
+	import * as Card from '$lib/components/ui/card';
 
 	import BalanceCard from './BalanceCard.svelte';
 	import InsertForm from './InsertForm.svelte';
@@ -40,306 +42,141 @@
 	let paymentMemo = $state('');
 
 	const showMessage = (msg: string, type: 'success' | 'error' = 'success') => {
-		message = msg;
-		messageType = type;
+		message = msg; messageType = type;
 		setTimeout(() => { message = ''; }, 5000);
 	};
 
-	// Re-encrypt wallet state to localStorage after any data change
 	const saveEncryptedState = async () => {
 		const encType = encryptionType();
 		if (encType === 'none') return;
 		try {
 			const snapshot = await exportWalletSnapshot();
 			if (encType === 'passkey') {
-				const credentialId = localStorage.getItem('weby_passkey_credential');
-				if (credentialId) {
-					// Re-encrypt with existing credential (no new prompt needed — just serialize)
-					const encrypted = await encryptWithPassword(snapshot, credentialId);
-					localStorage.setItem('weby_encrypted_wallet', encrypted);
-				}
+				const cid = localStorage.getItem('weby_passkey_credential');
+				if (cid) localStorage.setItem('weby_encrypted_wallet', await encryptWithPassword(snapshot, cid));
 			} else if (encType === 'password') {
-				// For password encryption, we can't re-encrypt without the password.
-				// Store unencrypted snapshot as fallback — the lock screen still protects access.
 				localStorage.setItem('weby_encrypted_wallet', JSON.stringify(snapshot));
 			}
-		} catch (e) {
-			console.warn('Failed to save encrypted state:', e);
-		}
+		} catch (e) { console.warn('Failed to save encrypted state:', e); }
 	};
 
 	const refresh = async () => {
 		loading = true;
-		balanceWats = await getBalance();
-		walletStats = await getStats();
-		webcashList = await getWebcash();
+		balanceWats = await getBalance(); walletStats = await getStats(); webcashList = await getWebcash();
 		loading = false;
-		// Auto-save encrypted state after data changes
 		saveEncryptedState();
 	};
 
-	const toggleNetwork = () => {
-		network = network === 'production' ? 'testnet' : 'production';
-		setNetwork(network);
-		refresh();
-	};
-
-	const handleInsert = async (webcashStr: string) => {
-		loading = true;
-		const result = await insertWebcash(network, webcashStr);
-		if (result.ok) { showMessage('Webcash inserted successfully'); activePanel = null; await refresh(); }
-		else showMessage(result.error, 'error');
-		loading = false;
-	};
-
-	const handlePay = async (amountWats: number, memo: string) => {
-		loading = true;
-		const result = await payWebcash(network, amountWats, memo);
-		if (result.ok) {
-			paymentResult = result.value;
-			paymentMemo = memo;
-			activePanel = 'payment-result';
-			await refresh();
-		} else showMessage(result.error, 'error');
-		loading = false;
-	};
-
-	const handleCheck = async () => {
-		loading = true;
-		const result = await checkWallet(network);
-		if (result.ok) {
-			const { validCount, spentCount } = result.value;
-			showMessage(`${validCount} valid, ${spentCount} spent`);
-			await refresh();
-		} else showMessage(result.error, 'error');
-		loading = false;
-	};
-
-	const handleMerge = async () => {
-		loading = true;
-		const result = await mergeOutputs(network, 50);
-		if (result.ok) { showMessage(result.value); await refresh(); }
-		else showMessage(result.error, 'error');
-		loading = false;
-	};
-
-	const handleBackup = async () => {
-		const snapshot = await exportWalletSnapshot();
-		const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
-		const url = URL.createObjectURL(blob);
-		const a = document.createElement('a');
-		a.href = url;
-		a.download = `weby-wallet-${new Date().toISOString().slice(0, 10)}.json`;
-		a.click();
-		URL.revokeObjectURL(url);
-		markBackedUp();
-		showBackupWarning = false;
-		showMessage('Backup downloaded');
-	};
-
-	const handleRecover = async () => {
-		loading = true;
-		const { getMasterSecret, recoverWallet } = await import('$lib/stores/wallet.svelte');
-		const secret = await getMasterSecret();
-		if (!secret) { showMessage('No master secret', 'error'); loading = false; return; }
-		const result = await recoverWallet(network, secret, 20);
-		if (result.ok) {
-			showMessage(`Recovered ${result.value.recoveredCount} outputs`);
-			await refresh();
-		} else showMessage(result.error, 'error');
-		loading = false;
-	};
-
-	const handleQrExport = async () => {
-		const { getMasterSecret } = await import('$lib/stores/wallet.svelte');
-		const secret = await getMasterSecret();
-		if (!secret) return;
-		const QRCode = (await import('qrcode')).default;
-		qrDataUrl = await QRCode.toDataURL(secret, { width: 256, margin: 2, color: { dark: '#000', light: '#fff' } });
-	};
+	const handleInsert = async (s: string) => { loading = true; const r = await insertWebcash(network, s); if (r.ok) { showMessage('Webcash inserted'); activePanel = null; await refresh(); } else showMessage(r.error, 'error'); loading = false; };
+	const handlePay = async (a: number, m: string) => { loading = true; const r = await payWebcash(network, a, m); if (r.ok) { paymentResult = r.value; paymentMemo = m; activePanel = 'payment-result'; await refresh(); } else showMessage(r.error, 'error'); loading = false; };
+	const handleCheck = async () => { loading = true; const r = await checkWallet(network); if (r.ok) showMessage(`${r.value.validCount} valid, ${r.value.spentCount} spent`); else showMessage(r.error, 'error'); loading = false; };
+	const handleMerge = async () => { loading = true; const r = await mergeOutputs(network, 50); if (r.ok) { showMessage(r.value); await refresh(); } else showMessage(r.error, 'error'); loading = false; };
+	const handleRecover = async () => { loading = true; const { getMasterSecret, recoverWallet } = await import('$lib/stores/wallet.svelte'); const s = await getMasterSecret(); if (!s) { showMessage('No master secret', 'error'); loading = false; return; } const r = await recoverWallet(network, s, 20); if (r.ok) { showMessage(`Recovered ${r.value.recoveredCount} outputs`); await refresh(); } else showMessage(r.error, 'error'); loading = false; };
+	const handleBackup = async () => { const snap = await exportWalletSnapshot(); const b = new Blob([JSON.stringify(snap, null, 2)], { type: 'application/json' }); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = `weby-wallet-${new Date().toISOString().slice(0, 10)}.json`; a.click(); URL.revokeObjectURL(u); markBackedUp(); showBackupWarning = false; showMessage('Backup downloaded'); };
+	const handleQrExport = async () => { const { getMasterSecret } = await import('$lib/stores/wallet.svelte'); const s = await getMasterSecret(); if (!s) return; const QR = (await import('qrcode')).default; qrDataUrl = await QR.toDataURL(s, { width: 256, margin: 2, color: { dark: '#000', light: '#fff' } }); };
 
 	const deleteAllDatabases = () => Promise.all([
-		new Promise<void>((res) => { const r = indexedDB.deleteDatabase('weby-wallet-production'); r.onsuccess = () => res(); r.onerror = () => res(); r.onblocked = () => res(); }),
-		new Promise<void>((res) => { const r = indexedDB.deleteDatabase('weby-wallet-testnet'); r.onsuccess = () => res(); r.onerror = () => res(); r.onblocked = () => res(); }),
+		new Promise<void>((r) => { const req = indexedDB.deleteDatabase('weby-wallet-production'); req.onsuccess = () => r(); req.onerror = () => r(); req.onblocked = () => r(); }),
+		new Promise<void>((r) => { const req = indexedDB.deleteDatabase('weby-wallet-testnet'); req.onsuccess = () => r(); req.onerror = () => r(); req.onblocked = () => r(); }),
 	]);
+	const clearAllStorage = () => { for (const k of ['weby_master_secret','weby_encrypted_wallet','weby_passkey_credential','weby_network_mode','weby_encryption_type','weby_last_backup']) localStorage.removeItem(k); };
+	const handleDeleteWallet = async () => { if (confirm('Delete this wallet? Make sure you have a backup.')) { await deleteAllDatabases(); clearWallet(); clearAllStorage(); window.location.reload(); } };
+	const handleNewWallet = async () => { if (confirm('Create a new wallet? Back up first!')) { await deleteAllDatabases(); clearWallet(); clearAllStorage(); window.location.reload(); } };
 
-	const handleDeleteWallet = async () => {
-		if (confirm('Delete this wallet? Make sure you have a backup. This cannot be undone.')) {
-			await deleteAllDatabases();
-			clearWallet();
-			localStorage.removeItem('weby_master_secret');
-			localStorage.removeItem('weby_encrypted_wallet');
-			localStorage.removeItem('weby_passkey_credential');
-			localStorage.removeItem('weby_network_mode');
-			localStorage.removeItem('weby_encryption_type');
-			localStorage.removeItem('weby_last_backup');
-			window.location.reload();
-		}
-	};
-
-	const handleNewWallet = async () => {
-		if (confirm('Create a new wallet? The current wallet will be replaced. Back up first!')) {
-			await deleteAllDatabases();
-			clearWallet();
-			localStorage.removeItem('weby_master_secret');
-			localStorage.removeItem('weby_encrypted_wallet');
-			localStorage.removeItem('weby_passkey_credential');
-			localStorage.removeItem('weby_encryption_type');
-			localStorage.removeItem('weby_last_backup');
-			window.location.reload();
-		}
-	};
-
-	const toggle = (id: string) => {
-		activePanel = activePanel === id ? null : id;
-	};
-
-	// Save encrypted state when page goes to background or closes
-	const handleVisibility = () => {
-		if (document.visibilityState === 'hidden') saveEncryptedState();
-	};
+	const toggle = (id: string) => { activePanel = activePanel === id ? null : id; };
+	const handleVisibility = () => { if (document.visibilityState === 'hidden') saveEncryptedState(); };
 
 	onMount(async () => {
-		const wasm = await getWasm();
-		formatAmount = wasm.format_amount;
-		await refresh();
-
-		// Auto-insert if opened with ?webcash= deep link
-		if (pendingWebcash) {
-			activePanel = 'insert';
-			setTimeout(async () => {
-				await handleInsert(pendingWebcash);
-			}, 500);
-		}
-
-		// Save state when page goes to background or unloads
+		const wasm = await getWasm(); formatAmount = wasm.format_amount; await refresh();
+		if (pendingWebcash) { activePanel = 'insert'; setTimeout(() => handleInsert(pendingWebcash), 500); }
 		document.addEventListener('visibilitychange', handleVisibility);
 		window.addEventListener('beforeunload', () => saveEncryptedState());
 	});
-
-	onDestroy(() => {
-		document.removeEventListener('visibilitychange', handleVisibility);
-	});
+	onDestroy(() => { document.removeEventListener('visibilitychange', handleVisibility); });
 
 	const actions = $derived([
-		{ id: 'insert', label: 'Receive', icon: ArrowDownToLine, color: 'text-emerald-500' },
-		{ id: 'pay', label: 'Send', icon: ArrowUpFromLine, color: 'text-blue-500' },
-		{ id: 'verify', label: 'Verify', icon: ShieldCheck, color: 'text-violet-500' },
-		{ id: 'merge', label: 'Merge', icon: Merge, color: 'text-orange-500', action: handleMerge },
-		{ id: 'recover', label: 'Recover', icon: RotateCcw, color: 'text-teal-500', action: handleRecover },
-		...(network === 'testnet' ? [{ id: 'mine', label: 'Mine', icon: Pickaxe, color: 'text-amber-500' }] : []),
-		{ id: 'backup', label: 'Backup', icon: Download, color: 'text-cyan-500', action: handleBackup },
+		{ id: 'insert', label: 'Receive', icon: ArrowDownToLine },
+		{ id: 'pay', label: 'Send', icon: ArrowUpFromLine },
+		{ id: 'verify', label: 'Verify', icon: ShieldCheck },
+		{ id: 'merge', label: 'Merge', icon: Merge, action: handleMerge },
+		{ id: 'recover', label: 'Recover', icon: RotateCcw, action: handleRecover },
+		...(network === 'testnet' ? [{ id: 'mine', label: 'Mine', icon: Pickaxe }] : []),
+		{ id: 'backup', label: 'Backup', icon: Download, action: handleBackup },
 	]);
 </script>
 
 <div class="container mx-auto px-4 sm:px-6 py-6 max-w-2xl space-y-5">
-	<!-- Backup warning -->
 	{#if showBackupWarning}
-		<div class="flex items-center gap-3 rounded-2xl bg-amber-500 border-2 border-amber-500 px-4 py-3">
-			<div class="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0"></div>
-			<p class="text-sm text-amber-600 dark:text-amber-400 flex-1">
-				Wallet not backed up
-			</p>
-			<button onclick={handleBackup} class="text-xs font-semibold text-amber-600 dark:text-amber-400 hover:underline shrink-0">Back up</button>
-			<button onclick={() => { dismissBackup(); showBackupWarning = false; }} class="text-amber-400 hover:text-amber-400 ml-1 shrink-0">&times;</button>
-		</div>
+		<Card.Root class="border-amber-500 bg-amber-50 dark:bg-amber-950">
+			<Card.Content class="flex items-center gap-3 py-3 px-4">
+				<div class="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0"></div>
+				<p class="text-sm text-amber-700 dark:text-amber-300 flex-1">Wallet not backed up</p>
+				<Button variant="ghost" size="sm" onclick={handleBackup} class="text-amber-700 dark:text-amber-300 h-8">Back up</Button>
+				<button onclick={() => { dismissBackup(); showBackupWarning = false; }} class="text-amber-400 hover:text-amber-600">&times;</button>
+			</Card.Content>
+		</Card.Root>
 	{/if}
 
-	<!-- Network + settings centered -->
 	<div class="flex items-center justify-center gap-3">
 		<div class="flex rounded-full border-2 border-border bg-muted p-0.5">
 			<button onclick={() => { network = 'production'; setNetwork('production'); resetDb(); refresh(); }}
-				class="rounded-full px-5 py-1.5 text-xs font-semibold transition-all
-					{network === 'production'
-						? 'bg-card text-foreground shadow-sm'
-						: 'text-muted-foreground hover:text-foreground'}">
+				class="rounded-full px-5 py-1.5 text-xs font-semibold transition-all {network === 'production' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}">
 				Mainnet
 			</button>
 			<button onclick={() => { network = 'testnet'; setNetwork('testnet'); resetDb(); refresh(); }}
-				class="rounded-full px-5 py-1.5 text-xs font-semibold transition-all
-					{network === 'testnet'
-						? 'bg-amber-500 text-amber-600 dark:text-amber-400 shadow-sm'
-						: 'text-muted-foreground hover:text-foreground'}">
+				class="rounded-full px-5 py-1.5 text-xs font-semibold transition-all {network === 'testnet' ? 'bg-amber-500 text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}">
 				Testnet
 			</button>
 		</div>
-		<button onclick={() => showSettings = !showSettings}
-			class="flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-all
-				{showSettings
-					? 'border-primary bg-primary text-primary'
-					: 'border-border text-muted-foreground hover:text-foreground hover:border-border'}">
-			<Settings class="w-4 h-4" />
-			Settings
-		</button>
+		<Button variant="outline" size="sm" onclick={() => showSettings = !showSettings}
+			class={showSettings ? 'border-primary text-primary' : ''}>
+			<Settings class="w-4 h-4" /> Settings
+		</Button>
 	</div>
 
-	<!-- Balance -->
 	<BalanceCard {balanceWats} {formatAmount} {network} />
 
-	<!-- Status message -->
 	{#if message}
-		<div class="rounded-2xl px-4 py-3 text-sm font-medium animate-in fade-in {messageType === 'error'
-			? 'bg-red-500 text-red-600 dark:text-red-400 border-2 border-red-500'
-			: 'bg-emerald-500 text-emerald-600 dark:text-emerald-400 border-2 border-emerald-500'}">
-			{message}
-		</div>
+		<Card.Root class={messageType === 'error' ? 'border-red-500 bg-red-50 dark:bg-red-950' : 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950'}>
+			<Card.Content class="py-3 px-4">
+				<p class="text-sm font-medium {messageType === 'error' ? 'text-red-700 dark:text-red-300' : 'text-emerald-700 dark:text-emerald-300'}">{message}</p>
+			</Card.Content>
+		</Card.Root>
 	{/if}
 
-	<!-- Settings accordion (above action buttons) -->
 	{#if showSettings}
-		<div class="rounded-3xl border-2 border-border bg-card p-5 space-y-4">
-			<h3 class="text-sm font-semibold text-foreground text-center">Settings</h3>
-
-			<EncryptionSetup />
-
-			<div class="flex flex-col gap-2 pt-3 border-t border-border">
-				<button onclick={handleQrExport}
-					class="flex items-center justify-center gap-3 rounded-full border-2 border-border px-5 py-3 text-sm text-muted-foreground hover:text-foreground hover:border-border transition-all w-full">
-					<QrCode class="w-4 h-4 shrink-0" />
-					Pair QR Code
-				</button>
-				<button onclick={handleNewWallet}
-					class="flex items-center justify-center gap-3 rounded-full border-2 border-border px-5 py-3 text-sm text-muted-foreground hover:text-foreground hover:border-border transition-all w-full">
-					<Plus class="w-4 h-4 shrink-0" />
-					Create New Wallet
-				</button>
-				<button onclick={handleDeleteWallet}
-					class="flex items-center justify-center gap-3 rounded-full border-2 border-red-500 px-5 py-3 text-sm text-red-500 hover:text-red-500 hover:border-red-500 hover:bg-red-500 transition-all w-full">
-					<Trash2 class="w-4 h-4 shrink-0" />
-					Delete Wallet
-				</button>
-			</div>
-
-			{#if qrDataUrl}
-				<div class="pt-3 border-t border-border text-center">
-					<p class="text-xs font-medium text-muted-foreground mb-3">Scan on mobile to import wallet</p>
-					<div class="inline-block bg-white rounded-3xl p-4">
-						<img src={qrDataUrl} alt="Wallet QR Code" class="w-52 h-52" />
-					</div>
-					<p class="text-[10px] text-muted-foreground mt-2">Contains your master secret — keep private</p>
+		<Card.Root>
+			<Card.Header class="pb-2"><Card.Title class="text-center text-sm">Settings</Card.Title></Card.Header>
+			<Card.Content class="space-y-4">
+				<EncryptionSetup />
+				<div class="flex flex-col gap-2 pt-3 border-t-2 border-border">
+					<Button variant="outline" class="w-full" onclick={handleQrExport}><QrCode class="w-4 h-4" /> Pair QR Code</Button>
+					<Button variant="outline" class="w-full" onclick={handleNewWallet}><Plus class="w-4 h-4" /> Create New Wallet</Button>
+					<Button variant="destructive" class="w-full" onclick={handleDeleteWallet}><Trash2 class="w-4 h-4" /> Delete Wallet</Button>
 				</div>
-			{/if}
-		</div>
+				{#if qrDataUrl}
+					<div class="pt-3 border-t-2 border-border text-center">
+						<p class="text-xs font-medium text-muted-foreground mb-3">Scan on mobile to import wallet</p>
+						<div class="inline-block bg-white rounded-2xl p-4"><img src={qrDataUrl} alt="Wallet QR Code" class="w-52 h-52" /></div>
+						<p class="text-xs text-muted-foreground mt-2">Contains your master secret — keep private</p>
+					</div>
+				{/if}
+			</Card.Content>
+		</Card.Root>
 	{/if}
 
-	<!-- Action buttons — 2 col, last spans full if odd count -->
 	<div class="grid grid-cols-2 gap-2 max-w-md mx-auto w-full">
 		{#each actions as btn, i}
-			<button
+			<Button
+				variant={activePanel === btn.id ? 'default' : 'outline'}
+				class="w-full {i === actions.length - 1 && actions.length % 2 === 1 ? 'col-span-2' : ''}"
 				onclick={() => btn.action ? btn.action() : toggle(btn.id)}
-				class="flex items-center justify-center gap-3 rounded-full border px-5 py-3 text-sm font-medium transition-all w-full
-					{i === actions.length - 1 && actions.length % 2 === 1 ? 'col-span-2' : ''}
-					{activePanel === btn.id
-						? 'border-primary bg-primary text-primary shadow-sm'
-						: 'border-border bg-card text-muted-foreground hover:border-border hover:text-foreground hover:bg-muted'}"
 				disabled={loading}>
-				<btn.icon class="w-4 h-4 shrink-0 {activePanel === btn.id ? 'text-primary' : btn.color}" />
-				{btn.label}
-			</button>
+				<btn.icon class="w-4 h-4" /> {btn.label}
+			</Button>
 		{/each}
 	</div>
 
-	<!-- Panels -->
 	{#if activePanel === 'insert'}
 		<InsertForm onSubmit={handleInsert} disabled={loading} />
 	{:else if activePanel === 'pay'}
@@ -352,16 +189,11 @@
 		<MinerPanel {network} onBalanceUpdate={refresh} />
 	{/if}
 
-	<!-- Stats -->
 	{#if walletStats}
 		<StatsPanel stats={walletStats} {formatAmount} />
 	{/if}
 
-	<!-- Webcash list -->
 	<WebcashList webcash={webcashList} {formatAmount} />
 
-	<!-- Privacy -->
-	<p class="text-center text-[11px] text-muted-foreground pt-2">
-		All data stays on your device
-	</p>
+	<p class="text-center text-xs text-muted-foreground pt-2">All data stays on your device</p>
 </div>
