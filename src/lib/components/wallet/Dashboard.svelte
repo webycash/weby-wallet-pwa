@@ -102,12 +102,12 @@
 
 <div class="container mx-auto px-4 sm:px-6 py-6 max-w-2xl space-y-5">
 	{#if showBackupWarning}
-		<Card.Root class="border-warning bg-muted">
+		<Card.Root class="border-warning">
 			<Card.Content class="flex items-center gap-3 py-3 px-4">
 				<div class="w-2 h-2 rounded-full bg-warning animate-pulse shrink-0"></div>
-				<p class="text-sm text-warning-foreground dark:text-warning-foreground flex-1">Wallet not backed up</p>
-				<Button variant="ghost" size="sm" onclick={handleBackup} class="text-warning-foreground dark:text-warning-foreground h-8">Back up</Button>
-				<button onclick={() => { dismissBackup(); showBackupWarning = false; }} class="text-warning-foreground hover:text-warning-foreground">&times;</button>
+				<p class="text-sm text-foreground flex-1">Wallet not backed up</p>
+				<Button variant="outline" size="sm" onclick={handleBackup} class="h-8">Back up</Button>
+				<button onclick={() => { dismissBackup(); showBackupWarning = false; }} class="text-muted-foreground hover:text-foreground">&times;</button>
 			</Card.Content>
 		</Card.Root>
 	{/if}
@@ -132,9 +132,9 @@
 	<BalanceCard {balanceWats} {formatAmount} {network} />
 
 	{#if message}
-		<Card.Root class={messageType === 'error' ? 'border-danger bg-muted' : 'border-success bg-muted'}>
+		<Card.Root class={messageType === 'error' ? 'border-danger' : 'border-success'}>
 			<Card.Content class="py-3 px-4">
-				<p class="text-sm font-medium {messageType === 'error' ? 'text-danger-foreground dark:text-danger-foreground' : 'text-success-foreground dark:text-success-foreground'}">{message}</p>
+				<p class="text-sm font-medium text-foreground">{message}</p>
 			</Card.Content>
 		</Card.Root>
 	{/if}
