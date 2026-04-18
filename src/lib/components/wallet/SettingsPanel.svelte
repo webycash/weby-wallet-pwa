@@ -3,7 +3,7 @@
 		getMnemonic } from '$lib/stores/wallet.svelte';
 	import { markBackedUp, encryptionType } from '$lib/stores/settings.svelte';
 	import * as Persistence from '$lib/core/persistence';
-	import { QrCode, Download, Upload, Trash2, Pencil, Lock, Key, Fingerprint } from '@lucide/svelte';
+	import { QrCode, Download, Upload, Trash2, Pencil, Lock, Key } from '@lucide/svelte';
 
 	import Button from '$lib/components/ui/button/button.svelte';
 	import EncryptionSetup from './EncryptionSetup.svelte';
@@ -160,7 +160,7 @@
 	<!-- Webcash -->
 	<details class={sectionClass}>
 		<summary class={summaryClass}>
-			<Fingerprint class="w-4 h-4 text-success" />
+			<span class="w-4 h-4 text-success font-bold text-sm leading-4">₩</span>
 			<span class="flex-1">Webcash</span>
 		</summary>
 		<div class={contentClass}>
@@ -171,7 +171,7 @@
 	<!-- Bitcoin (disabled) -->
 	<div class={disabledClass}>
 		<div class={summaryClass}>
-			<span class="w-4 h-4 text-muted-foreground">&#8383;</span>
+			<span class="w-4 h-4 text-muted-foreground font-bold text-sm leading-4">₿</span>
 			<span class="flex-1">Bitcoin</span>
 			<span class="text-xs text-muted-foreground">Coming soon</span>
 		</div>
@@ -180,7 +180,10 @@
 	<!-- RGB (disabled) -->
 	<div class={disabledClass}>
 		<div class={summaryClass}>
-			<span class="w-4 h-4 text-muted-foreground">&loz;</span>
+			<svg class="w-4 h-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+				<polygon points="12 2 22 20 2 20" />
+				<circle cx="12" cy="14" r="3" />
+			</svg>
 			<span class="flex-1">RGB</span>
 			<span class="text-xs text-muted-foreground">Coming soon</span>
 		</div>
