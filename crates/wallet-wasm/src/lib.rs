@@ -61,6 +61,16 @@ pub fn mnemonic_from_hex(hex: &str) -> Result<String, JsError> {
     browser_wallet::mnemonic_from_hex(hex).map_err(to_jserr)
 }
 
+/// API URL for a given network and endpoint. Single source of truth: webylib.
+#[wasm_bindgen]
+pub fn api_url(network: &str, endpoint: &str) -> String {
+    let mode = match network {
+        "testnet" => webylib::NetworkMode::Testnet,
+        _ => webylib::NetworkMode::Production,
+    };
+    mode.endpoint_url(&format!("/api/v1/{endpoint}"))
+}
+
 // ── Webcash HD Derivation (inner, per-output) ───────────────────
 
 #[wasm_bindgen]
