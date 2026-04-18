@@ -29,7 +29,12 @@
 	};
 
 	const usdPrice = estimateUsdPrice();
-	const display = $derived(formatAmount ? formatAmount(balanceWats) : (balanceWats / 1e8).toFixed(8));
+	const trimAmount = (s: string): string => {
+		if (!s.includes('.')) return s;
+		const trimmed = s.replace(/0+$/, '').replace(/\.$/, '');
+		return trimmed || '0';
+	};
+	const display = $derived(trimAmount(formatAmount ? formatAmount(balanceWats) : (balanceWats / 1e8).toFixed(8)));
 	const usdValue = $derived((balanceWats / 1e8) * usdPrice);
 	const usdDisplay = $derived(usdValue === 0 ? '$0.00' : usdValue < 0.01 ? `$${usdValue.toFixed(6)}` : `$${usdValue.toFixed(2)}`);
 </script>

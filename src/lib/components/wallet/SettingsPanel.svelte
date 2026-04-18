@@ -40,7 +40,6 @@
 		try {
 			const { deleteEverything } = await import('$lib/core/persistence');
 			await deleteEverything();
-			// Clear all localStorage
 			localStorage.clear();
 			setTimeout(() => { window.location.href = window.location.pathname; }, 200);
 		} catch (e) {
@@ -143,7 +142,7 @@
 	<!-- Webcash -->
 	<details class={sectionClass}>
 		<summary class={summaryClass}>
-			<span class="w-4 h-4 text-muted-foreground font-bold text-sm leading-4">₩</span>
+			<span class="w-4 h-4 text-muted-foreground font-bold text-sm leading-4">W</span>
 			<span class="flex-1">Webcash</span>
 		</summary>
 		<div class={contentClass}>
@@ -154,7 +153,7 @@
 	<!-- Bitcoin (disabled) -->
 	<div class={disabledClass}>
 		<div class={summaryClass}>
-			<span class="w-4 h-4 text-muted-foreground font-bold text-sm leading-4">₿</span>
+			<span class="w-4 h-4 text-muted-foreground font-bold text-sm leading-4">B</span>
 			<span class="flex-1">Bitcoin</span>
 			<span class="text-xs text-muted-foreground">Coming soon</span>
 		</div>

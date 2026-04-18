@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { getBalance, getStats, getWebcash, exportWalletSnapshot,
-		insertWebcash, payWebcash, checkWallet, mergeOutputs, resetDb,
+		insertWebcash, payWebcash, checkWallet, mergeOutputs, recoverWallet, resetDb,
 		setActive, addWallet, listWallets, getActiveFamily, getActiveLabel,
 		lockWallet, getRawState, type WalletInfo } from '$lib/stores/wallet.svelte';
 	import { getNetwork, setNetwork } from '$lib/stores/network.svelte';
@@ -112,11 +112,11 @@
 	};
 
 	// Action handlers
-	const handleInsert = async (s: string) => { loading = true; const r = await insertWebcash(network, s); if (r.ok) { showMessage('Webcash inserted'); activePanel = null; await refresh(); } else showMessage(r.error, 'error'); loading = false; };
-	const handlePay = async (a: number, memo: string = '') => { loading = true; const r = await payWebcash(network, a); if (r.ok) { paymentResult = r.value; paymentMemo = memo; activePanel = 'payment-result'; await refresh(); } else showMessage(r.error, 'error'); loading = false; };
-	const handleCheck = async () => { loading = true; const r = await checkWallet(network); if (r.ok) showMessage(`${r.value.validCount} valid, ${r.value.spentCount} spent`); else showMessage(r.error, 'error'); loading = false; };
-	const handleMerge = async () => { loading = true; const r = await mergeOutputs(network, 50); if (r.ok) { showMessage(r.value); await refresh(); } else showMessage(r.error, 'error'); loading = false; };
-	const handleRecover = async () => { loading = true; const { getMasterSecret, recoverWallet } = await import('$lib/stores/wallet.svelte'); const s = await getMasterSecret(); if (!s) { showMessage('No master secret', 'error'); loading = false; return; } const r = await recoverWallet(network, s, 20); if (r.ok) { showMessage(`Recovered ${r.value.recoveredCount} outputs`); await refresh(); } else showMessage(r.error, 'error'); loading = false; };
+	const handleInsert = async (s: string) => { loading = true; const r = await insertWebcash(s); if (r.ok) { showMessage('Webcash inserted'); activePanel = null; await refresh(); } else showMessage(r.error, 'error'); loading = false; };
+	const handlePay = async (a: number, memo: string = '') => { loading = true; const r = await payWebcash(a); if (r.ok) { paymentResult = r.value; paymentMemo = memo; activePanel = 'payment-result'; await refresh(); } else showMessage(r.error, 'error'); loading = false; };
+	const handleCheck = async () => { loading = true; const r = await checkWallet(); if (r.ok) showMessage(`${r.value.validCount} valid, ${r.value.spentCount} spent`); else showMessage(r.error, 'error'); loading = false; };
+	const handleMerge = async () => { loading = true; const r = await mergeOutputs(50); if (r.ok) { showMessage(r.value); await refresh(); } else showMessage(r.error, 'error'); loading = false; };
+	const handleRecover = async () => { loading = true; const r = await recoverWallet(20); if (r.ok) { showMessage(`Recovered ${r.value.recoveredCount} outputs`); await refresh(); } else showMessage(r.error, 'error'); loading = false; };
 
 	const handleVisibility = () => {
 		if (document.visibilityState === 'hidden') {
@@ -175,12 +175,12 @@
 	</div>
 
 	<!-- Wallet Family Tabs -->
-	<div class="flex rounded-xl bg-muted p-1 gap-1">
+	<div class="flex rounded-full bg-muted p-0.5 gap-0.5">
 		{#each FAMILIES as fam}
 			<button
 				onclick={() => fam.enabled && switchFamily(fam.id)}
 				disabled={!fam.enabled}
-				class="flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-all
+				class="flex-1 rounded-full px-4 py-2.5 text-xs font-semibold transition-all
 					{fam.id === activeFamily ? 'bg-card text-foreground shadow-sm' : ''}
 					{fam.enabled ? 'hover:bg-card/50' : 'opacity-40 cursor-not-allowed text-muted-foreground'}">
 				{fam.name}

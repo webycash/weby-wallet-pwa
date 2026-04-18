@@ -6,7 +6,8 @@
 	let expanded = $state(false);
 	let copiedIdx = $state(-1);
 
-	const fmt = (wats: number) => formatAmount ? formatAmount(wats) : (wats / 1e8).toFixed(8);
+	const trim = (s: string): string => s.includes('.') ? (s.replace(/0+$/, '').replace(/\.$/, '') || '0') : s;
+	const fmt = (wats: number) => trim(formatAmount ? formatAmount(wats) : (wats / 1e8).toFixed(8));
 
 	const copySecret = async (secret: string, idx: number) => {
 		await navigator.clipboard.writeText(secret);

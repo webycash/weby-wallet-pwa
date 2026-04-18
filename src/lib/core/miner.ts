@@ -1,8 +1,8 @@
-// Mining coordinator — manages Web Worker lifecycle.
-// Testnet only. Fetches target, spawns worker, submits report.
+// CPU mining coordinator — manages Web Worker lifecycle.
+// Target fetch and report submission via WASM (no JS fetch calls).
 
 import type { NetworkMode } from './types';
-import * as Server from './server';
+import { getWasm } from './wasm';
 
 export interface MinerStats {
 	readonly hashRate: number;
@@ -36,10 +36,11 @@ export const startMining = async (
 	miningDepth: number,
 	onUpdate: MinerCallback
 ): Promise<void> => {
-	// Mining available on all networks.
 	if (worker) stopMining();
 
-	const target = await Server.getTarget(network);
+	const wasm = await getWasm();
+	const targetJson = await wasm.get_mining_target(network);
+	const target = JSON.parse(targetJson);
 
 	worker = new Worker(
 		new URL('$lib/workers/miner.worker.ts', import.meta.url),
@@ -71,12 +72,9 @@ export const startMining = async (
 			});
 
 			try {
-				await Server.submitMiningReport(network, {
-					preimage: msg.preimage,
-					legalese: { terms: true }
-				});
+				await wasm.submit_mining_report(network, msg.preimage);
 			} catch {
-				// Mining report submission failed — output still stored locally
+				// Report submission failed — output still stored locally
 			}
 
 			stopMining();

@@ -1,75 +1,119 @@
-// Wallet store — all operations delegate to WASM (harmoniis-wallet BrowserWallet).
-// Supports multi-family (webcash/bitcoin/rgb) and multi-labeled wallets.
-// State persisted as JSON blob in IndexedDB (one DB per network).
-// Encryption handled by the UI layer via encryption.ts.
+// Wallet store — all operations delegate to WASM.
+// Two-layer state:
+//   master_state = HarmoniiStore JSON (wallet slots, identities, key material)
+//   wallet_state = webylib MemStore JSON (per active labeled wallet)
+// Multi-family (webcash/bitcoin/rgb) with labeled wallets per family.
+// All HTTP happens inside Rust — zero fetch() calls from TypeScript.
 
 import { getWasm } from '$lib/core/wasm';
 import * as Persistence from '$lib/core/persistence';
-import * as Server from '$lib/core/server';
 import { getNetwork } from './network.svelte';
 import type { NetworkMode, CheckResult, Result, WalletSnapshot } from '$lib/core/types';
 import { ok, err } from '$lib/core/types';
 
 type Wasm = Awaited<ReturnType<typeof getWasm>>;
 
-let stateJson: string | null = null;
+const MASTER_KEY = 'master';
+
+let walletState: string | null = null;
+let masterState: string | null = null;
 let stateNetwork: NetworkMode | null = null;
+let activeFamily = 'webcash';
+let activeLabel = 'main';
 
-// ── State Management ────────────────────────────────────────────
+// ── Internal helpers ────────────────────────────────────────────
 
-const ensureState = async (): Promise<{ wasm: Wasm; state: string }> => {
+const walletKey = () => Persistence.walletStateKey(activeFamily, activeLabel);
+
+const loadMaster = async (network: string): Promise<string | null> => {
+	if (masterState && stateNetwork === network) return masterState;
+	const loaded = await Persistence.loadState(network, MASTER_KEY);
+	if (loaded) { masterState = loaded; return loaded; }
+	return null;
+};
+
+const saveMaster = async (network: string, state: string) => {
+	masterState = state;
+	await Persistence.saveState(network, state, MASTER_KEY);
+};
+
+const ensureState = async (): Promise<{ wasm: Wasm; state: string; master: string; network: NetworkMode }> => {
 	const wasm = await getWasm();
 	const network = getNetwork();
 
-	if (stateJson && stateNetwork === network) {
-		return { wasm, state: stateJson };
+	// Load master state
+	let master = await loadMaster(network);
+	if (!master) {
+		const mnemonic = Persistence.getMnemonic();
+		if (!mnemonic) throw new Error('No wallet — run setup first');
+		const resultJson = wasm.create_master_wallet(mnemonic);
+		const result = JSON.parse(resultJson);
+		master = result.master_state;
+		await saveMaster(network, master!);
 	}
 
-	const loaded = await Persistence.loadState(network);
+	// Restore active selection
+	const active = Persistence.getActive(network);
+	activeFamily = active.family;
+	activeLabel = active.label;
+
+	// Load wallet state for active labeled wallet
+	if (walletState && stateNetwork === network) {
+		return { wasm, state: walletState, master: master!, network };
+	}
+
+	const key = walletKey();
+	const loaded = await Persistence.loadState(network, key);
 	if (loaded) {
-		stateJson = loaded;
+		walletState = loaded;
 		stateNetwork = network;
-		return { wasm, state: stateJson };
+		return { wasm, state: walletState, master: master!, network };
 	}
 
-	const mnemonic = Persistence.getMnemonic();
-	if (mnemonic) {
-		const created = wasm.create_wallet(mnemonic);
-		stateJson = created;
+	// Migrate legacy "current" key
+	const legacy = await Persistence.loadState(network);
+	if (legacy) {
+		await Persistence.saveState(network, legacy, key);
+		walletState = legacy;
 		stateNetwork = network;
-		await Persistence.saveState(network, created);
-		return { wasm, state: created };
+		return { wasm, state: walletState, master: master!, network };
 	}
 
-	throw new Error('No wallet — run setup first');
+	// Create fresh wallet state for this slot
+	const secret = wasm.derive_wallet_secret(master!, activeFamily, activeLabel);
+	const createJson = await wasm.create_wallet(network, Persistence.getMnemonic() ?? undefined);
+	const created = JSON.parse(createJson);
+	walletState = created.state;
+	stateNetwork = network;
+	await Persistence.saveState(network, walletState!, key);
+	return { wasm, state: walletState!, master: master!, network };
 };
 
-const updateState = async (newStateJson: string): Promise<void> => {
-	stateJson = newStateJson;
+const updateWalletState = async (newState: string) => {
+	walletState = newState;
 	stateNetwork = getNetwork();
-	await Persistence.saveState(stateNetwork, newStateJson);
+	await Persistence.saveState(stateNetwork, newState, walletKey());
 };
 
-/** Clear cached state (call on network switch). */
 export const resetDb = () => {
-	stateJson = null;
+	walletState = null;
+	masterState = null;
 	stateNetwork = null;
 };
 
-/** Lock the wallet (clear in-memory state). */
 export const lockWallet = () => {
-	stateJson = null;
+	walletState = null;
+	masterState = null;
 	stateNetwork = null;
 };
 
-/** Get raw state JSON (for encryption). */
 export const getRawState = async (): Promise<string | null> => {
-	try {
-		const { state } = await ensureState();
-		return state;
-	} catch {
-		return null;
-	}
+	try { return (await ensureState()).state; }
+	catch { return null; }
+};
+
+export const setRawState = async (newState: string) => {
+	await updateWalletState(newState);
 };
 
 // ── Wallet Lifecycle ────────────────────────────────────────────
@@ -78,31 +122,44 @@ export const setupWallet = async (): Promise<Result<string>> => {
 	try {
 		const wasm = await getWasm();
 		const network = getNetwork();
-		const newState = wasm.create_wallet(undefined);
-		const mnemonic = wasm.get_mnemonic(newState);
-		Persistence.setMnemonic(mnemonic);
-		stateJson = newState;
+		const resultJson = wasm.create_master_wallet(undefined);
+		const result = JSON.parse(resultJson);
+		Persistence.setMnemonic(result.mnemonic);
+		await saveMaster(network, result.master_state);
+		Persistence.setActive(network, 'webcash', 'main');
+		activeFamily = 'webcash';
+		activeLabel = 'main';
+
+		// Create webylib wallet for the main webcash slot
+		const secret = wasm.derive_wallet_secret(result.master_state, 'webcash', 'main');
+		const walletJson = await wasm.create_wallet(network, result.mnemonic);
+		const wallet = JSON.parse(walletJson);
+		walletState = wallet.state;
 		stateNetwork = network;
-		await Persistence.saveState(network, newState);
-		return ok(wasm.master_secret_hex(newState));
-	} catch (e) {
-		return err(`Setup failed: ${e}`);
-	}
+		await Persistence.saveState(network, wallet.state, walletKey());
+		return ok(secret);
+	} catch (e) { return err(`Setup failed: ${e}`); }
 };
 
 export const setupFromMnemonic = async (mnemonic: string): Promise<Result<string>> => {
 	try {
 		const wasm = await getWasm();
 		const network = getNetwork();
-		const newState = wasm.create_wallet(mnemonic);
-		Persistence.setMnemonic(mnemonic);
-		stateJson = newState;
+		const resultJson = wasm.create_master_wallet(mnemonic);
+		const result = JSON.parse(resultJson);
+		Persistence.setMnemonic(result.mnemonic);
+		await saveMaster(network, result.master_state);
+		Persistence.setActive(network, 'webcash', 'main');
+		activeFamily = 'webcash';
+		activeLabel = 'main';
+
+		const walletJson = await wasm.create_wallet(network, mnemonic);
+		const wallet = JSON.parse(walletJson);
+		walletState = wallet.state;
 		stateNetwork = network;
-		await Persistence.saveState(network, newState);
-		return ok(wasm.master_secret_hex(newState));
-	} catch (e) {
-		return err(`Setup failed: ${e}`);
-	}
+		await Persistence.saveState(network, wallet.state, walletKey());
+		return ok(wasm.derive_wallet_secret(result.master_state, 'webcash', 'main'));
+	} catch (e) { return err(`Setup failed: ${e}`); }
 };
 
 export const hasWallet = async (): Promise<boolean> => {
@@ -113,26 +170,6 @@ export const hasWallet = async (): Promise<boolean> => {
 
 // ── Multi-wallet Management ─────────────────────────────────────
 
-export const setActive = async (family: string, label: string): Promise<void> => {
-	const { wasm, state } = await ensureState();
-	await updateState(wasm.set_active(state, family, label));
-};
-
-export const addWallet = async (family: string, label: string): Promise<void> => {
-	const { wasm, state } = await ensureState();
-	await updateState(wasm.add_wallet(state, family, label));
-};
-
-export const removeWallet = async (family: string, label: string): Promise<void> => {
-	const { wasm, state } = await ensureState();
-	await updateState(wasm.remove_wallet(state, family, label));
-};
-
-export const renameWallet = async (family: string, oldLabel: string, newLabel: string): Promise<void> => {
-	const { wasm, state } = await ensureState();
-	await updateState(wasm.rename_wallet(state, family, oldLabel, newLabel));
-};
-
 export interface WalletInfo {
 	family: string;
 	label: string;
@@ -140,237 +177,183 @@ export interface WalletInfo {
 	output_count: number;
 }
 
+export const setActive = async (family: string, label: string) => {
+	const network = getNetwork();
+	Persistence.setActive(network, family, label);
+	activeFamily = family;
+	activeLabel = label;
+	walletState = null;
+	stateNetwork = null;
+};
+
+export const addWallet = async (family: string, label: string) => {
+	const { wasm, master, network } = await ensureState();
+	const newMaster = wasm.add_wallet(master, family, label);
+	await saveMaster(network, newMaster);
+
+	// Create webylib wallet state for the new slot
+	const mnemonic = Persistence.getMnemonic();
+	if (mnemonic) {
+		const walletJson = await wasm.create_wallet(network, mnemonic);
+		const wallet = JSON.parse(walletJson);
+		const key = Persistence.walletStateKey(family, label);
+		await Persistence.saveState(network, wallet.state, key);
+	}
+};
+
+export const removeWallet = async (family: string, label: string) => {
+	const { wasm, master, network } = await ensureState();
+	const newMaster = wasm.remove_wallet(master, family, label);
+	await saveMaster(network, newMaster);
+	await Persistence.deleteKey(network, Persistence.walletStateKey(family, label));
+};
+
+export const renameWallet = async (family: string, oldLabel: string, newLabel: string) => {
+	const { wasm, master, network } = await ensureState();
+	const newMaster = wasm.rename_wallet(master, family, oldLabel, newLabel);
+	await saveMaster(network, newMaster);
+
+	// Move the wallet state to the new key
+	const oldKey = Persistence.walletStateKey(family, oldLabel);
+	const newKey = Persistence.walletStateKey(family, newLabel);
+	const state = await Persistence.loadState(network, oldKey);
+	if (state) {
+		await Persistence.saveState(network, state, newKey);
+		await Persistence.deleteKey(network, oldKey);
+	}
+
+	if (activeFamily === family && activeLabel === oldLabel) {
+		activeLabel = newLabel;
+		Persistence.setActive(network, family, newLabel);
+	}
+};
+
 export const listWallets = async (family: string): Promise<WalletInfo[]> => {
-	const { wasm, state } = await ensureState();
-	return wasm.list_wallets(state, family) as WalletInfo[];
+	const { wasm, master, network } = await ensureState();
+	const wallets: any[] = wasm.list_wallets(master, family);
+	const result: WalletInfo[] = [];
+
+	for (const w of wallets) {
+		const label = w.label || `${family}-${w.slot_index}`;
+		const key = Persistence.walletStateKey(family, label);
+		const state = await Persistence.loadState(network, key);
+		let balance = 0;
+		let output_count = 0;
+		if (state) {
+			try {
+				balance = Number(wasm.wallet_balance(state, network));
+				const parsed = JSON.parse(state);
+				output_count = parsed.outputs?.filter((o: { spent: boolean }) => !o.spent).length ?? 0;
+			} catch { /* skip */ }
+		}
+		result.push({ family, label, balance, output_count });
+	}
+	return result;
 };
 
 export const getActiveFamily = async (): Promise<string> => {
-	const { wasm, state } = await ensureState();
-	return wasm.active_family(state);
+	const active = Persistence.getActive(getNetwork());
+	activeFamily = active.family;
+	return active.family;
 };
 
 export const getActiveLabel = async (): Promise<string> => {
-	const { wasm, state } = await ensureState();
-	return wasm.active_label(state);
+	const active = Persistence.getActive(getNetwork());
+	activeLabel = active.label;
+	return active.label;
 };
 
 // ── Balance & Queries ───────────────────────────────────────────
 
 export const getBalance = async (): Promise<number> => {
-	const { wasm, state } = await ensureState();
-	return Number(wasm.wallet_balance(state));
+	const { wasm, state, network } = await ensureState();
+	return Number(wasm.wallet_balance(state, network));
 };
 
 export const getStats = async () => {
-	const { wasm, state } = await ensureState();
-	return wasm.wallet_stats(state);
+	const { wasm, state, network } = await ensureState();
+	return wasm.wallet_stats(state, network);
 };
 
 export const getWebcash = async () => {
 	const { state } = await ensureState();
 	const parsed = JSON.parse(state);
-	const key = `${parsed.active_family}:${parsed.active_label}`;
-	const family = parsed.wallets[key];
-	if (!family) return [];
-	return family.outputs
+	if (!parsed.outputs) return [];
+	return parsed.outputs
 		.filter((o: { spent: boolean }) => !o.spent)
 		.map((o: { secret: string; amount: number }) => ({
 			secret: o.secret,
-			amountWats: o.amount
+			amountWats: o.amount,
 		}));
 };
 
 export const getMasterSecret = async (): Promise<string | undefined> => {
 	try {
-		const { wasm, state } = await ensureState();
-		return wasm.master_secret_hex(state);
-	} catch {
-		return undefined;
-	}
+		const { wasm, state, network } = await ensureState();
+		return wasm.master_secret_hex(state, network);
+	} catch { return undefined; }
 };
 
 export const getMnemonic = async (): Promise<string | undefined> => {
-	try {
-		const { wasm, state } = await ensureState();
-		return wasm.get_mnemonic(state);
-	} catch {
-		return Persistence.getMnemonic() ?? undefined;
-	}
+	return Persistence.getMnemonic() ?? undefined;
 };
 
-// ── Insert (import webcash) ─────────────────────────────────────
+// ── Wallet Operations (single async WASM calls — HTTP in Rust) ──
 
-export const insertWebcash = async (network: NetworkMode, webcashStr: string): Promise<Result<void>> => {
+export const insertWebcash = async (webcashStr: string): Promise<Result<void>> => {
 	try {
-		const { wasm, state } = await ensureState();
-		const effectJson = wasm.prepare_insert(state, webcashStr);
-		const effect = JSON.parse(effectJson);
-		await Server.replace(network, effect.replace_request);
-		await updateState(wasm.apply_insert(state, effectJson));
+		const { wasm, state, network } = await ensureState();
+		const newState = await wasm.insert_webcash(state, network, webcashStr);
+		await updateWalletState(newState);
 		return ok(undefined);
-	} catch (e) {
-		return err(`Insert failed: ${e}`);
-	}
+	} catch (e) { return err(`Insert failed: ${e}`); }
 };
 
-// ── Pay ─────────────────────────────────────────────────────────
-
-export const payWebcash = async (network: NetworkMode, amountWats: number): Promise<Result<string>> => {
+export const payWebcash = async (amountWats: number): Promise<Result<string>> => {
 	try {
-		const { wasm, state } = await ensureState();
-		const effectJson = wasm.prepare_payment(state, BigInt(amountWats));
-		const effect = JSON.parse(effectJson);
-		await Server.replace(network, effect.replace_request);
-		await updateState(wasm.apply_payment(state, effectJson));
-		return ok(effect.payment_webcash);
-	} catch (e) {
-		return err(`Payment failed: ${e}`);
-	}
+		const { wasm, state, network } = await ensureState();
+		const resultJson = await wasm.pay_webcash(state, network, BigInt(amountWats));
+		const result = JSON.parse(resultJson);
+		await updateWalletState(result.state);
+		return ok(result.payment_webcash);
+	} catch (e) { return err(`Payment failed: ${e}`); }
 };
 
-// ── Check ───────────────────────────────────────────────────────
-
-export const checkWallet = async (network: NetworkMode): Promise<Result<CheckResult>> => {
+export const checkWallet = async (): Promise<Result<CheckResult>> => {
 	try {
-		const { wasm, state } = await ensureState();
-		const publicStrings: string[] = wasm.prepare_check(state);
-		if (!publicStrings.length) return ok({ validCount: 0, spentCount: 0, unknownCount: 0 });
-
-		const response = await Server.healthCheck(network, publicStrings);
-		const results: Record<string, boolean> = {};
-		for (const [webcashKey, r] of Object.entries(response.results ?? {})) {
-			const hash = webcashKey.split(':')[2];
-			if (hash && r.spent !== null) results[hash] = r.spent === true;
-		}
-
-		await updateState(wasm.apply_check(state, JSON.stringify(results)));
-		const validCount = Object.values(results).filter(s => !s).length;
-		const spentCount = Object.values(results).filter(s => s).length;
-		return ok({ validCount, spentCount, unknownCount: 0 });
-	} catch (e) {
-		return err(`Check failed: ${e}`);
-	}
+		const { wasm, state, network } = await ensureState();
+		const resultJson = await wasm.check_wallet(state, network);
+		const result = JSON.parse(resultJson);
+		await updateWalletState(result.state);
+		return ok({ validCount: result.valid_count, spentCount: result.spent_count, unknownCount: 0 });
+	} catch (e) { return err(`Check failed: ${e}`); }
 };
 
-// ── Merge ───────────────────────────────────────────────────────
-
-export const mergeOutputs = async (network: NetworkMode, maxOutputs: number): Promise<Result<string>> => {
+export const mergeOutputs = async (maxOutputs: number): Promise<Result<string>> => {
 	try {
-		const { wasm, state } = await ensureState();
-		const effect = wasm.prepare_merge(state, maxOutputs);
-		if (!effect) return ok('No consolidation needed');
-
-		const effectJson = JSON.stringify(effect);
-		await Server.replace(network, effect.replace_request);
-		await updateState(wasm.apply_merge(state, effectJson));
-		return ok(`${effect.mark_spent_secrets.length} outputs merged`);
-	} catch (e) {
-		return err(`Merge failed: ${e}`);
-	}
+		const { wasm, state, network } = await ensureState();
+		const resultJson = await wasm.merge_outputs(state, network, maxOutputs);
+		const result = JSON.parse(resultJson);
+		await updateWalletState(result.state);
+		return ok(result.message || 'Merge complete');
+	} catch (e) { return err(`Merge failed: ${e}`); }
 };
 
-// ── Recover ─────────────────────────────────────────────────────
-
-export const recoverWallet = async (
-	network: NetworkMode,
-	mnemonic: string,
-	gapLimit: number = 20,
-	onProgress?: (chain: string, depth: number) => void
-): Promise<Result<{ recoveredCount: number; totalAmount: number }>> => {
+export const recoverWallet = async (gapLimit: number = 20): Promise<Result<{ recoveredCount: number; totalAmount: number }>> => {
 	try {
-		await setupFromMnemonic(mnemonic);
-		const wasm = await getWasm();
-		let currentState = stateJson!;
-		let recoveredCount = 0;
-		let totalAmount = 0;
-
-		for (const chain of ['RECEIVE', 'CHANGE', 'MINING']) {
-			let currentDepth = 0;
-			let consecutiveEmpty = 0;
-
-			while (consecutiveEmpty < gapLimit && currentDepth < 1000) {
-				onProgress?.(chain, currentDepth);
-				const batchJson = wasm.prepare_recover_batch(currentState, chain, BigInt(currentDepth), BigInt(gapLimit));
-				const batch = JSON.parse(batchJson);
-
-				try {
-					const response = await Server.healthCheck(network, batch.public_webcash_strings);
-					const results: Record<string, { amount: number; spent: boolean }> = {};
-					let foundAny = false;
-
-					for (const [webcashKey, r] of Object.entries(response.results ?? {})) {
-						const hash = webcashKey.split(':')[2];
-						if (!hash) continue;
-						if (r.spent !== null) foundAny = true;
-						if (r.spent === false && r.amount) {
-							const amount = Number(wasm.parse_amount(r.amount));
-							if (amount > 0) results[hash] = { amount, spent: false };
-						}
-					}
-
-					if (Object.keys(results).length > 0) {
-						currentState = wasm.apply_recover_batch(currentState, batchJson, JSON.stringify(results));
-						recoveredCount += Object.keys(results).length;
-						totalAmount += Object.values(results).reduce((s, r) => s + r.amount, 0);
-					}
-					consecutiveEmpty = foundAny ? 0 : consecutiveEmpty + gapLimit;
-				} catch {
-					consecutiveEmpty += gapLimit;
-				}
-				currentDepth += gapLimit;
-			}
-
-			const finalDepth = Math.max(currentDepth - consecutiveEmpty, 0);
-			if (finalDepth > 0) {
-				currentState = wasm.set_depth(currentState, chain, BigInt(finalDepth));
-			}
-		}
-
-		await updateState(currentState);
-		return ok({ recoveredCount, totalAmount });
-	} catch (e) {
-		return err(`Recovery failed: ${e}`);
-	}
-};
-
-// ── Mining Support ──────────────────────────────────────────────
-
-export const buildMiningParams = async (difficulty: number, miningAmount: string) => {
-	const { wasm, state } = await ensureState();
-	return JSON.parse(wasm.build_mining_params(state, difficulty, miningAmount));
-};
-
-export const storeMined = async (secret: string, amountWats: number) => {
-	const { wasm, state } = await ensureState();
-	await updateState(wasm.store_mined_output(state, secret, BigInt(amountWats)));
+		const { wasm, state, network } = await ensureState();
+		const resultJson = await wasm.recover_wallet(state, network, gapLimit);
+		const result = JSON.parse(resultJson);
+		await updateWalletState(result.state);
+		return ok({ recoveredCount: result.recovered_count, totalAmount: Number(result.total_amount) });
+	} catch (e) { return err(`Recovery failed: ${e}`); }
 };
 
 // ── Snapshot ────────────────────────────────────────────────────
 
 export const exportWalletSnapshot = async (): Promise<WalletSnapshot> => {
-	const { wasm, state } = await ensureState();
-	return JSON.parse(wasm.export_snapshot(state));
-};
-
-export const importWalletSnapshot = async (snapshot: WalletSnapshot): Promise<Result<void>> => {
-	try {
-		const mnemonic = Persistence.getMnemonic();
-		if (!mnemonic) return err('No mnemonic found');
-
-		const wasm = await getWasm();
-		let newState = wasm.create_wallet(mnemonic);
-		for (const output of snapshot.unspent_outputs) {
-			newState = wasm.store_mined_output(newState, output.secret, BigInt(output.amount));
-		}
-		for (const [chain, depth] of Object.entries(snapshot.depths)) {
-			newState = wasm.set_depth(newState, chain, BigInt(depth));
-		}
-		await updateState(newState);
-		return ok(undefined);
-	} catch (e) {
-		return err(`Import failed: ${e}`);
-	}
+	const { wasm, state, network } = await ensureState();
+	return JSON.parse(wasm.export_snapshot(state, network));
 };
 
 // ── Formatting Helpers ──────────────────────────────────────────

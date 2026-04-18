@@ -19,11 +19,11 @@
 		memo = '';
 	};
 
-	const setMax = () => {
-		amountStr = formatAmount ? formatAmount(balanceWats) : (balanceWats / 1e8).toFixed(8);
-	};
+	const trim = (s: string): string => s.includes('.') ? (s.replace(/0+$/, '').replace(/\.$/, '') || '0') : s;
+	const fmtBal = (wats: number) => trim(formatAmount ? formatAmount(wats) : (wats / 1e8).toFixed(8));
 
-	const maxDisplay = $derived(formatAmount ? formatAmount(balanceWats) : (balanceWats / 1e8).toFixed(8));
+	const setMax = () => { amountStr = fmtBal(balanceWats); };
+	const maxDisplay = $derived(fmtBal(balanceWats));
 </script>
 
 <div class="rounded-2xl border border-border bg-card p-5 space-y-3">

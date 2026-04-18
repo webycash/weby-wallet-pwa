@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { startMining, stopMining, type MinerStats } from '$lib/core/miner';
-	import { getMasterSecret, buildMiningParams, storeMined, parseWebcash, getRawState } from '$lib/stores/wallet.svelte';
-	import * as Server from '$lib/core/server';
+	import { stopMining, type MinerStats } from '$lib/core/miner';
+	import { getMasterSecret, getRawState, setRawState } from '$lib/stores/wallet.svelte';
 	import { getWasm } from '$lib/core/wasm';
 	import type { NetworkMode } from '$lib/core/types';
 	import { Pickaxe, Square, Zap, Clock, Target, Hash, Trophy, Cpu, Monitor } from '@lucide/svelte';
@@ -18,7 +17,6 @@
 	let result = $state('');
 	let resultHash = $state('');
 
-	// Mining stats
 	let hashRate = $state(0);
 	let totalAttempts = $state(0);
 	let solutionsFound = $state(0);
@@ -26,9 +24,7 @@
 	let difficulty = $state(0);
 	let miningAmount = $state('');
 	let uptimeSecs = $state(0);
-	let cpuStats = $state<MinerStats>({ hashRate: 0, totalAttempts: 0, solutionsFound: 0, difficulty: 0, uptimeSecs: 0 });
 
-	// Network stats
 	let netStats = $state<any>(null);
 
 	const fmt = (n: number): string => {
@@ -43,7 +39,7 @@
 		return `${r} H/s`;
 	};
 	const fmtEta = (rate: number, diff: number): string => {
-		if (rate <= 0 || diff <= 0) return '—';
+		if (rate <= 0 || diff <= 0) return '\u2014';
 		const expected = Math.pow(2, diff) / rate;
 		if (expected < 60) return `${Math.round(expected)}s`;
 		if (expected < 3600) return `${(expected / 60).toFixed(1)}m`;
@@ -62,7 +58,6 @@
 			} catch (e) { console.warn('GPU init failed:', e); }
 			gpuInitializing = false;
 		}
-		// Fetch network stats
 		try {
 			const res = await fetch('https://webcash.org/stats');
 			netStats = await res.json();
@@ -75,7 +70,8 @@
 
 		try {
 			const wasm = await getWasm();
-			const target = await Server.getTarget(network);
+			const targetJson = await wasm.get_mining_target(network);
+			const target = JSON.parse(targetJson);
 			const stateJson = await getRawState();
 			if (!stateJson) { error = 'No wallet'; running = false; return; }
 
@@ -87,8 +83,17 @@
 				const freshState = await getRawState();
 				if (!freshState) break;
 
-				const resultJson = await wasm.gpu_mine(freshState, target.difficulty_target_bits, target.mining_amount, target.mining_subsidy_amount || '0');
+				const resultJson = await wasm.gpu_mine(
+					freshState, network,
+					target.difficulty_target_bits,
+					target.mining_amount,
+					target.mining_subsidy_amount || '0'
+				);
 				const res = JSON.parse(resultJson);
+
+				// Update wallet state (depth incremented even without solution)
+				if (res.state) await setRawState(res.state);
+
 				totalAttempts += res.attempted ?? 1_000_000;
 				const elapsed = (Date.now() - startTime) / 1000;
 				hashRate = Math.round(totalAttempts / Math.max(elapsed, 0.001));
@@ -100,55 +105,20 @@
 					resultHash = res.hash_hex;
 
 					try {
-						await Server.submitMiningReport(network, { preimage: res.preimage_b64, legalese: { terms: true } });
+						await wasm.submit_mining_report(network, res.preimage_b64);
 						solutionsSubmitted++;
 					} catch { /* best-effort */ }
 
-					try {
-						await storeMined(res.secret, Number(wasm.parse_amount(target.mining_amount)));
-					} catch (e: any) { error = `Mined but failed to store: ${e.message}`; }
-
 					onBalanceUpdate();
-					// Continue mining — don't stop on solution
 				}
 			}
 		} catch (e: any) { error = e.message || 'GPU mining failed'; }
 		running = false;
 	};
 
-	const mineCpu = async () => {
-		error = ''; result = ''; resultHash = '';
-		solutionsFound = 0; solutionsSubmitted = 0;
-		try {
-			const secret = await getMasterSecret();
-			if (!secret) { error = 'No wallet found'; return; }
-			const params = await buildMiningParams(20, '200');
-			running = true;
-			await startMining(network, secret, params.mining_depth, async (state) => {
-				running = state.running;
-				cpuStats = state.stats;
-				hashRate = state.stats.hashRate;
-				totalAttempts = state.stats.totalAttempts;
-				difficulty = state.stats.difficulty;
-				uptimeSecs = state.stats.uptimeSecs;
-				if (state.found && state.result) {
-					solutionsFound++;
-					result = state.result;
-					resultHash = state.resultHash ?? '';
-					try {
-						const parsed = await parseWebcash(state.result);
-						await storeMined(parsed.secret, parsed.amount_wats);
-						solutionsSubmitted++;
-					} catch (e: any) { error = `Mined but failed to store: ${e.message}`; }
-					onBalanceUpdate();
-				}
-			});
-		} catch (e: any) { error = e.message || 'Mining failed'; running = false; }
-	};
-
 	const toggle = async () => {
 		if (running) { stopMining(); running = false; return; }
-		if (useGpu) await mineGpu(); else await mineCpu();
+		if (useGpu) await mineGpu();
 	};
 </script>
 
@@ -163,20 +133,11 @@
 			{:else if useGpu}
 				<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-success text-white font-medium">{gpuName}</span>
 			{:else}
-				<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">CPU</span>
+				<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">GPU</span>
 			{/if}
 		</div>
 		<div class="flex items-center gap-2">
-			{#if useGpu}
-				<button onclick={() => { useGpu = false; }} class="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium bg-muted hover:bg-muted/80 transition-all">
-					<Cpu class="w-3 h-3" /> CPU
-				</button>
-			{:else if gpuAvailable && gpuName}
-				<button onclick={() => { useGpu = true; }} class="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium bg-muted hover:bg-muted/80 transition-all">
-					<Monitor class="w-3 h-3" /> GPU
-				</button>
-			{/if}
-			<button onclick={toggle} disabled={gpuInitializing}
+			<button onclick={toggle} disabled={gpuInitializing || !gpuAvailable}
 				class="flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold transition-all disabled:opacity-50
 					{running ? 'bg-danger text-danger-foreground hover:bg-danger' : 'bg-primary text-primary-foreground hover:bg-primary'}">
 				{#if gpuInitializing}
@@ -207,7 +168,7 @@
 			</div>
 			<div class="bg-card px-4 py-3">
 				<p class="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Reward</p>
-				<p class="text-lg font-bold text-foreground tabular-nums">{miningAmount || '—'} ₩</p>
+				<p class="text-lg font-bold text-foreground tabular-nums">{miningAmount || '\u2014'} W</p>
 			</div>
 		</div>
 		<div class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border border-t border-border">
@@ -221,7 +182,7 @@
 			</div>
 			<div class="bg-card px-4 py-3">
 				<p class="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Backend</p>
-				<p class="text-sm font-semibold text-foreground">{useGpu ? 'WebGPU' : 'CPU'}</p>
+				<p class="text-sm font-semibold text-foreground">WebGPU</p>
 			</div>
 			<div class="bg-card px-4 py-3">
 				<p class="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Uptime</p>
@@ -249,7 +210,7 @@
 				</div>
 				<div>
 					<p class="text-muted-foreground">Subsidy</p>
-					<p class="font-semibold text-foreground">{netStats.mining_subsidy_amount} ₩</p>
+					<p class="font-semibold text-foreground">{netStats.mining_subsidy_amount} W</p>
 				</div>
 			</div>
 		</div>

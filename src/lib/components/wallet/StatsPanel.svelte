@@ -1,5 +1,7 @@
 <script lang="ts">
 	let { stats, formatAmount }: { stats: any; formatAmount: ((w: number) => string) | null } = $props();
+	const trim = (s: string): string => s.includes('.') ? (s.replace(/0+$/, '').replace(/\.$/, '') || '0') : s;
+	const fmt = (wats: number) => trim(formatAmount ? formatAmount(wats) : String(wats));
 </script>
 
 <div class="pt-4 space-y-4">
@@ -28,7 +30,7 @@
 		</div>
 		<div>
 			<p class="text-[11px] text-muted-foreground mb-0.5">Balance</p>
-			<p class="text-base sm:text-lg font-semibold text-foreground tabular-nums truncate">{formatAmount ? formatAmount(stats.total_balance ?? stats.totalBalance ?? 0) : (stats.total_balance ?? stats.totalBalance ?? 0)}</p>
+			<p class="text-base sm:text-lg font-semibold text-foreground tabular-nums truncate">{fmt(stats.total_balance ?? stats.totalBalance ?? 0)}</p>
 		</div>
 	</div>
 </div>

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getNetwork } from '$lib/stores/network.svelte';
-	import { healthCheck } from '$lib/core/server';
+	import { getWasm } from '$lib/core/wasm';
 	import { ShieldCheck } from '@lucide/svelte';
 
 	let input = $state('');
@@ -15,16 +15,12 @@
 		error = '';
 		result = null;
 		try {
-			const response = await healthCheck(getNetwork(), [trimmed]);
-			const entries = Object.values(response.results ?? {});
-			if (entries.length > 0) {
-				const r = entries[0];
-				if (r.spent === true) result = 'spent';
-				else if (r.spent === false) result = 'valid';
-				else result = 'unknown';
-			} else {
-				result = 'unknown';
-			}
+			const wasm = await getWasm();
+			const responseJson = await wasm.verify_webcash(getNetwork(), trimmed);
+			const response = JSON.parse(responseJson);
+			if (response.spent === true) result = 'spent';
+			else if (response.spent === false) result = 'valid';
+			else result = 'unknown';
 		} catch (e: any) {
 			error = e.message || 'Verification failed';
 		}
@@ -52,15 +48,15 @@
 
 	{#if result === 'valid'}
 		<div class="rounded-2xl bg-success border border-success px-4 py-3 text-sm text-success-foreground dark:text-success-foreground font-medium">
-			Valid — this webcash is unspent
+			Valid -- this webcash is unspent
 		</div>
 	{:else if result === 'spent'}
 		<div class="rounded-2xl bg-danger border border-danger px-4 py-3 text-sm text-danger-foreground dark:text-danger-foreground font-medium">
-			Spent — this webcash has already been used
+			Spent -- this webcash has already been used
 		</div>
 	{:else if result === 'unknown'}
 		<div class="rounded-2xl bg-warning border border-warning px-4 py-3 text-sm text-warning-foreground dark:text-warning-foreground font-medium">
-			Unknown — not found on the server
+			Unknown -- not found on the server
 		</div>
 	{/if}
 
