@@ -1,8 +1,11 @@
 <script lang="ts">
-	import { startMining, stopMining, isMining, type MinerStats } from '$lib/core/miner';
-	import { getMasterSecret, buildMiningParams, storeMined, parseWebcash } from '$lib/stores/wallet.svelte';
+	import { onMount } from 'svelte';
+	import { startMining, stopMining, type MinerStats } from '$lib/core/miner';
+	import { getMasterSecret, buildMiningParams, storeMined, parseWebcash, getRawState } from '$lib/stores/wallet.svelte';
+	import * as Server from '$lib/core/server';
+	import { getWasm } from '$lib/core/wasm';
 	import type { NetworkMode } from '$lib/core/types';
-	import { Pickaxe, Square, Zap, Clock, Target, Hash, Trophy } from '@lucide/svelte';
+	import { Pickaxe, Square, Zap, Clock, Target, Hash, Trophy, Cpu, Monitor } from '@lucide/svelte';
 
 	let { network, onBalanceUpdate }: { network: NetworkMode; onBalanceUpdate: () => void } = $props();
 
@@ -11,6 +14,10 @@
 	let result = $state('');
 	let resultHash = $state('');
 	let error = $state('');
+	let gpuName = $state('');
+	let gpuAvailable = $state(false);
+	let useGpu = $state(false);
+	let gpuInitializing = $state(false);
 
 	const formatRate = (rate: number): string => {
 		if (rate >= 1_000_000) return `${(rate / 1_000_000).toFixed(1)} MH/s`;
@@ -24,13 +31,98 @@
 		return `${n}`;
 	};
 
-	const toggle = async () => {
-		if (running) {
-			stopMining();
-			running = false;
-			return;
+	onMount(async () => {
+		// Check WebGPU support
+		if ('gpu' in navigator) {
+			gpuAvailable = true;
 		}
+	});
 
+	const initGpu = async () => {
+		gpuInitializing = true;
+		error = '';
+		try {
+			const wasm = await getWasm();
+			const name = await wasm.gpu_init();
+			if (name) {
+				gpuName = name;
+				useGpu = true;
+			} else {
+				error = 'No compatible WebGPU adapter found';
+				gpuAvailable = false;
+			}
+		} catch (e: any) {
+			error = `GPU init failed: ${e.message || e}`;
+			gpuAvailable = false;
+		}
+		gpuInitializing = false;
+	};
+
+	const mineGpu = async () => {
+		error = '';
+		result = '';
+		resultHash = '';
+		running = true;
+
+		try {
+			const wasm = await getWasm();
+			const target = await Server.getTarget(network);
+			const stateJson = await getRawState();
+			if (!stateJson) { error = 'No wallet'; running = false; return; }
+
+			stats = { ...stats, difficulty: target.difficulty_target_bits };
+
+			let totalAttempted = 0;
+			const startTime = Date.now();
+
+			// GPU mining loop — each call mines 1M nonces
+			while (running) {
+				const freshState = await getRawState();
+				if (!freshState) break;
+
+				const resultJson = await wasm.gpu_mine(freshState, target.difficulty_target_bits, target.mining_amount);
+				const res = JSON.parse(resultJson);
+				totalAttempted += res.attempted ?? 1_000_000;
+
+				const elapsed = (Date.now() - startTime) / 1000;
+				stats = {
+					hashRate: Math.round(totalAttempted / Math.max(elapsed, 0.001)),
+					totalAttempts: totalAttempted,
+					solutionsFound: res.found ? 1 : 0,
+					difficulty: target.difficulty_target_bits,
+					uptimeSecs: elapsed,
+				};
+
+				if (res.found) {
+					result = res.webcash_str;
+					resultHash = res.hash_hex;
+					running = false;
+
+					// Submit mining report
+					try {
+						await Server.submitMiningReport(network, {
+							preimage: res.preimage_b64,
+							legalese: { terms: true }
+						});
+					} catch { /* report submission is best-effort */ }
+
+					// Store mined output
+					try {
+						await storeMined(res.secret, Number(wasm.parse_amount(target.mining_amount)));
+					} catch (e: any) {
+						error = `Mined but failed to store: ${e.message}`;
+					}
+					onBalanceUpdate();
+					break;
+				}
+			}
+		} catch (e: any) {
+			error = e.message || 'GPU mining failed';
+		}
+		running = false;
+	};
+
+	const mineCpu = async () => {
 		error = '';
 		result = '';
 		resultHash = '';
@@ -39,9 +131,7 @@
 			const secret = await getMasterSecret();
 			if (!secret) { error = 'No wallet found'; return; }
 
-			// Build mining params via WASM — gets depth from wallet state
 			const params = await buildMiningParams(20, '200');
-
 			running = true;
 
 			await startMining(network, secret, params.mining_depth, async (state) => {
@@ -64,29 +154,59 @@
 			running = false;
 		}
 	};
+
+	const toggle = async () => {
+		if (running) {
+			stopMining();
+			running = false;
+			return;
+		}
+		if (useGpu) {
+			await mineGpu();
+		} else {
+			await mineCpu();
+		}
+	};
 </script>
 
-<div class="rounded-2xl border-2 border-border bg-card overflow-hidden">
+<div class="rounded-xl bg-card overflow-hidden">
 	<!-- Header -->
 	<div class="flex items-center justify-between px-5 py-4 border-b border-border">
 		<div class="flex items-center gap-2">
 			<Pickaxe class="w-4 h-4 text-primary" />
-			<span class="text-sm font-semibold text-foreground">CPU Miner</span>
-			<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-warning text-white font-medium">Testnet</span>
-		</div>
-		<button onclick={toggle}
-			class="flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold transition-all
-				{running
-					? 'bg-danger text-danger-foreground border-2 border-danger hover:bg-danger'
-					: 'bg-primary text-primary-foreground hover:bg-primary'}">
-			{#if running}
-				<Square class="w-3.5 h-3.5" />
-				Stop
-			{:else}
-				<Zap class="w-3.5 h-3.5" />
-				Start Mining
+			<span class="text-sm font-semibold text-foreground">
+				{useGpu ? 'GPU' : 'CPU'} Miner
+			</span>
+			{#if useGpu && gpuName}
+				<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-success text-white font-medium truncate max-w-[120px]">{gpuName}</span>
 			{/if}
-		</button>
+		</div>
+		<div class="flex items-center gap-2">
+			{#if gpuAvailable && !useGpu}
+				<button onclick={initGpu} disabled={gpuInitializing}
+					class="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium bg-muted hover:bg-muted/80 transition-all disabled:opacity-50">
+					<Monitor class="w-3 h-3" />
+					{gpuInitializing ? 'Initializing...' : 'Use GPU'}
+				</button>
+			{:else if useGpu}
+				<button onclick={() => { useGpu = false; }}
+					class="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium bg-muted hover:bg-muted/80 transition-all">
+					<Cpu class="w-3 h-3" />
+					Use CPU
+				</button>
+			{/if}
+			<button onclick={toggle}
+				class="flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold transition-all
+					{running
+						? 'bg-danger text-danger-foreground hover:bg-danger'
+						: 'bg-primary text-primary-foreground hover:bg-primary'}">
+				{#if running}
+					<Square class="w-3.5 h-3.5" /> Stop
+				{:else}
+					<Zap class="w-3.5 h-3.5" /> Start
+				{/if}
+			</button>
+		</div>
 	</div>
 
 	<!-- Live stats -->
@@ -116,14 +236,17 @@
 			<div class="bg-card px-4 py-3">
 				<div class="flex items-center gap-1.5 text-muted-foreground mb-1">
 					<Clock class="w-3 h-3" />
-					<span class="text-[10px] uppercase tracking-wider font-medium">ETA</span>
+					<span class="text-[10px] uppercase tracking-wider font-medium">
+						{useGpu ? 'Backend' : 'ETA'}
+					</span>
 				</div>
-				<p class="text-lg font-bold text-foreground tabular-nums">{stats.eta || '—'}</p>
+				<p class="text-lg font-bold text-foreground tabular-nums">
+					{useGpu ? 'WebGPU' : (stats.eta || '—')}
+				</p>
 			</div>
 		</div>
 
-		<!-- Progress bar -->
-		{#if running && stats.progress !== undefined}
+		{#if running && stats.progress !== undefined && !useGpu}
 			<div class="h-1 bg-muted">
 				<div class="h-full bg-warning transition-all duration-300" style="width: {Math.min(stats.progress, 100)}%"></div>
 			</div>

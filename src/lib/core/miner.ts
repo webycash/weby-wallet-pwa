@@ -36,7 +36,7 @@ export const startMining = async (
 	miningDepth: number,
 	onUpdate: MinerCallback
 ): Promise<void> => {
-	if (network !== 'testnet') throw new Error('Mining only available on testnet');
+	// Mining available on all networks.
 	if (worker) stopMining();
 
 	const target = await Server.getTarget(network);

@@ -141,7 +141,7 @@
 		{ id: 'verify', label: 'Verify', icon: ShieldCheck },
 		{ id: 'merge', label: 'Merge', icon: Merge, action: handleMerge },
 		{ id: 'recover', label: 'Recover', icon: RotateCcw, action: handleRecover },
-		...(network === 'testnet' ? [{ id: 'mine', label: 'Mine', icon: Pickaxe }] : []),
+		{ id: 'mine', label: 'Mine', icon: Pickaxe },
 	]);
 </script>
 

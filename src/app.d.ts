@@ -41,4 +41,7 @@ declare module '$wasm/wallet_wasm' {
 	export function list_wallets(state_json: string, family: string): any;
 	export function active_family(state_json: string): string;
 	export function active_label(state_json: string): string;
+	export function gpu_init(): Promise<string>;
+	export function gpu_available(): boolean;
+	export function gpu_mine(state_json: string, difficulty: number, mining_amount: string): Promise<string>;
 }

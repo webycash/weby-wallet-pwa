@@ -324,6 +324,104 @@ pub fn active_label(state_json: &str) -> Result<String, JsError> {
     Ok(wallet.active_label().to_string())
 }
 
+// ── GPU Mining (WebGPU via wgpu) ────────────────────────────────
+
+use std::cell::RefCell;
+use harmoniis_wallet::miner::gpu::GpuMiner;
+use harmoniis_wallet::miner::sha256::Sha256Midstate;
+use harmoniis_wallet::miner::nonce_table::NonceTable;
+use harmoniis_wallet::miner::NONCE_SPACE_SIZE;
+
+thread_local! {
+    static GPU_MINER: RefCell<Option<GpuMiner>> = RefCell::new(None);
+    static NONCE_TABLE: RefCell<Option<NonceTable>> = RefCell::new(None);
+}
+
+/// Initialize the WebGPU miner. Returns adapter name or empty string if unavailable.
+#[wasm_bindgen]
+pub async fn gpu_init() -> String {
+    let miner = GpuMiner::try_new().await;
+    match miner {
+        Some(m) => {
+            let name = m.adapter_name().to_string();
+            GPU_MINER.with(|cell| *cell.borrow_mut() = Some(m));
+            NONCE_TABLE.with(|cell| {
+                if cell.borrow().is_none() {
+                    *cell.borrow_mut() = Some(NonceTable::new());
+                }
+            });
+            name
+        }
+        None => String::new(),
+    }
+}
+
+/// Check if GPU miner is initialized.
+#[wasm_bindgen]
+pub fn gpu_available() -> bool {
+    GPU_MINER.with(|cell| cell.borrow().is_some())
+}
+
+/// Mine one work unit on GPU. Takes wallet state JSON, returns result JSON.
+/// Result: { "found": bool, "preimage_b64": string, "hash_hex": string, "nonce": number }
+#[wasm_bindgen]
+pub async fn gpu_mine(state_json: &str, difficulty: u32, mining_amount: &str) -> Result<String, JsError> {
+    let wallet = BrowserWallet::from_json(state_json).map_err(to_jserr)?;
+    let work = wallet.build_gpu_mining_work(difficulty, mining_amount).map_err(to_jserr)?;
+
+    let midstate = Sha256Midstate::from_prefix(work.prefix_b64.as_bytes());
+
+    let result = GPU_MINER.with(|cell| {
+        let borrow = cell.borrow();
+        let miner = borrow.as_ref().ok_or_else(|| JsError::new("GPU not initialized"))?;
+        // We can't call async from within with(), so clone what we need
+        Ok::<_, JsError>((miner as *const GpuMiner, ))
+    })?;
+
+    // Safety: single-threaded WASM, GpuMiner lives in thread_local for duration
+    let miner_ref = unsafe { &*result.0 };
+
+    let chunks = miner_ref.mine_batch(&[midstate.clone()], difficulty)
+        .await
+        .map_err(to_jserr)?;
+
+    let chunk = chunks.into_iter().next().unwrap_or_else(|| {
+        harmoniis_wallet::miner::MiningChunkResult::empty()
+    });
+
+    if let Some(mining_result) = chunk.result {
+        let nonce_table = NONCE_TABLE.with(|cell| cell.borrow().as_ref().unwrap().clone());
+        let nonce1 = nonce_table.get(mining_result.nonce1_idx);
+        let nonce2 = nonce_table.get(mining_result.nonce2_idx);
+
+        // Reconstruct full preimage: prefix_b64 + nonce1(4) + nonce2(4) + "fQ=="
+        let mut full_b64 = work.prefix_b64.clone();
+        full_b64.push_str(std::str::from_utf8(nonce1).unwrap_or(""));
+        full_b64.push_str(std::str::from_utf8(nonce2).unwrap_or(""));
+        full_b64.push_str("fQ==");
+
+        let hash_hex = hex::encode(mining_result.hash);
+        let nonce = (mining_result.nonce1_idx as u32) * 1000 + (mining_result.nonce2_idx as u32);
+
+        serde_json::to_string(&serde_json::json!({
+            "found": true,
+            "preimage_b64": full_b64,
+            "hash_hex": hash_hex,
+            "nonce": nonce,
+            "difficulty_achieved": mining_result.difficulty_achieved,
+            "secret": work.secret,
+            "webcash_str": work.webcash_str,
+            "mining_depth": work.mining_depth,
+            "attempted": chunk.attempted,
+        })).map_err(to_jserr)
+    } else {
+        serde_json::to_string(&serde_json::json!({
+            "found": false,
+            "attempted": chunk.attempted,
+        })).map_err(to_jserr)
+    }
+}
+
 // ── Encryption (delegates to JS — see encryption.ts) ────────────
 // Encryption/decryption stays in the JS layer using Web Crypto API.
 // This module only handles plaintext wallet state.
