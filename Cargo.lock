@@ -818,7 +818,7 @@ dependencies = [
 
 [[package]]
 name = "harmoniis-wallet"
-version = "0.1.82"
+version = "0.1.83"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -840,6 +840,7 @@ dependencies = [
  "pkcs8",
  "rand 0.8.6",
  "rand_core 0.6.4",
+ "reqwest",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",

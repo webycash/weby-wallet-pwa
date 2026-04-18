@@ -105,7 +105,7 @@
 					resultHash = res.hash_hex;
 
 					try {
-						await wasm.submit_mining_report(network, res.preimage_b64);
+						await wasm.submit_mining_report(network, res.preimage_b64, res.hash_hex);
 						solutionsSubmitted++;
 					} catch { /* best-effort */ }
 

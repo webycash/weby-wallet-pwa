@@ -555,45 +555,45 @@ pub async fn gpu_mine(
     }
 }
 
-/// Submit a mining solution to the server. Returns JSON response.
+/// Submit a mining solution to the server via harmoniis-wallet MiningProtocol.
+/// Includes the `work` field (decimal BigUint hash) required by the webcash server.
+/// On WASM: sends without Content-Type header to avoid CORS preflight.
 #[wasm_bindgen]
 pub async fn submit_mining_report(
     network: &str,
     preimage_b64: &str,
+    hash_hex: &str,
 ) -> Result<String, JsError> {
-    use harmoniis_wallet::webylib::server::{Legalese, MiningReportRequest, ServerClient, ServerConfig};
+    use harmoniis_wallet::miner::protocol::MiningProtocol;
 
-    let config = ServerConfig {
-        network: parse_network(network),
-        timeout_seconds: 30,
-    };
-    let client = ServerClient::with_config(config).map_err(to_jserr)?;
-    let report = MiningReportRequest {
-        preimage: preimage_b64.to_string(),
-        legalese: Legalese { terms: true },
-    };
-    let response = client.submit_mining_report(&report).await.map_err(to_jserr)?;
+    let mode = parse_network(network);
+    let protocol = MiningProtocol::from_network(&mode).map_err(to_jserr)?;
+
+    let hash_bytes: [u8; 32] = hex::decode(hash_hex)
+        .map_err(to_jserr)?
+        .try_into()
+        .map_err(|_| JsError::new("hash must be 32 bytes"))?;
+
+    let response = protocol.submit_report(preimage_b64, &hash_bytes).await.map_err(to_jserr)?;
     serde_json::to_string(&serde_json::json!({
         "status": response.status,
+        "error": response.error,
     }))
     .map_err(to_jserr)
 }
 
-/// Get mining target from server. Returns JSON: {difficulty, mining_amount, subsidy_amount}.
+/// Get mining target from server via harmoniis-wallet MiningProtocol.
 #[wasm_bindgen]
 pub async fn get_mining_target(network: &str) -> Result<String, JsError> {
-    use harmoniis_wallet::webylib::server::{ServerClient, ServerConfig};
+    use harmoniis_wallet::miner::protocol::MiningProtocol;
 
-    let config = ServerConfig {
-        network: parse_network(network),
-        timeout_seconds: 30,
-    };
-    let client = ServerClient::with_config(config).map_err(to_jserr)?;
-    let target = client.get_target().await.map_err(to_jserr)?;
+    let mode = parse_network(network);
+    let protocol = MiningProtocol::from_network(&mode).map_err(to_jserr)?;
+    let target = protocol.get_target().await.map_err(to_jserr)?;
     serde_json::to_string(&serde_json::json!({
-        "difficulty_target_bits": target.difficulty_target_bits,
-        "mining_amount": target.mining_amount,
-        "mining_subsidy_amount": target.mining_subsidy_amount,
+        "difficulty_target_bits": target.difficulty,
+        "mining_amount": target.mining_amount.to_string(),
+        "mining_subsidy_amount": target.subsidy_amount.to_string(),
     }))
     .map_err(to_jserr)
 }
