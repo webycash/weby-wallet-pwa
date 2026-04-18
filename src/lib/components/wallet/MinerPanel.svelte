@@ -173,11 +173,11 @@
 	};
 </script>
 
-<div class="rounded-xl bg-card overflow-hidden">
+<div class="rounded-xl bg-card border border-border overflow-hidden">
 	<!-- Header -->
 	<div class="flex items-center justify-between px-5 py-4 border-b border-border">
 		<div class="flex items-center gap-2">
-			<Pickaxe class="w-4 h-4 text-primary" />
+			<Pickaxe class="w-4 h-4 text-muted-foreground" />
 			<span class="text-sm font-semibold text-foreground">Miner</span>
 			{#if gpuInitializing}
 				<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">Detecting GPU...</span>
@@ -217,44 +217,28 @@
 
 	<!-- Live stats -->
 	{#if running || stats.totalAttempts > 0}
-		<div class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border">
-			<div class="bg-card px-4 py-3">
-				<div class="flex items-center gap-1.5 text-muted-foreground mb-1">
-					<Zap class="w-3 h-3" />
-					<span class="text-[10px] uppercase tracking-wider font-medium">Speed</span>
-				</div>
-				<p class="text-lg font-bold text-foreground tabular-nums">{formatRate(stats.hashRate)}</p>
+		<div class="grid grid-cols-2 sm:grid-cols-4 gap-6 px-5 py-4">
+			<div>
+				<p class="text-xs text-muted-foreground mb-1">Speed</p>
+				<p class="text-lg font-semibold text-foreground tabular-nums">{formatRate(stats.hashRate)}</p>
 			</div>
-			<div class="bg-card px-4 py-3">
-				<div class="flex items-center gap-1.5 text-muted-foreground mb-1">
-					<Hash class="w-3 h-3" />
-					<span class="text-[10px] uppercase tracking-wider font-medium">Attempts</span>
-				</div>
-				<p class="text-lg font-bold text-foreground tabular-nums">{formatAttempts(stats.totalAttempts)}</p>
+			<div>
+				<p class="text-xs text-muted-foreground mb-1">Attempts</p>
+				<p class="text-lg font-semibold text-foreground tabular-nums">{formatAttempts(stats.totalAttempts)}</p>
 			</div>
-			<div class="bg-card px-4 py-3">
-				<div class="flex items-center gap-1.5 text-muted-foreground mb-1">
-					<Target class="w-3 h-3" />
-					<span class="text-[10px] uppercase tracking-wider font-medium">Difficulty</span>
-				</div>
-				<p class="text-lg font-bold text-foreground tabular-nums">{stats.difficulty}</p>
+			<div>
+				<p class="text-xs text-muted-foreground mb-1">Difficulty</p>
+				<p class="text-lg font-semibold text-foreground tabular-nums">{stats.difficulty}</p>
 			</div>
-			<div class="bg-card px-4 py-3">
-				<div class="flex items-center gap-1.5 text-muted-foreground mb-1">
-					<Clock class="w-3 h-3" />
-					<span class="text-[10px] uppercase tracking-wider font-medium">
-						{useGpu ? 'Backend' : 'ETA'}
-					</span>
-				</div>
-				<p class="text-lg font-bold text-foreground tabular-nums">
-					{useGpu ? 'WebGPU' : (stats.eta || '—')}
-				</p>
+			<div>
+				<p class="text-xs text-muted-foreground mb-1">{useGpu ? 'Backend' : 'ETA'}</p>
+				<p class="text-lg font-semibold text-foreground tabular-nums">{useGpu ? 'WebGPU' : (stats.eta || '—')}</p>
 			</div>
 		</div>
 
 		{#if running && stats.progress !== undefined && !useGpu}
-			<div class="h-1 bg-muted">
-				<div class="h-full bg-warning transition-all duration-300" style="width: {Math.min(stats.progress, 100)}%"></div>
+			<div class="h-0.5 bg-muted mx-5">
+				<div class="h-full bg-primary transition-all duration-300" style="width: {Math.min(stats.progress, 100)}%"></div>
 			</div>
 		{/if}
 	{/if}

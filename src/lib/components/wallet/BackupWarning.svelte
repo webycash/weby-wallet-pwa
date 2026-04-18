@@ -10,13 +10,13 @@
 </script>
 
 {#if !dismissed}
-	<div class="bg-warning/10 border-b border-warning/20 px-4 py-2">
+	<div class="bg-muted border-b border-border px-4 py-2">
 		<div class="container mx-auto max-w-2xl flex items-center justify-between text-xs">
-			<span class="text-warning font-medium">
-				Wallet not backed up.
-				<a href="#backup" class="underline hover:no-underline ml-1">Back up now</a>
+			<span class="text-muted-foreground font-medium">
+				Not backed up
+				<a href="#backup" class="underline hover:no-underline ml-1 text-foreground">Back up now</a>
 			</span>
-			<button onclick={dismiss} class="text-warning hover:text-warning p-1" aria-label="Dismiss">
+			<button onclick={dismiss} class="text-muted-foreground hover:text-foreground p-1" aria-label="Dismiss">
 				&times;
 			</button>
 		</div>

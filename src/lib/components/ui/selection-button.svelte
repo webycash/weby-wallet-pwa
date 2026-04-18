@@ -21,7 +21,7 @@
 	{onclick}
 	{disabled}
 	class={cn(
-		"w-full flex items-center gap-3 rounded-full border-2 px-5 py-4 text-left transition-all",
+		"w-full flex items-center gap-3 rounded-full border px-5 py-4 text-left transition-all",
 		selected
 			? "border-primary bg-primary text-primary-foreground"
 			: "border-border bg-card text-foreground hover:border-primary hover:bg-muted",

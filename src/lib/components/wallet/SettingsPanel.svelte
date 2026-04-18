@@ -79,7 +79,7 @@
 	<!-- Selected Wallet (default open) -->
 	<details open class={sectionClass}>
 		<summary class={summaryClass}>
-			<Key class="w-4 h-4 text-primary" />
+			<Key class="w-4 h-4 text-muted-foreground" />
 			<span class="flex-1">Wallet</span>
 			<span class="text-xs text-muted-foreground font-normal capitalize">{activeLabel}</span>
 		</summary>
@@ -113,7 +113,7 @@
 	<!-- Master -->
 	<details class={sectionClass}>
 		<summary class={summaryClass}>
-			<Lock class="w-4 h-4 text-warning" />
+			<Lock class="w-4 h-4 text-muted-foreground" />
 			<span class="flex-1">Master</span>
 		</summary>
 		<div class={contentClass}>
@@ -143,7 +143,7 @@
 	<!-- Webcash -->
 	<details class={sectionClass}>
 		<summary class={summaryClass}>
-			<span class="w-4 h-4 text-success font-bold text-sm leading-4">₩</span>
+			<span class="w-4 h-4 text-muted-foreground font-bold text-sm leading-4">₩</span>
 			<span class="flex-1">Webcash</span>
 		</summary>
 		<div class={contentClass}>

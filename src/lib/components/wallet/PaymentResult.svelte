@@ -59,7 +59,7 @@
 
 		<!-- Memo -->
 		{#if memo}
-			<div class="rounded-2xl bg-muted border-2 border-border px-4 py-3 text-center">
+			<div class="rounded-2xl bg-muted border border-border px-4 py-3 text-center">
 				<p class="text-sm text-foreground italic">"{memo}"</p>
 			</div>
 		{/if}
@@ -67,7 +67,7 @@
 		<!-- Webcash secret -->
 		<div>
 			<p class="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Send this to the recipient</p>
-			<div class="rounded-2xl bg-muted border-2 border-border p-4">
+			<div class="rounded-2xl bg-muted border border-border p-4">
 				<code class="text-xs font-mono text-foreground break-all leading-relaxed select-all">{webcash}</code>
 			</div>
 		</div>

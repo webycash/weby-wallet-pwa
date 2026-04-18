@@ -32,7 +32,7 @@
 	};
 </script>
 
-<div class="rounded-3xl border-2 border-border bg-card p-5 space-y-3">
+<div class="rounded-3xl border border-border bg-card p-5 space-y-3">
 	<label class="text-xs font-medium text-muted-foreground" for="verify-input">
 		Paste public or secret webcash to verify
 	</label>
@@ -40,7 +40,7 @@
 		id="verify-input"
 		bind:value={input}
 		placeholder="e1.5:public:abc123... or e1.5:secret:abc123..."
-		class="w-full rounded-2xl border-2 border-input bg-background px-4 py-3 text-sm font-mono h-16 resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+		class="w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm font-mono h-16 resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
 		spellcheck="false"
 	></textarea>
 	<button onclick={verify}
@@ -51,20 +51,20 @@
 	</button>
 
 	{#if result === 'valid'}
-		<div class="rounded-2xl bg-success border-2 border-success px-4 py-3 text-sm text-success-foreground dark:text-success-foreground font-medium">
+		<div class="rounded-2xl bg-success border border-success px-4 py-3 text-sm text-success-foreground dark:text-success-foreground font-medium">
 			Valid — this webcash is unspent
 		</div>
 	{:else if result === 'spent'}
-		<div class="rounded-2xl bg-danger border-2 border-danger px-4 py-3 text-sm text-danger-foreground dark:text-danger-foreground font-medium">
+		<div class="rounded-2xl bg-danger border border-danger px-4 py-3 text-sm text-danger-foreground dark:text-danger-foreground font-medium">
 			Spent — this webcash has already been used
 		</div>
 	{:else if result === 'unknown'}
-		<div class="rounded-2xl bg-warning border-2 border-warning px-4 py-3 text-sm text-warning-foreground dark:text-warning-foreground font-medium">
+		<div class="rounded-2xl bg-warning border border-warning px-4 py-3 text-sm text-warning-foreground dark:text-warning-foreground font-medium">
 			Unknown — not found on the server
 		</div>
 	{/if}
 
 	{#if error}
-		<div class="rounded-2xl bg-danger border-2 border-danger px-4 py-3 text-sm text-danger-foreground">{error}</div>
+		<div class="rounded-2xl bg-danger border border-danger px-4 py-3 text-sm text-danger-foreground">{error}</div>
 	{/if}
 </div>

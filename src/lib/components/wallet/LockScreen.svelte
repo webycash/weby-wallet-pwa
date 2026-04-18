@@ -105,7 +105,7 @@
 					type="password"
 					bind:value={password}
 					placeholder="Password"
-					class="w-full rounded-full border-2 border-border bg-background px-5 py-3 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+					class="w-full rounded-full border border-border bg-background px-5 py-3 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
 					onkeydown={(e) => { if (e.key === 'Enter') unlockWithPassword(); }}
 				/>
 				<Button class="w-full" onclick={unlockWithPassword} disabled={loading || !password}>

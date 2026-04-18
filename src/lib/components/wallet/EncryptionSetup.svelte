@@ -95,9 +95,9 @@
 	{#if showPasswordForm && current !== 'password'}
 		<div class="mt-3 space-y-2">
 			<input type="password" bind:value={password} placeholder="Password (min 8 characters)"
-				class="w-full rounded-full border-2 border-border bg-background px-5 py-3 text-sm focus:outline-none focus:border-primary transition-all" />
+				class="w-full rounded-full border border-border bg-background px-5 py-3 text-sm focus:outline-none focus:border-primary transition-all" />
 			<input type="password" bind:value={passwordConfirm} placeholder="Confirm password"
-				class="w-full rounded-full border-2 border-border bg-background px-5 py-3 text-sm focus:outline-none focus:border-primary transition-all" />
+				class="w-full rounded-full border border-border bg-background px-5 py-3 text-sm focus:outline-none focus:border-primary transition-all" />
 			<Button class="w-full" onclick={confirmPassword} disabled={loading || !password || password.length < 8}>
 				{loading ? 'Encrypting...' : 'Encrypt Wallet'}
 			</Button>

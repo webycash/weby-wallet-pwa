@@ -18,7 +18,7 @@
 <div class="min-h-[60vh] flex items-center justify-center px-4 py-12">
 	<div class="w-full max-w-sm">
 		<!-- Gift Card -->
-		<div class="relative overflow-hidden rounded-3xl border-2 border-primary bg-gradient-to-br from-primary via-primary to-transparent p-8 text-center">
+		<div class="relative overflow-hidden rounded-3xl border border-primary bg-gradient-to-br from-primary via-primary to-transparent p-8 text-center">
 			<!-- Decorative circles -->
 			<div class="absolute top-0 left-0 w-24 h-24 bg-primary rounded-full -translate-x-1/2 -translate-y-1/2 blur-xl"></div>
 			<div class="absolute bottom-0 right-0 w-32 h-32 bg-primary rounded-full translate-x-1/3 translate-y-1/3 blur-2xl"></div>
@@ -39,7 +39,7 @@
 						<p class="text-sm text-muted-foreground mt-3 italic">"{memo}"</p>
 					{/if}
 					{#if network === 'testnet'}
-						<span class="inline-block mt-3 rounded-full bg-warning border-2 border-warning px-3 py-1 text-xs font-medium text-warning-foreground">Testnet</span>
+						<span class="inline-block mt-3 rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">Testnet</span>
 					{/if}
 
 				{:else if error}

@@ -261,7 +261,7 @@
 
 		<div class="space-y-3">
 			<button onclick={createNew}
-				class="w-full flex items-center gap-4 rounded-full border-2 border-border bg-card p-5 text-left hover:border-primary hover:bg-muted transition-all"
+				class="w-full flex items-center gap-4 rounded-full border border-border bg-card p-5 text-left hover:border-primary hover:bg-muted transition-all"
 				disabled={loading}>
 				<div class="rounded-full bg-primary p-2.5">
 					<Plus class="w-5 h-5 text-primary-foreground" />
@@ -273,7 +273,7 @@
 			</button>
 
 			<button onclick={() => { step = 'recover' }}
-				class="w-full flex items-center gap-4 rounded-full border-2 border-border bg-card p-5 text-left hover:border-primary hover:bg-muted transition-all">
+				class="w-full flex items-center gap-4 rounded-full border border-border bg-card p-5 text-left hover:border-primary hover:bg-muted transition-all">
 				<div class="rounded-full bg-primary p-2.5">
 					<KeyRound class="w-5 h-5 text-primary-foreground" />
 				</div>
@@ -283,7 +283,7 @@
 				</div>
 			</button>
 
-			<label class="w-full flex items-center gap-4 rounded-full border-2 border-border bg-card p-5 text-left hover:border-primary hover:bg-muted transition-all cursor-pointer">
+			<label class="w-full flex items-center gap-4 rounded-full border border-border bg-card p-5 text-left hover:border-primary hover:bg-muted transition-all cursor-pointer">
 				<div class="rounded-full bg-primary p-2.5">
 					<Upload class="w-5 h-5 text-primary-foreground" />
 				</div>
@@ -295,7 +295,7 @@
 			</label>
 
 			<button onclick={() => { step = 'qrscan' }}
-				class="w-full flex items-center gap-4 rounded-full border-2 border-border bg-card p-5 text-left hover:border-primary hover:bg-muted transition-all">
+				class="w-full flex items-center gap-4 rounded-full border border-border bg-card p-5 text-left hover:border-primary hover:bg-muted transition-all">
 				<div class="rounded-full bg-primary p-2.5">
 					<ScanLine class="w-5 h-5 text-primary-foreground" />
 				</div>
@@ -312,13 +312,13 @@
 		<textarea
 			bind:value={recoverInput}
 			placeholder="24 words or 64-char hex..."
-			class="w-full rounded-2xl border-2 border-input bg-background px-4 py-3 text-sm font-mono h-24 resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+			class="w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm font-mono h-24 resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
 			autocomplete="off"
 			spellcheck="false"
 		></textarea>
 		<div class="flex gap-2 mt-4">
 			<button onclick={() => { step = 'choose'; error = '' }}
-				class="flex-1 rounded-full border-2 border-border px-4 py-3 text-sm font-medium hover:bg-muted transition-all">
+				class="flex-1 rounded-full border border-border px-4 py-3 text-sm font-medium hover:bg-muted transition-all">
 				Back
 			</button>
 			<button onclick={recoverFromSecret}
@@ -333,12 +333,12 @@
 		<p class="text-sm text-muted-foreground mb-4">
 			Open your wallet on the other device, go to Settings > QR Export, and scan the code with your camera.
 		</p>
-		<div class="rounded-2xl border-2 border-border overflow-hidden bg-black aspect-square relative mb-4 max-w-[320px] mx-auto">
+		<div class="rounded-2xl border border-border overflow-hidden bg-black aspect-square relative mb-4 max-w-[320px] mx-auto">
 			<video bind:this={videoEl} autoplay playsinline muted class="w-full h-full object-cover"></video>
 			<canvas bind:this={canvasEl} class="hidden"></canvas>
 			<div class="absolute inset-0 pointer-events-none">
-				<div class="absolute inset-[12%] border-2 border-primary rounded-2xl"></div>
-				<div class="absolute inset-[12%] border-2 border-primary rounded-2xl animate-pulse"></div>
+				<div class="absolute inset-[12%] border border-primary rounded-2xl"></div>
+				<div class="absolute inset-[12%] border border-primary rounded-2xl animate-pulse"></div>
 			</div>
 			<div class="absolute bottom-3 left-0 right-0 text-center">
 				<span class="text-xs text-white bg-black backdrop-blur-sm px-3 py-1.5 rounded-full">{scanStatus}</span>
@@ -350,13 +350,13 @@
 		<textarea
 			bind:value={recoverInput}
 			placeholder="24 words or 64-char hex..."
-			class="w-full rounded-xl border-2 border-input bg-background px-4 py-3 text-sm font-mono h-16 resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+			class="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm font-mono h-16 resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
 			autocomplete="off"
 			spellcheck="false"
 		></textarea>
 		<div class="flex gap-2 mt-4">
 			<button onclick={() => { stopCamera(); step = 'choose'; error = '' }}
-				class="flex-1 rounded-full border-2 border-border px-4 py-3 text-sm font-medium hover:bg-muted transition-all">
+				class="flex-1 rounded-full border border-border px-4 py-3 text-sm font-medium hover:bg-muted transition-all">
 				Back
 			</button>
 			<button onclick={recoverFromSecret}
@@ -404,19 +404,19 @@
 					type="password"
 					bind:value={encPassword}
 					placeholder="Password (min 8 characters)"
-					class="w-full rounded-xl border-2 border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+					class="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
 				/>
 				<input
 					type="password"
 					bind:value={encPasswordConfirm}
 					placeholder="Confirm password"
-					class="w-full rounded-xl border-2 border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+					class="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
 				/>
 			</div>
 		{/if}
 
 		{#if encError}
-			<div class="mb-4 rounded-2xl bg-danger border-2 border-danger px-4 py-3 text-sm text-danger-foreground dark:text-danger-foreground">
+			<div class="mb-4 rounded-2xl bg-danger border border-danger px-4 py-3 text-sm text-danger-foreground dark:text-danger-foreground">
 				{encError}
 			</div>
 		{/if}
@@ -437,7 +437,7 @@
 
 	{:else if step === 'backup'}
 		<h2 class="text-xl font-bold text-foreground mb-2">Back Up Your Secret</h2>
-		<Card.Root class="border-warning mb-5">
+		<Card.Root class="border-danger mb-5">
 			<Card.Content class="p-4">
 				<p class="text-sm font-medium text-foreground">This is the only way to recover your wallet.</p>
 				<p class="text-xs text-muted-foreground mt-1">Write it down or save it somewhere secure. It cannot be recovered later.</p>
@@ -468,7 +468,7 @@
 	{/if}
 
 	{#if error}
-		<div class="mt-4 rounded-2xl bg-danger border-2 border-danger px-4 py-3 text-sm text-danger-foreground dark:text-danger-foreground">
+		<div class="mt-4 rounded-2xl bg-danger border border-danger px-4 py-3 text-sm text-danger-foreground dark:text-danger-foreground">
 			{error}
 		</div>
 	{/if}
