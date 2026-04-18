@@ -9,7 +9,7 @@ import type {
 const apiUrl = (network: NetworkMode, path: string): string =>
 	network === 'testnet'
 		? `/api/webcash/testnet/api/v1/${path}`
-		: `/api/v1/${path}`;
+		: `https://webcash.org/api/v1/${path}`;
 
 const post = async <T>(url: string, body: unknown): Promise<T> => {
 	const res = await fetch(url, {
