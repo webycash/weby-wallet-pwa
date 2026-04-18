@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { exportWalletSnapshot, importWalletSnapshot, removeWallet, renameWallet,
+	import { exportWalletSnapshot, removeWallet, renameWallet,
 		getMnemonic } from '$lib/stores/wallet.svelte';
 	import { markBackedUp, encryptionType } from '$lib/stores/settings.svelte';
 	import * as Persistence from '$lib/core/persistence';
-	import { QrCode, Download, Upload, Trash2, Pencil, Lock, Key } from '@lucide/svelte';
+	import { QrCode, Download, Trash2, Pencil, Lock, Key } from '@lucide/svelte';
 
 	import Button from '$lib/components/ui/button/button.svelte';
 	import EncryptionSetup from './EncryptionSetup.svelte';
@@ -35,31 +35,17 @@
 		onMessage('Backup downloaded');
 	};
 
-	const handleImportBackup = async () => {
-		const input = document.createElement('input');
-		input.type = 'file';
-		input.accept = '.json';
-		input.onchange = async () => {
-			const file = input.files?.[0];
-			if (!file) return;
-			try {
-				const text = await file.text();
-				const snap = JSON.parse(text);
-				const r = await importWalletSnapshot(snap);
-				if (r.ok) { onMessage('Backup imported'); await onRefresh(); }
-				else onMessage(r.error, 'error');
-			} catch (e) { onMessage(`Import failed: ${e}`, 'error'); }
-		};
-		input.click();
-	};
-
 	const handleDeleteMaster = async () => {
 		if (!confirm('DELETE MASTER WALLET?\n\nThis destroys ALL wallets derived from this master key.\nMake sure you have a backup of your mnemonic.')) return;
-		const { deleteEverything } = await import('$lib/core/persistence');
-		await deleteEverything();
-		const { clearWallet } = await import('$lib/stores/settings.svelte');
-		clearWallet();
-		setTimeout(() => { window.location.href = window.location.pathname; }, 100);
+		try {
+			const { deleteEverything } = await import('$lib/core/persistence');
+			await deleteEverything();
+			// Clear all localStorage
+			localStorage.clear();
+			setTimeout(() => { window.location.href = window.location.pathname; }, 200);
+		} catch (e) {
+			onMessage(`Delete failed: ${e}`, 'error');
+		}
 	};
 
 	const handleDeleteDerived = async () => {
@@ -139,10 +125,7 @@
 				<Button variant="outline" class="w-full justify-start" onclick={handleBackup}>
 					<Download class="w-4 h-4" /> Backup
 				</Button>
-				<Button variant="outline" class="w-full justify-start" onclick={handleImportBackup}>
-					<Upload class="w-4 h-4" /> Import Backup
-				</Button>
-			</div>
+				</div>
 			{#if qrDataUrl}
 				<div class="pt-3 border-t border-border text-center">
 					<p class="text-xs text-muted-foreground mb-3">Scan to import wallet</p>
