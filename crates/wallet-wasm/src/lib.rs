@@ -328,6 +328,7 @@ pub fn active_label(state_json: &str) -> Result<String, JsError> {
 
 use std::cell::RefCell;
 use harmoniis_wallet::miner::gpu::GpuMiner;
+use wgpu;
 use harmoniis_wallet::miner::sha256::Sha256Midstate;
 use harmoniis_wallet::miner::nonce_table::NonceTable;
 use harmoniis_wallet::miner::NONCE_SPACE_SIZE;
@@ -340,14 +341,41 @@ thread_local! {
 /// Initialize the WebGPU miner. Returns adapter name or empty string if unavailable.
 #[wasm_bindgen]
 pub async fn gpu_init() -> String {
-    // Log to browser console since eprintln doesn't work in WASM
-    web_sys::console::log_1(&"GPU: initializing wgpu WebGPU backend...".into());
+    use harmoniis_wallet::miner::gpu::platform_backend;
 
-    let miner = GpuMiner::try_new().await;
-    match miner {
+    web_sys::console::log_1(&"GPU: initializing wgpu...".into());
+
+    // Step 1: Create wgpu instance
+    let backend = platform_backend();
+    web_sys::console::log_1(&format!("GPU: backend = {:?}", backend).into());
+
+    let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
+        backends: backend,
+        ..Default::default()
+    });
+
+    // Step 2: Request adapter
+    web_sys::console::log_1(&"GPU: requesting adapter...".into());
+    let adapter = match instance.request_adapter(&wgpu::RequestAdapterOptions {
+        power_preference: wgpu::PowerPreference::HighPerformance,
+        compatible_surface: None,
+        force_fallback_adapter: false,
+    }).await {
+        Ok(a) => a,
+        Err(e) => {
+            web_sys::console::error_1(&format!("GPU: request_adapter failed: {e}").into());
+            return String::new();
+        }
+    };
+
+    let info = adapter.get_info();
+    web_sys::console::log_1(&format!("GPU: adapter = {} ({:?}, {:?})", info.name, info.backend, info.device_type).into());
+
+    // Step 3: Try to create GpuMiner from this adapter
+    match GpuMiner::try_from_adapter(adapter).await {
         Some(m) => {
             let name = m.adapter_name().to_string();
-            web_sys::console::log_1(&format!("GPU: initialized: {}", name).into());
+            web_sys::console::log_1(&format!("GPU: miner initialized: {}", name).into());
             GPU_MINER.with(|cell| *cell.borrow_mut() = Some(m));
             NONCE_TABLE.with(|cell| {
                 if cell.borrow().is_none() {
@@ -357,7 +385,7 @@ pub async fn gpu_init() -> String {
             name
         }
         None => {
-            web_sys::console::error_1(&"GPU: GpuMiner::try_new() returned None — no adapter or device init failed".into());
+            web_sys::console::error_1(&"GPU: try_from_adapter returned None (device/shader/pipeline init failed)".into());
             String::new()
         }
     }

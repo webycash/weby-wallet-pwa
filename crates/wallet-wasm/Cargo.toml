@@ -18,6 +18,7 @@ getrandom = { version = "0.2", features = ["js"] }
 getrandom_0_3 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
 hex = "0.4"
 web-sys = { version = "0.3", features = ["console"] }
+wgpu = { version = "28", features = ["webgpu"] }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
