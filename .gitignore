@@ -13,3 +13,6 @@ build/
 pkg/
 crates/wallet-wasm/target/
 crates/wallet-wasm/pkg/
+/Cargo.toml
+/Cargo.lock
+/target/
