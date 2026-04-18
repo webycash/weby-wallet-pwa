@@ -10,6 +10,12 @@ fn to_jserr(e: impl std::fmt::Display) -> JsError {
     JsError::new(&e.to_string())
 }
 
+/// Call once to get readable panic messages in the browser console.
+#[wasm_bindgen(start)]
+pub fn init_panic_hook() {
+    console_error_panic_hook::set_once();
+}
+
 // ── Wallet Lifecycle ────────────────────────────────────────────
 
 #[wasm_bindgen]
@@ -65,8 +71,8 @@ pub fn mnemonic_from_hex(hex: &str) -> Result<String, JsError> {
 #[wasm_bindgen]
 pub fn api_url(network: &str, endpoint: &str) -> String {
     let mode = match network {
-        "testnet" => webylib::NetworkMode::Testnet,
-        _ => webylib::NetworkMode::Production,
+        "testnet" => harmoniis_wallet::webylib::NetworkMode::Testnet,
+        _ => harmoniis_wallet::webylib::NetworkMode::Production,
     };
     mode.endpoint_url(&format!("/api/v1/{endpoint}"))
 }
@@ -410,9 +416,9 @@ pub fn gpu_available() -> bool {
 /// Mine one work unit on GPU. Takes wallet state JSON, returns result JSON.
 /// Result: { "found": bool, "preimage_b64": string, "hash_hex": string, "nonce": number }
 #[wasm_bindgen]
-pub async fn gpu_mine(state_json: &str, difficulty: u32, mining_amount: &str) -> Result<String, JsError> {
+pub async fn gpu_mine(state_json: &str, difficulty: u32, mining_amount: &str, subsidy_amount: &str) -> Result<String, JsError> {
     let wallet = BrowserWallet::from_json(state_json).map_err(to_jserr)?;
-    let work = wallet.build_gpu_mining_work(difficulty, mining_amount).map_err(to_jserr)?;
+    let work = wallet.build_gpu_mining_work(difficulty, mining_amount, subsidy_amount).map_err(to_jserr)?;
 
     let midstate = Sha256Midstate::from_prefix(work.prefix_b64.as_bytes());
 

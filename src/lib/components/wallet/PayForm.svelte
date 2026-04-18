@@ -1,20 +1,22 @@
 <script lang="ts">
 	import { ArrowUpFromLine } from '@lucide/svelte';
 	let { onSubmit, disabled, formatAmount, balanceWats }: {
-		onSubmit: (amountWats: number) => void;
+		onSubmit: (amountWats: number, memo: string) => void;
 		disabled: boolean;
 		formatAmount: ((w: number) => string) | null;
 		balanceWats: number;
 	} = $props();
 
 	let amountStr = $state('');
+	let memo = $state('');
 
 	const submit = () => {
 		const parsed = parseFloat(amountStr);
 		if (isNaN(parsed) || parsed <= 0) return;
 		const wats = Math.round(parsed * 1e8);
-		onSubmit(wats);
+		onSubmit(wats, memo.trim());
 		amountStr = '';
+		memo = '';
 	};
 
 	const setMax = () => {
@@ -38,6 +40,16 @@
 			bind:value={amountStr}
 			placeholder="0.00"
 			class="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+		/>
+	</div>
+	<div>
+		<label class="text-xs font-medium text-muted-foreground" for="pay-memo">Reference (optional)</label>
+		<input
+			id="pay-memo"
+			type="text"
+			bind:value={memo}
+			placeholder="What is this for?"
+			class="mt-1.5 w-full rounded-xl border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
 		/>
 	</div>
 	<button onclick={submit}

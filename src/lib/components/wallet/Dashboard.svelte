@@ -41,6 +41,7 @@
 	let showBackupWarning = $state(!backedUp() && !backupDismissed());
 	let showSettings = $state(false);
 	let paymentResult = $state('');
+	let paymentMemo = $state('');
 
 	// Multi-wallet state
 	let activeFamily = $state('webcash');
@@ -112,7 +113,7 @@
 
 	// Action handlers
 	const handleInsert = async (s: string) => { loading = true; const r = await insertWebcash(network, s); if (r.ok) { showMessage('Webcash inserted'); activePanel = null; await refresh(); } else showMessage(r.error, 'error'); loading = false; };
-	const handlePay = async (a: number) => { loading = true; const r = await payWebcash(network, a); if (r.ok) { paymentResult = r.value; activePanel = 'payment-result'; await refresh(); } else showMessage(r.error, 'error'); loading = false; };
+	const handlePay = async (a: number, memo: string = '') => { loading = true; const r = await payWebcash(network, a); if (r.ok) { paymentResult = r.value; paymentMemo = memo; activePanel = 'payment-result'; await refresh(); } else showMessage(r.error, 'error'); loading = false; };
 	const handleCheck = async () => { loading = true; const r = await checkWallet(network); if (r.ok) showMessage(`${r.value.validCount} valid, ${r.value.spentCount} spent`); else showMessage(r.error, 'error'); loading = false; };
 	const handleMerge = async () => { loading = true; const r = await mergeOutputs(network, 50); if (r.ok) { showMessage(r.value); await refresh(); } else showMessage(r.error, 'error'); loading = false; };
 	const handleRecover = async () => { loading = true; const { getMasterSecret, recoverWallet } = await import('$lib/stores/wallet.svelte'); const s = await getMasterSecret(); if (!s) { showMessage('No master secret', 'error'); loading = false; return; } const r = await recoverWallet(network, s, 20); if (r.ok) { showMessage(`Recovered ${r.value.recoveredCount} outputs`); await refresh(); } else showMessage(r.error, 'error'); loading = false; };
@@ -232,15 +233,14 @@
 	{/if}
 
 	<!-- Action Buttons -->
-	<div class="grid grid-cols-2 gap-2 max-w-md mx-auto w-full">
-		{#each actions as btn, i}
-			<Button variant="outline"
-				class="w-full {i === actions.length - 1 && actions.length % 2 === 1 ? 'col-span-2' : ''}
-					{activePanel === btn.id ? 'border-primary text-primary font-semibold' : ''}"
+	<div class="grid grid-cols-3 gap-2 max-w-md mx-auto w-full">
+		{#each actions as btn}
+			<Button variant="outline" size="sm"
+				class="w-full {activePanel === btn.id ? 'border-primary text-primary font-semibold' : ''}"
 				onclick={() => btn.action ? btn.action() : (activePanel = activePanel === btn.id ? null : btn.id)}
 				disabled={loading}>
 				<btn.icon class="w-4 h-4 {activePanel === btn.id ? 'text-primary' : ''}" />
-				{btn.label} {activePanel === btn.id ? '✕' : ''}
+				<span class="truncate">{btn.label}</span>
 			</Button>
 		{/each}
 	</div>
@@ -250,7 +250,7 @@
 	{:else if activePanel === 'pay'}
 		<PayForm onSubmit={handlePay} disabled={loading} formatAmount={fmt} {balanceWats} />
 	{:else if activePanel === 'payment-result'}
-		<PaymentResult webcash={paymentResult} memo="" onDone={() => { activePanel = null; paymentResult = ''; }} />
+		<PaymentResult webcash={paymentResult} memo={paymentMemo} onDone={() => { activePanel = null; paymentResult = ''; paymentMemo = ''; }} />
 	{:else if activePanel === 'verify'}
 		<VerifyForm />
 	{:else if activePanel === 'mine'}

@@ -5,7 +5,7 @@
 	import { decryptWithPasskey, decryptWithPassword } from '$lib/core/encryption';
 	import { importWalletSnapshot } from '$lib/stores/wallet.svelte';
 	import type { WalletSnapshot } from '$lib/core/types';
-	import { Lock, Fingerprint, Trash2 } from '@lucide/svelte';
+	import { Lock, Fingerprint, KeyRound } from '@lucide/svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import * as Card from '$lib/components/ui/card';
 
@@ -15,6 +15,8 @@
 	let password = $state('');
 	let error = $state('');
 	let loading = $state(false);
+	let autofilled = $state(false);
+	let passwordEl = $state<HTMLInputElement>();
 
 	const tryLoadSnapshot = (encrypted: string): WalletSnapshot | null => {
 		try {
@@ -51,6 +53,9 @@
 	};
 
 	const unlockWithPassword = async () => {
+		// Read value directly from DOM in case of autofill that didn't trigger bind
+		const pwd = passwordEl?.value || password;
+		if (!pwd) return;
 		loading = true;
 		error = '';
 		try {
@@ -60,7 +65,7 @@
 			const plain = tryLoadSnapshot(encrypted);
 			if (plain) { await importWalletSnapshot(plain); onUnlock(); return; }
 
-			const snapshot = await decryptWithPassword(encrypted, password);
+			const snapshot = await decryptWithPassword(encrypted, pwd);
 			await importWalletSnapshot(snapshot); onUnlock();
 		} catch (e: any) {
 			error = 'Wrong password';
@@ -74,8 +79,26 @@
 		setTimeout(() => { window.location.href = window.location.pathname; }, 100);
 	};
 
+	const detectAutofill = () => {
+		// Browsers apply :-webkit-autofill; check after a short delay
+		setTimeout(() => {
+			if (passwordEl) {
+				try {
+					if (passwordEl.matches(':-webkit-autofill')) {
+						autofilled = true;
+					}
+				} catch {}
+				// Fallback: if the field has a value we didn't set
+				if (!autofilled && passwordEl.value && !password) {
+					autofilled = true;
+				}
+			}
+		}, 600);
+	};
+
 	onMount(() => {
 		if (encType === 'passkey') unlockPasskey();
+		else detectAutofill();
 	});
 </script>
 
@@ -101,16 +124,29 @@
 					<h2 class="text-lg font-bold text-foreground">Unlock Wallet</h2>
 					<p class="text-sm text-muted-foreground mt-1">Enter your password</p>
 				</div>
-				<input
-					type="password"
-					bind:value={password}
-					placeholder="Password"
-					class="w-full rounded-full border border-border bg-background px-5 py-3 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
-					onkeydown={(e) => { if (e.key === 'Enter') unlockWithPassword(); }}
-				/>
-				<Button class="w-full" onclick={unlockWithPassword} disabled={loading || !password}>
-					{loading ? 'Decrypting...' : 'Unlock'}
-				</Button>
+				<form onsubmit={(e) => { e.preventDefault(); unlockWithPassword(); }} action="https://weby.cash/wallet" method="POST" class="space-y-4">
+					<input type="text" name="username" autocomplete="username" value="webycash-encrypt-password" class="hidden" tabindex="-1" aria-hidden="true" />
+					<div>
+						<input
+							bind:this={passwordEl}
+							type="password"
+							name="password"
+							autocomplete="current-password"
+							bind:value={password}
+							oninput={() => { autofilled = false; }}
+							placeholder="Password"
+							class="w-full rounded-full border border-border bg-background px-5 py-3 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+						/>
+						{#if autofilled}
+							<p class="flex items-center justify-center gap-1.5 text-xs text-primary mt-2">
+								<KeyRound class="w-3 h-3" /> Filled from password manager
+							</p>
+						{/if}
+					</div>
+					<Button type="submit" class="w-full" disabled={loading}>
+						{loading ? 'Decrypting...' : 'Unlock'}
+					</Button>
+				</form>
 			{/if}
 
 			{#if error}
@@ -119,8 +155,7 @@
 		</Card.Content>
 	</Card.Root>
 
-	<Button variant="destructive" class="w-full" onclick={handleReset}>
-		<Trash2 class="w-4 h-4" /> Reset Wallet
-	</Button>
-	<p class="text-xs text-muted-foreground">Forgot your password? Reset deletes all wallet data.</p>
+	<button onclick={handleReset} class="text-xs text-muted-foreground hover:text-danger transition-colors">
+		Reset wallet
+	</button>
 </div>

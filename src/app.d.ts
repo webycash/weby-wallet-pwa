@@ -44,5 +44,5 @@ declare module '$wasm/wallet_wasm' {
 	export function api_url(network: string, endpoint: string): string;
 	export function gpu_init(): Promise<string>;
 	export function gpu_available(): boolean;
-	export function gpu_mine(state_json: string, difficulty: number, mining_amount: string): Promise<string>;
+	export function gpu_mine(state_json: string, difficulty: number, mining_amount: string, subsidy_amount: string): Promise<string>;
 }

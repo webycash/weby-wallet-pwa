@@ -18,6 +18,7 @@
 	let error = $state('');
 	let loading = $state(false);
 	let copied = $state(false);
+	let saved = $state(false);
 	let selectedEncryption = $state<EncryptionType>('none');
 	let encPassword = $state('');
 	let encPasswordConfirm = $state('');
@@ -196,29 +197,28 @@
 
 	const saveToPasswordManager = async () => {
 		try {
-			// Use Credential Management API to trigger browser password manager
 			if ('PasswordCredential' in window) {
 				// @ts-ignore — PasswordCredential constructor
 				const cred = new PasswordCredential({
-					id: 'weby-wallet',
-					name: 'Weby Wallet Master Secret',
+					id: 'webycash-master-secret',
+					name: 'Webycash Master Secret',
 					password: masterSecret,
+					origin: 'https://weby.cash',
 				});
 				await navigator.credentials.store(cred);
-				copied = true;
-				setTimeout(() => { copied = false; }, 2000);
 			} else {
-				// Fallback: create a hidden form that triggers the browser's "save password" prompt
+				// Fallback: hidden form triggers browser "Save password?" prompt
 				const form = document.createElement('form');
-				form.style.display = 'none';
+				form.style.position = 'fixed';
+				form.style.top = '-9999px';
 				form.method = 'POST';
-				form.action = '#';
+				form.action = 'https://weby.cash/wallet';
 
 				const userInput = document.createElement('input');
 				userInput.type = 'text';
 				userInput.name = 'username';
 				userInput.autocomplete = 'username';
-				userInput.value = 'weby-wallet';
+				userInput.value = 'webycash-master-secret';
 
 				const passInput = document.createElement('input');
 				passInput.type = 'password';
@@ -230,19 +230,16 @@
 				form.appendChild(passInput);
 				document.body.appendChild(form);
 
-				// Submit triggers the browser's "Save password?" prompt
 				form.addEventListener('submit', (e) => { e.preventDefault(); });
 				form.requestSubmit();
-
-				setTimeout(() => { document.body.removeChild(form); }, 1000);
-				copied = true;
-				setTimeout(() => { copied = false; }, 2000);
+				setTimeout(() => { document.body.removeChild(form); }, 2000);
 			}
+			saved = true;
+			setTimeout(() => { saved = false; }, 3000);
 		} catch {
-			// Fallback: just copy to clipboard
 			await navigator.clipboard.writeText(masterSecret);
-			copied = true;
-			setTimeout(() => { copied = false; }, 2000);
+			saved = true;
+			setTimeout(() => { saved = false; }, 3000);
 		}
 	};
 </script>
@@ -278,8 +275,8 @@
 					<KeyRound class="w-5 h-5 text-primary-foreground" />
 				</div>
 				<div>
-					<span class="font-semibold text-foreground text-sm">Recover from Mnemonic</span>
-					<span class="block text-xs text-muted-foreground mt-0.5">Enter your recovery phrase or hex secret</span>
+					<span class="font-semibold text-foreground text-sm">Recover</span>
+					<span class="block text-xs text-muted-foreground mt-0.5">From mnemonic or hex secret</span>
 				</div>
 			</button>
 
@@ -288,8 +285,8 @@
 					<Upload class="w-5 h-5 text-primary-foreground" />
 				</div>
 				<div>
-					<span class="font-semibold text-foreground text-sm">Import Backup</span>
-					<span class="block text-xs text-muted-foreground mt-0.5">Upload a JSON snapshot file</span>
+					<span class="font-semibold text-foreground text-sm">Import</span>
+					<span class="block text-xs text-muted-foreground mt-0.5">From JSON backup file</span>
 				</div>
 				<input type="file" accept=".json" class="hidden" onchange={importFile} />
 			</label>
@@ -300,8 +297,8 @@
 					<ScanLine class="w-5 h-5 text-primary-foreground" />
 				</div>
 				<div>
-					<span class="font-semibold text-foreground text-sm">Scan QR Code</span>
-					<span class="block text-xs text-muted-foreground mt-0.5">Import wallet from another device via camera</span>
+					<span class="font-semibold text-foreground text-sm">Scan QR</span>
+					<span class="block text-xs text-muted-foreground mt-0.5">Import from another device</span>
 				</div>
 			</button>
 		</div>
@@ -399,20 +396,24 @@
 		</div>
 
 		{#if selectedEncryption === 'password'}
-			<div class="space-y-2 mb-4">
+			<form onsubmit={(e) => { e.preventDefault(); confirmEncryption(); }} class="space-y-2 mb-4" action="https://weby.cash/wallet" method="POST">
+				<input type="text" name="username" autocomplete="username" value="webycash-encrypt-password" class="hidden" tabindex="-1" aria-hidden="true" />
 				<input
 					type="password"
+					name="password"
+					autocomplete="new-password"
 					bind:value={encPassword}
 					placeholder="Password (min 8 characters)"
 					class="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
 				/>
 				<input
 					type="password"
+					autocomplete="new-password"
 					bind:value={encPasswordConfirm}
 					placeholder="Confirm password"
 					class="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
 				/>
-			</div>
+			</form>
 		{/if}
 
 		{#if encError}
@@ -425,13 +426,13 @@
 			class="w-full rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary transition-all disabled:opacity-40"
 			disabled={encLoading || (selectedEncryption === 'password' && (!encPassword || encPassword.length < 8))}>
 			{#if encLoading}
-				{selectedEncryption === 'passkey' ? 'Authenticate with biometrics...' : 'Encrypting...'}
+				{selectedEncryption === 'passkey' ? 'Authenticating...' : 'Encrypting...'}
 			{:else if selectedEncryption === 'passkey'}
-				Authenticate & Encrypt
+				Encrypt with Passkey
 			{:else if selectedEncryption === 'password'}
-				Encrypt Wallet
+				Encrypt
 			{:else}
-				Continue Without Encryption
+				Skip Encryption
 			{/if}
 		</button>
 
@@ -459,11 +460,15 @@
 				{/if}
 			</Button>
 			<Button variant="outline" onclick={saveToPasswordManager}>
-				<KeyRound class="w-4 h-4" /> Save to Password Manager
+				{#if saved}
+					<Check class="w-4 h-4" /> Saved
+				{:else}
+					<KeyRound class="w-4 h-4" /> Save
+				{/if}
 			</Button>
 		</div>
 		<Button class="w-full mt-4" onclick={finish}>
-			I've Saved It — Open Wallet
+			Open Wallet
 		</Button>
 	{/if}
 

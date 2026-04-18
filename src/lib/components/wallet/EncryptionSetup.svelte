@@ -93,15 +93,16 @@
 	</div>
 
 	{#if showPasswordForm && current !== 'password'}
-		<div class="mt-3 space-y-2">
-			<input type="password" bind:value={password} placeholder="Password (min 8 characters)"
+		<form onsubmit={(e) => { e.preventDefault(); confirmPassword(); }} action="https://weby.cash/wallet" method="POST" class="mt-3 space-y-2">
+			<input type="text" name="username" autocomplete="username" value="webycash-encrypt-password" class="hidden" tabindex="-1" aria-hidden="true" />
+			<input type="password" name="password" autocomplete="new-password" bind:value={password} placeholder="Password (min 8 characters)"
 				class="w-full rounded-full border border-border bg-background px-5 py-3 text-sm focus:outline-none focus:border-primary transition-all" />
-			<input type="password" bind:value={passwordConfirm} placeholder="Confirm password"
+			<input type="password" autocomplete="new-password" bind:value={passwordConfirm} placeholder="Confirm password"
 				class="w-full rounded-full border border-border bg-background px-5 py-3 text-sm focus:outline-none focus:border-primary transition-all" />
-			<Button class="w-full" onclick={confirmPassword} disabled={loading || !password || password.length < 8}>
+			<Button type="submit" class="w-full" disabled={loading || !password || password.length < 8}>
 				{loading ? 'Encrypting...' : 'Encrypt Wallet'}
 			</Button>
-		</div>
+		</form>
 	{/if}
 
 	{#if error}<p class="mt-2 text-sm text-danger-foreground bg-danger rounded-full px-4 py-2">{error}</p>{/if}

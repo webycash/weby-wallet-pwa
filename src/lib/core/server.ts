@@ -13,9 +13,11 @@ const url = async (network: NetworkMode, endpoint: string): Promise<string> => {
 };
 
 const post = async <T>(u: string, body: unknown): Promise<T> => {
+	// Use text/plain to avoid CORS preflight — webcash.org only allows
+	// x-requested-with in Access-Control-Allow-Headers, not content-type.
+	// The server parses JSON from the body regardless of Content-Type.
 	const res = await fetch(u, {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(body)
 	});
 	if (!res.ok) {
