@@ -39,10 +39,9 @@
 			try {
 				const wasm = await getWasm();
 				const name = await wasm.gpu_init();
-				if (name) {
-					gpuName = name;
-					useGpu = true;
-				}
+				// gpu_init returns adapter name (may be empty on WebGPU) or throws on failure
+				gpuName = name || 'WebGPU';
+				useGpu = true;
 			} catch (e) { console.warn('GPU init failed:', e); }
 			gpuInitializing = false;
 		}
@@ -54,13 +53,8 @@
 		try {
 			const wasm = await getWasm();
 			const name = await wasm.gpu_init();
-			if (name) {
-				gpuName = name;
-				useGpu = true;
-			} else {
-				error = 'No compatible WebGPU adapter found';
-				gpuAvailable = false;
-			}
+			gpuName = name || 'WebGPU';
+			useGpu = true;
 		} catch (e: any) {
 			error = `GPU init failed: ${e.message || e}`;
 			gpuAvailable = false;
