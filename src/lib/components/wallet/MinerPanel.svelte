@@ -32,9 +32,19 @@
 	};
 
 	onMount(async () => {
-		// Check WebGPU support
+		// Auto-init GPU mining (default). Falls back to CPU if unavailable.
 		if ('gpu' in navigator) {
 			gpuAvailable = true;
+			gpuInitializing = true;
+			try {
+				const wasm = await getWasm();
+				const name = await wasm.gpu_init();
+				if (name) {
+					gpuName = name;
+					useGpu = true;
+				}
+			} catch { /* GPU unavailable, stay on CPU */ }
+			gpuInitializing = false;
 		}
 	});
 
@@ -174,25 +184,25 @@
 	<div class="flex items-center justify-between px-5 py-4 border-b border-border">
 		<div class="flex items-center gap-2">
 			<Pickaxe class="w-4 h-4 text-primary" />
-			<span class="text-sm font-semibold text-foreground">
-				{useGpu ? 'GPU' : 'CPU'} Miner
-			</span>
-			{#if useGpu && gpuName}
-				<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-success text-white font-medium truncate max-w-[120px]">{gpuName}</span>
+			<span class="text-sm font-semibold text-foreground">Miner</span>
+			{#if gpuInitializing}
+				<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">Detecting GPU...</span>
+			{:else if useGpu && gpuName}
+				<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-success text-white font-medium truncate max-w-[140px]">{gpuName}</span>
+			{:else}
+				<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">CPU</span>
 			{/if}
 		</div>
 		<div class="flex items-center gap-2">
-			{#if gpuAvailable && !useGpu}
-				<button onclick={initGpu} disabled={gpuInitializing}
-					class="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium bg-muted hover:bg-muted/80 transition-all disabled:opacity-50">
-					<Monitor class="w-3 h-3" />
-					{gpuInitializing ? 'Initializing...' : 'Use GPU'}
-				</button>
-			{:else if useGpu}
+			{#if useGpu}
 				<button onclick={() => { useGpu = false; }}
 					class="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium bg-muted hover:bg-muted/80 transition-all">
-					<Cpu class="w-3 h-3" />
-					Use CPU
+					<Cpu class="w-3 h-3" /> CPU
+				</button>
+			{:else if gpuAvailable && gpuName}
+				<button onclick={() => { useGpu = true; }}
+					class="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium bg-muted hover:bg-muted/80 transition-all">
+					<Monitor class="w-3 h-3" /> GPU
 				</button>
 			{/if}
 			<button onclick={toggle}
