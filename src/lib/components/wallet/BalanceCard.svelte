@@ -34,7 +34,7 @@
 	const usdDisplay = $derived(usdValue === 0 ? '$0.00' : usdValue < 0.01 ? `$${usdValue.toFixed(6)}` : `$${usdValue.toFixed(2)}`);
 </script>
 
-<Card.Root>
+<Card.Root class="border-0 shadow-none">
 	<Card.Content class="p-8 text-center relative">
 		<div class="absolute top-4 right-4 flex gap-1">
 			<button onclick={() => showUsd = !showUsd}

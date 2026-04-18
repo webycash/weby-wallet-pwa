@@ -90,5 +90,5 @@
 {:else if !unlocked}
 	<LockScreen onUnlock={() => { unlocked = true; }} />
 {:else}
-	<Dashboard {pendingWebcash} />
+	<Dashboard {pendingWebcash} onLock={() => { unlocked = false; }} />
 {/if}

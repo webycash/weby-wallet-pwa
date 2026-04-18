@@ -55,6 +55,12 @@ pub fn derive_pgp_key(state_json: &str, index: u32) -> Result<String, JsError> {
     .map_err(to_jserr)
 }
 
+/// Convert 64-char hex entropy to BIP39 mnemonic words.
+#[wasm_bindgen]
+pub fn mnemonic_from_hex(hex: &str) -> Result<String, JsError> {
+    browser_wallet::mnemonic_from_hex(hex).map_err(to_jserr)
+}
+
 // ── Webcash HD Derivation (inner, per-output) ───────────────────
 
 #[wasm_bindgen]
@@ -260,6 +266,62 @@ pub fn export_snapshot(state_json: &str) -> Result<String, JsError> {
     let wallet = BrowserWallet::from_json(state_json).map_err(to_jserr)?;
     let snap = wallet.export_webcash_snapshot().map_err(to_jserr)?;
     serde_json::to_string_pretty(&snap).map_err(to_jserr)
+}
+
+// ── Multi-wallet Management ─────────────────────────────────────
+
+#[wasm_bindgen]
+pub fn set_active(state_json: &str, family: &str, label: &str) -> Result<String, JsError> {
+    let mut wallet = BrowserWallet::from_json(state_json).map_err(to_jserr)?;
+    wallet.set_active(family, label).map_err(to_jserr)?;
+    wallet.to_json().map_err(to_jserr)
+}
+
+#[wasm_bindgen]
+pub fn add_wallet(state_json: &str, family: &str, label: &str) -> Result<String, JsError> {
+    let mut wallet = BrowserWallet::from_json(state_json).map_err(to_jserr)?;
+    wallet.add_wallet(family, label).map_err(to_jserr)?;
+    wallet.to_json().map_err(to_jserr)
+}
+
+#[wasm_bindgen]
+pub fn remove_wallet(state_json: &str, family: &str, label: &str) -> Result<String, JsError> {
+    let mut wallet = BrowserWallet::from_json(state_json).map_err(to_jserr)?;
+    wallet.remove_wallet(family, label).map_err(to_jserr)?;
+    wallet.to_json().map_err(to_jserr)
+}
+
+#[wasm_bindgen]
+pub fn rename_wallet(
+    state_json: &str,
+    family: &str,
+    old_label: &str,
+    new_label: &str,
+) -> Result<String, JsError> {
+    let mut wallet = BrowserWallet::from_json(state_json).map_err(to_jserr)?;
+    wallet
+        .rename_wallet(family, old_label, new_label)
+        .map_err(to_jserr)?;
+    wallet.to_json().map_err(to_jserr)
+}
+
+#[wasm_bindgen]
+pub fn list_wallets(state_json: &str, family: &str) -> Result<JsValue, JsError> {
+    let wallet = BrowserWallet::from_json(state_json).map_err(to_jserr)?;
+    let wallets = wallet.list_wallets(family);
+    serde_wasm_bindgen::to_value(&wallets).map_err(to_jserr)
+}
+
+#[wasm_bindgen]
+pub fn active_family(state_json: &str) -> Result<String, JsError> {
+    let wallet = BrowserWallet::from_json(state_json).map_err(to_jserr)?;
+    Ok(wallet.active_family().to_string())
+}
+
+#[wasm_bindgen]
+pub fn active_label(state_json: &str) -> Result<String, JsError> {
+    let wallet = BrowserWallet::from_json(state_json).map_err(to_jserr)?;
+    Ok(wallet.active_label().to_string())
 }
 
 // ── Encryption (delegates to JS — see encryption.ts) ────────────

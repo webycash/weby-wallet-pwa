@@ -1,15 +1,18 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { getBalance, getStats, getWebcash, exportWalletSnapshot,
-		insertWebcash, payWebcash, checkWallet, mergeOutputs, resetDb } from '$lib/stores/wallet.svelte';
+		insertWebcash, payWebcash, checkWallet, mergeOutputs, resetDb,
+		setActive, addWallet, listWallets, getActiveFamily, getActiveLabel,
+		lockWallet, getRawState, type WalletInfo } from '$lib/stores/wallet.svelte';
 	import { getNetwork, setNetwork } from '$lib/stores/network.svelte';
 	import { markBackedUp, backedUp, dismissBackup, backupDismissed,
 		clearWallet, encryptionType } from '$lib/stores/settings.svelte';
 	import { encryptWithPassword } from '$lib/core/encryption';
+	import * as Persistence from '$lib/core/persistence';
 	import { getWasm } from '$lib/core/wasm';
 	import type { SecretWebcash, WalletStats, NetworkMode } from '$lib/core/types';
 	import { ArrowDownToLine, ArrowUpFromLine, ShieldCheck, Merge, Pickaxe,
-		Download, Settings, Trash2, Plus, QrCode, RotateCcw } from '@lucide/svelte';
+		Download, Settings, ChevronDown, RotateCcw } from '@lucide/svelte';
 
 	import Button from '$lib/components/ui/button/button.svelte';
 	import * as Card from '$lib/components/ui/card';
@@ -22,9 +25,9 @@
 	import WebcashList from './WebcashList.svelte';
 	import MinerPanel from './MinerPanel.svelte';
 	import PaymentResult from './PaymentResult.svelte';
-	import EncryptionSetup from './EncryptionSetup.svelte';
+	import SettingsPanel from './SettingsPanel.svelte';
 
-	let { pendingWebcash = '' }: { pendingWebcash?: string } = $props();
+	let { pendingWebcash = '', onLock = () => {} }: { pendingWebcash?: string; onLock?: () => void } = $props();
 
 	let balanceWats = $state(0);
 	let walletStats = $state<WalletStats | null>(null);
@@ -34,12 +37,22 @@
 	let message = $state('');
 	let messageType = $state<'success' | 'error'>('success');
 	let loading = $state(false);
-	let formatAmount = $state<((wats: number) => string) | null>(null);
+	let fmt = $state<((wats: number) => string) | null>(null);
 	let showBackupWarning = $state(!backedUp() && !backupDismissed());
 	let showSettings = $state(false);
-	let qrDataUrl = $state('');
 	let paymentResult = $state('');
-	let paymentMemo = $state('');
+
+	// Multi-wallet state
+	let activeFamily = $state('webcash');
+	let activeLabel = $state('main');
+	let walletList = $state<WalletInfo[]>([]);
+	let showWalletDropdown = $state(false);
+
+	const FAMILIES = [
+		{ id: 'webcash', name: 'Webcash', enabled: true },
+		{ id: 'bitcoin', name: 'Bitcoin', enabled: false },
+		{ id: 'rgb', name: 'RGB', enabled: false },
+	];
 
 	const showMessage = (msg: string, type: 'success' | 'error' = 'success') => {
 		message = msg; messageType = type;
@@ -53,52 +66,74 @@
 			const snapshot = await exportWalletSnapshot();
 			if (encType === 'passkey') {
 				const cid = localStorage.getItem('weby_passkey_credential');
-				if (cid) localStorage.setItem('weby_encrypted_wallet', await encryptWithPassword(snapshot, cid));
+				if (cid) Persistence.setEncryptedState(await encryptWithPassword(snapshot, cid));
 			} else if (encType === 'password') {
-				localStorage.setItem('weby_encrypted_wallet', JSON.stringify(snapshot));
+				Persistence.setEncryptedState(JSON.stringify(snapshot));
 			}
-		} catch { /* silent — encryption save is best-effort */ }
+		} catch { /* best-effort */ }
 	};
 
 	const refresh = async () => {
 		loading = true;
-		balanceWats = await getBalance(); walletStats = await getStats(); webcashList = await getWebcash();
-		loading = false;
-		saveEncryptedState();
+		try {
+			activeFamily = await getActiveFamily();
+			activeLabel = await getActiveLabel();
+			walletList = await listWallets(activeFamily);
+			balanceWats = await getBalance();
+			walletStats = await getStats();
+			webcashList = await getWebcash();
+		} finally { loading = false; }
 	};
 
+	const switchFamily = async (family: string) => {
+		if (family === activeFamily) return;
+		await setActive(family, 'main');
+		await refresh();
+	};
+
+	const switchWallet = async (label: string) => {
+		showWalletDropdown = false;
+		if (label === activeLabel) return;
+		await setActive(activeFamily, label);
+		await refresh();
+	};
+
+	const handleNewWallet = async () => {
+		showWalletDropdown = false;
+		const label = prompt('Wallet label:');
+		if (!label?.trim()) return;
+		try {
+			await addWallet(activeFamily, label.trim());
+			await setActive(activeFamily, label.trim());
+			await refresh();
+			showMessage(`Wallet "${label.trim()}" created`);
+		} catch (e) { showMessage(`${e}`, 'error'); }
+	};
+
+	// Action handlers
 	const handleInsert = async (s: string) => { loading = true; const r = await insertWebcash(network, s); if (r.ok) { showMessage('Webcash inserted'); activePanel = null; await refresh(); } else showMessage(r.error, 'error'); loading = false; };
-	const handlePay = async (a: number, m: string) => { loading = true; const r = await payWebcash(network, a, m); if (r.ok) { paymentResult = r.value; paymentMemo = m; activePanel = 'payment-result'; await refresh(); } else showMessage(r.error, 'error'); loading = false; };
+	const handlePay = async (a: number) => { loading = true; const r = await payWebcash(network, a); if (r.ok) { paymentResult = r.value; activePanel = 'payment-result'; await refresh(); } else showMessage(r.error, 'error'); loading = false; };
 	const handleCheck = async () => { loading = true; const r = await checkWallet(network); if (r.ok) showMessage(`${r.value.validCount} valid, ${r.value.spentCount} spent`); else showMessage(r.error, 'error'); loading = false; };
 	const handleMerge = async () => { loading = true; const r = await mergeOutputs(network, 50); if (r.ok) { showMessage(r.value); await refresh(); } else showMessage(r.error, 'error'); loading = false; };
 	const handleRecover = async () => { loading = true; const { getMasterSecret, recoverWallet } = await import('$lib/stores/wallet.svelte'); const s = await getMasterSecret(); if (!s) { showMessage('No master secret', 'error'); loading = false; return; } const r = await recoverWallet(network, s, 20); if (r.ok) { showMessage(`Recovered ${r.value.recoveredCount} outputs`); await refresh(); } else showMessage(r.error, 'error'); loading = false; };
-	const handleBackup = async () => { const snap = await exportWalletSnapshot(); const b = new Blob([JSON.stringify(snap, null, 2)], { type: 'application/json' }); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = `weby-wallet-${new Date().toISOString().slice(0, 10)}.json`; a.click(); URL.revokeObjectURL(u); markBackedUp(); showBackupWarning = false; showMessage('Backup downloaded'); };
-	const handleQrExport = async () => { const { getMasterSecret } = await import('$lib/stores/wallet.svelte'); const s = await getMasterSecret(); if (!s) return; const QR = (await import('qrcode')).default; qrDataUrl = await QR.toDataURL(s, { width: 256, margin: 2, color: { dark: '#000', light: '#fff' } }); };
 
-	const handleDeleteWallet = async () => {
-		if (!confirm('Delete this wallet? Make sure you have a backup.')) return;
-		const { resetWallet } = await import('$lib/core/reset');
-		await resetWallet();
-		// Safari needs a short delay before reload after async IndexedDB ops
-		setTimeout(() => { window.location.href = window.location.pathname; }, 100);
+	const handleVisibility = () => {
+		if (document.visibilityState === 'hidden') {
+			saveEncryptedState();
+		} else if (encryptionType() !== 'none') {
+			lockWallet();
+			onLock();
+		}
 	};
-	const handleNewWallet = async () => {
-		if (!confirm('Create a new wallet? Back up first!')) return;
-		const { resetWallet } = await import('$lib/core/reset');
-		await resetWallet();
-		setTimeout(() => { window.location.href = window.location.pathname; }, 100);
-	};
-
-	const toggle = (id: string) => { activePanel = activePanel === id ? null : id; };
-	const handleVisibility = () => { if (document.visibilityState === 'hidden') saveEncryptedState(); };
 
 	onMount(async () => {
-		const wasm = await getWasm(); formatAmount = (wats: number) => wasm.format_amount(BigInt(wats)); await refresh();
+		const wasm = await getWasm();
+		fmt = (wats: number) => wasm.format_amount(BigInt(wats));
+		await refresh();
 		if (pendingWebcash) { activePanel = 'insert'; setTimeout(() => handleInsert(pendingWebcash), 500); }
 		document.addEventListener('visibilitychange', handleVisibility);
-		window.addEventListener('beforeunload', () => saveEncryptedState());
 	});
-	onDestroy(() => { document.removeEventListener('visibilitychange', handleVisibility); });
+	onDestroy(() => document.removeEventListener('visibilitychange', handleVisibility));
 
 	const actions = $derived([
 		{ id: 'insert', label: 'Receive', icon: ArrowDownToLine },
@@ -107,24 +142,22 @@
 		{ id: 'merge', label: 'Merge', icon: Merge, action: handleMerge },
 		{ id: 'recover', label: 'Recover', icon: RotateCcw, action: handleRecover },
 		...(network === 'testnet' ? [{ id: 'mine', label: 'Mine', icon: Pickaxe }] : []),
-		{ id: 'backup', label: 'Backup', icon: Download, action: handleBackup },
 	]);
 </script>
 
-<div class="container mx-auto px-4 sm:px-6 py-6 max-w-2xl space-y-5">
+<div class="container mx-auto px-4 sm:px-6 py-6 max-w-2xl space-y-4">
 	{#if showBackupWarning}
-		<Card.Root class="border-warning">
-			<Card.Content class="flex items-center gap-3 py-3 px-4">
-				<div class="w-2 h-2 rounded-full bg-warning animate-pulse shrink-0"></div>
-				<p class="text-sm text-foreground flex-1">Wallet not backed up</p>
-				<Button variant="outline" size="sm" onclick={handleBackup} class="h-8">Back up</Button>
-				<button onclick={() => { dismissBackup(); showBackupWarning = false; }} class="text-muted-foreground hover:text-foreground">&times;</button>
-			</Card.Content>
-		</Card.Root>
+		<div class="flex items-center gap-3 rounded-xl bg-warning/10 px-4 py-3">
+			<div class="w-2 h-2 rounded-full bg-warning animate-pulse shrink-0"></div>
+			<p class="text-sm text-foreground flex-1">Wallet not backed up</p>
+			<Button variant="outline" size="sm" onclick={async () => { const snap = await exportWalletSnapshot(); const b = new Blob([JSON.stringify(snap, null, 2)], { type: 'application/json' }); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = `weby-wallet-${new Date().toISOString().slice(0, 10)}.json`; a.click(); URL.revokeObjectURL(u); markBackedUp(); showBackupWarning = false; }} class="h-8">Back up</Button>
+			<button onclick={() => { dismissBackup(); showBackupWarning = false; }} class="text-muted-foreground hover:text-foreground">&times;</button>
+		</div>
 	{/if}
 
+	<!-- Network toggle + Settings -->
 	<div class="flex items-center justify-center gap-3">
-		<div class="flex rounded-full border-2 border-border bg-muted p-0.5">
+		<div class="flex rounded-full border border-border bg-muted p-0.5">
 			<button onclick={() => { network = 'production'; setNetwork('production'); resetDb(); refresh(); }}
 				class="rounded-full px-5 py-1.5 text-xs font-semibold transition-all {network === 'production' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}">
 				Mainnet
@@ -136,54 +169,78 @@
 		</div>
 		<Button variant="outline" size="sm" onclick={() => showSettings = !showSettings}
 			class={showSettings ? 'border-primary text-primary' : ''}>
-			<Settings class="w-4 h-4" /> Settings
+			<Settings class="w-4 h-4" />
 		</Button>
 	</div>
 
-	<BalanceCard {balanceWats} {formatAmount} {network} />
+	<!-- Wallet Family Tabs -->
+	<div class="flex rounded-xl bg-muted p-1 gap-1">
+		{#each FAMILIES as fam}
+			<button
+				onclick={() => fam.enabled && switchFamily(fam.id)}
+				disabled={!fam.enabled}
+				class="flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-all
+					{fam.id === activeFamily ? 'bg-card text-foreground shadow-sm' : ''}
+					{fam.enabled ? 'hover:bg-card/50' : 'opacity-40 cursor-not-allowed text-muted-foreground'}">
+				{fam.name}
+			</button>
+		{/each}
+	</div>
+
+	<!-- Wallet Selector Dropdown -->
+	<div class="relative">
+		<button onclick={() => showWalletDropdown = !showWalletDropdown}
+			class="flex items-center gap-2 mx-auto px-4 py-1.5 rounded-full bg-muted hover:bg-muted/80 text-sm font-medium transition-all">
+			<span class="capitalize">{activeLabel}</span>
+			<ChevronDown class="w-3.5 h-3.5 text-muted-foreground transition-transform {showWalletDropdown ? 'rotate-180' : ''}" />
+		</button>
+		{#if showWalletDropdown}
+			<!-- svelte-ignore a11y_click_events_have_key_events -->
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div class="fixed inset-0 z-40" onclick={() => showWalletDropdown = false}></div>
+			<div class="absolute top-full left-1/2 -translate-x-1/2 mt-1 z-50 w-48 rounded-xl bg-card border border-border shadow-lg overflow-hidden">
+				{#each walletList as w}
+					<button onclick={() => switchWallet(w.label)}
+						class="w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors flex items-center justify-between
+							{w.label === activeLabel ? 'font-semibold text-primary' : 'text-foreground'}">
+						<span class="capitalize">{w.label}</span>
+						{#if fmt && w.balance > 0}<span class="text-xs text-muted-foreground">{fmt(w.balance)}</span>{/if}
+					</button>
+				{/each}
+				<div class="border-t border-border">
+					<button onclick={handleNewWallet}
+						class="w-full text-left px-4 py-2.5 text-sm text-primary hover:bg-muted transition-colors font-medium">
+						+ New wallet
+					</button>
+				</div>
+			</div>
+		{/if}
+	</div>
+
+	<!-- Balance -->
+	<BalanceCard {balanceWats} formatAmount={fmt} {network} />
 
 	{#if message}
-		<Card.Root class={messageType === 'error' ? 'border-danger' : 'border-success'}>
-			<Card.Content class="py-3 px-4">
-				<p class="text-sm font-medium text-foreground">{message}</p>
-			</Card.Content>
-		</Card.Root>
+		<div class="rounded-xl px-4 py-3 text-sm font-medium {messageType === 'error' ? 'bg-danger/10 text-danger' : 'bg-success/10 text-success'}">
+			{message}
+		</div>
 	{/if}
 
+	<!-- Settings Panel -->
 	{#if showSettings}
-		<Card.Root>
-			<Card.Header class="pb-2"><Card.Title class="text-center text-sm">Settings</Card.Title></Card.Header>
-			<Card.Content class="space-y-4">
-				<EncryptionSetup />
-				<div class="flex flex-col gap-2 pt-3 border-t-2 border-border">
-					<Button variant="outline" class="w-full" onclick={handleQrExport}><QrCode class="w-4 h-4" /> Pair QR Code</Button>
-					<Button variant="outline" class="w-full" onclick={handleNewWallet}><Plus class="w-4 h-4" /> Create New Wallet</Button>
-					<Button variant="destructive" class="w-full" onclick={handleDeleteWallet}><Trash2 class="w-4 h-4" /> Delete Wallet</Button>
-				</div>
-				{#if qrDataUrl}
-					<div class="pt-3 border-t-2 border-border text-center">
-						<p class="text-xs font-medium text-muted-foreground mb-3">Scan on mobile to import wallet</p>
-						<div class="inline-block bg-white rounded-2xl p-4"><img src={qrDataUrl} alt="Wallet QR Code" class="w-52 h-52" /></div>
-						<p class="text-xs text-muted-foreground mt-2">Contains your master secret — keep private</p>
-					</div>
-				{/if}
-			</Card.Content>
-		</Card.Root>
+		<SettingsPanel {activeFamily} {activeLabel} onRefresh={refresh} onMessage={showMessage} />
 	{/if}
 
+	<!-- Action Buttons -->
 	<div class="grid grid-cols-2 gap-2 max-w-md mx-auto w-full">
 		{#each actions as btn, i}
-			<Button
-				variant="outline"
+			<Button variant="outline"
 				class="w-full {i === actions.length - 1 && actions.length % 2 === 1 ? 'col-span-2' : ''}
 					{activePanel === btn.id ? 'border-primary text-primary font-semibold' : ''}"
-				onclick={() => btn.action ? btn.action() : toggle(btn.id)}
+				onclick={() => btn.action ? btn.action() : (activePanel = activePanel === btn.id ? null : btn.id)}
 				disabled={loading}>
-				{#if activePanel === btn.id}
-					<btn.icon class="w-4 h-4 text-primary" /> {btn.label} ✕
-				{:else}
-					<btn.icon class="w-4 h-4" /> {btn.label}
-				{/if}
+				<btn.icon class="w-4 h-4 {activePanel === btn.id ? 'text-primary' : ''}" />
+				{btn.label} {activePanel === btn.id ? '✕' : ''}
 			</Button>
 		{/each}
 	</div>
@@ -191,9 +248,9 @@
 	{#if activePanel === 'insert'}
 		<InsertForm onSubmit={handleInsert} disabled={loading} />
 	{:else if activePanel === 'pay'}
-		<PayForm onSubmit={handlePay} disabled={loading} {formatAmount} {balanceWats} />
+		<PayForm onSubmit={handlePay} disabled={loading} formatAmount={fmt} {balanceWats} />
 	{:else if activePanel === 'payment-result'}
-		<PaymentResult webcash={paymentResult} memo={paymentMemo} onDone={() => { activePanel = null; paymentResult = ''; paymentMemo = ''; }} />
+		<PaymentResult webcash={paymentResult} memo="" onDone={() => { activePanel = null; paymentResult = ''; }} />
 	{:else if activePanel === 'verify'}
 		<VerifyForm />
 	{:else if activePanel === 'mine'}
@@ -201,10 +258,10 @@
 	{/if}
 
 	{#if walletStats}
-		<StatsPanel stats={walletStats} {formatAmount} />
+		<StatsPanel stats={walletStats} formatAmount={fmt} />
 	{/if}
 
-	<WebcashList webcash={webcashList} {formatAmount} />
+	<WebcashList webcash={webcashList} formatAmount={fmt} />
 
 	<p class="text-center text-xs text-muted-foreground pt-2">All data stays on your device</p>
 </div>

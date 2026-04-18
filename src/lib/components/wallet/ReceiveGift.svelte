@@ -12,7 +12,7 @@
 	} = $props();
 
 	const WEBCASH_SYMBOL = '₩';
-	const displayAmount = amount || '?';
+	const displayAmount = $derived(amount || '?');
 </script>
 
 <div class="min-h-[60vh] flex items-center justify-center px-4 py-12">

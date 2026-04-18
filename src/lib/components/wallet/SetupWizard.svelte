@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { setupWallet, importWalletSnapshot, recoverWallet } from '$lib/stores/wallet.svelte';
+	import { setupWallet, setupFromMnemonic, importWalletSnapshot, recoverWallet } from '$lib/stores/wallet.svelte';
 	import { markWalletCreated, setEncryptionType, type EncryptionType } from '$lib/stores/settings.svelte';
 	import { getNetwork } from '$lib/stores/network.svelte';
 	import { isWebAuthnAvailable, encryptWithPasskey, encryptWithPassword } from '$lib/core/encryption';
@@ -103,11 +103,20 @@
 		loading = true;
 		error = '';
 		const trimmed = recoverInput.trim();
-		const setupResult = await setupWallet(trimmed);
+		// Detect format: hex (64 chars) or mnemonic (words with spaces)
+		let mnemonic: string;
+		if (/^[0-9a-f]{64}$/i.test(trimmed)) {
+			const { getWasm } = await import('$lib/core/wasm');
+			const wasm = await getWasm();
+			mnemonic = wasm.mnemonic_from_hex(trimmed);
+		} else {
+			mnemonic = trimmed;
+		}
+		const setupResult = await setupFromMnemonic(mnemonic);
 		if (!setupResult.ok) { error = setupResult.error; loading = false; return; }
-		masterSecret = trimmed;
+		masterSecret = setupResult.value;
 
-		const result = await recoverWallet(getNetwork(), trimmed, 20);
+		const result = await recoverWallet(getNetwork(), mnemonic, 20);
 		if (result.ok) {
 			step = 'encrypt';
 		} else {

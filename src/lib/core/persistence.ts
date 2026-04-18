@@ -1,13 +1,18 @@
-// IndexedDB persistence for BrowserWallet state.
-// One database per network, one key-value store with the wallet state JSON.
-// Master mnemonic is shared via localStorage across networks.
+// Persistence — encrypted master wallet state in IndexedDB.
+//
+// One database per network. State is stored as a single JSON string.
+// When encryption is enabled, the stored value is the encrypted blob;
+// the app decrypts on load and re-encrypts before saving.
+// Mnemonic is NEVER stored in localStorage when encryption is active —
+// it lives only inside the encrypted state.
 
 const DB_VERSION = 1;
 const STORE = 'wallet_state';
 const STATE_KEY = 'current';
 const MNEMONIC_KEY = 'weby-wallet-mnemonic';
+const ENCRYPTED_KEY = 'weby_encrypted_wallet';
 
-const dbName = (network: string) => `weby-wallet-${network}`;
+const dbName = (network: string) => `weby-wallet-v2-${network}`;
 
 const openDb = (network: string): Promise<IDBDatabase> =>
 	new Promise((resolve, reject) => {
@@ -22,15 +27,21 @@ const openDb = (network: string): Promise<IDBDatabase> =>
 		req.onerror = () => reject(req.error);
 	});
 
+// ── State persistence (plaintext JSON in IDB) ──────────────────
+
 export const loadState = async (network: string): Promise<string | null> => {
-	const db = await openDb(network);
-	return new Promise((resolve, reject) => {
-		const tx = db.transaction(STORE, 'readonly');
-		const store = tx.objectStore(STORE);
-		const req = store.get(STATE_KEY);
-		tx.oncomplete = () => resolve(req.result ?? null);
-		tx.onerror = () => reject(tx.error);
-	});
+	try {
+		const db = await openDb(network);
+		return new Promise((resolve, reject) => {
+			const tx = db.transaction(STORE, 'readonly');
+			const store = tx.objectStore(STORE);
+			const req = store.get(STATE_KEY);
+			tx.oncomplete = () => resolve(req.result ?? null);
+			tx.onerror = () => reject(tx.error);
+		});
+	} catch {
+		return null;
+	}
 };
 
 export const saveState = async (network: string, stateJson: string): Promise<void> => {
@@ -58,7 +69,38 @@ export const hasState = async (network: string): Promise<boolean> => {
 	return state !== null;
 };
 
-// Mnemonic is shared across networks via localStorage.
+// ── Mnemonic (localStorage, shared across networks) ─────────────
+
 export const getMnemonic = (): string | null => localStorage.getItem(MNEMONIC_KEY);
 export const setMnemonic = (mnemonic: string) => localStorage.setItem(MNEMONIC_KEY, mnemonic);
 export const clearMnemonic = () => localStorage.removeItem(MNEMONIC_KEY);
+
+// ── Encrypted state (localStorage — survives IDB clear) ─────────
+
+export const getEncryptedState = (): string | null => localStorage.getItem(ENCRYPTED_KEY);
+export const setEncryptedState = (blob: string) => localStorage.setItem(ENCRYPTED_KEY, blob);
+export const clearEncryptedState = () => localStorage.removeItem(ENCRYPTED_KEY);
+
+// ── Full reset ──────────────────────────────────────────────────
+
+export const deleteEverything = async (): Promise<void> => {
+	await clearState('production');
+	await clearState('testnet');
+	// Also clear legacy v1 databases
+	await new Promise<void>((resolve) => {
+		const r = indexedDB.deleteDatabase('weby-wallet-production');
+		r.onsuccess = () => resolve(); r.onerror = () => resolve();
+	});
+	await new Promise<void>((resolve) => {
+		const r = indexedDB.deleteDatabase('weby-wallet-testnet');
+		r.onsuccess = () => resolve(); r.onerror = () => resolve();
+	});
+	clearMnemonic();
+	clearEncryptedState();
+	const keysToRemove = [];
+	for (let i = 0; i < localStorage.length; i++) {
+		const key = localStorage.key(i);
+		if (key?.startsWith('weby_')) keysToRemove.push(key);
+	}
+	for (const key of keysToRemove) localStorage.removeItem(key);
+};
