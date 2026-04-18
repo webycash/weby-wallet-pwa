@@ -278,8 +278,8 @@
 					<KeyRound class="w-5 h-5 text-primary-foreground" />
 				</div>
 				<div>
-					<span class="font-semibold text-foreground text-sm">Recover from Secret</span>
-					<span class="block text-xs text-muted-foreground mt-0.5">Enter your 64-character hex master secret</span>
+					<span class="font-semibold text-foreground text-sm">Recover from Mnemonic</span>
+					<span class="block text-xs text-muted-foreground mt-0.5">Enter your 24-word recovery phrase or hex secret</span>
 				</div>
 			</button>
 
@@ -311,7 +311,7 @@
 		<p class="text-sm text-muted-foreground mb-4">Enter your master secret. We'll scan the server for your webcash.</p>
 		<textarea
 			bind:value={recoverInput}
-			placeholder="64-character hex master secret..."
+			placeholder="24 words or 64-char hex..."
 			class="w-full rounded-2xl border-2 border-input bg-background px-4 py-3 text-sm font-mono h-24 resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
 			autocomplete="off"
 			spellcheck="false"
@@ -323,7 +323,7 @@
 			</button>
 			<button onclick={recoverFromSecret}
 				class="flex-1 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary transition-all disabled:opacity-40"
-				disabled={loading || recoverInput.trim().length !== 64}>
+				disabled={loading || (recoverInput.trim().length < 10)}>
 				{loading ? 'Scanning...' : 'Recover'}
 			</button>
 		</div>
@@ -349,7 +349,7 @@
 		</p>
 		<textarea
 			bind:value={recoverInput}
-			placeholder="64-character hex master secret..."
+			placeholder="24 words or 64-char hex..."
 			class="w-full rounded-xl border-2 border-input bg-background px-4 py-3 text-sm font-mono h-16 resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
 			autocomplete="off"
 			spellcheck="false"
@@ -361,7 +361,7 @@
 			</button>
 			<button onclick={recoverFromSecret}
 				class="flex-1 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary transition-all disabled:opacity-40"
-				disabled={loading || recoverInput.trim().length !== 64}>
+				disabled={loading || (recoverInput.trim().length < 10)}>
 				{loading ? 'Importing...' : 'Import'}
 			</button>
 		</div>

@@ -34,10 +34,11 @@ const ensureState = async (): Promise<{ wasm: Wasm; state: string }> => {
 
 	const mnemonic = Persistence.getMnemonic();
 	if (mnemonic) {
-		stateJson = wasm.create_wallet(mnemonic);
+		const created = wasm.create_wallet(mnemonic);
+		stateJson = created;
 		stateNetwork = network;
-		await Persistence.saveState(network, stateJson);
-		return { wasm, state: stateJson };
+		await Persistence.saveState(network, created);
+		return { wasm, state: created };
 	}
 
 	throw new Error('No wallet — run setup first');
