@@ -689,7 +689,9 @@ dependencies = [
 
 [[package]]
 name = "harmoniis-wallet"
-version = "0.1.72"
+version = "0.1.74"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c23c45e3fb210aa834deda2bb4ae1b68a30cd15fc3a168034ecc4af513c1e965"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1644,6 +1646,7 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wasm-bindgen-test",
+ "web-sys",
 ]
 
 [[package]]

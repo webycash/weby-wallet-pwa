@@ -43,7 +43,7 @@
 					gpuName = name;
 					useGpu = true;
 				}
-			} catch { /* GPU unavailable, stay on CPU */ }
+			} catch (e) { console.warn('GPU init failed:', e); }
 			gpuInitializing = false;
 		}
 	});

@@ -340,10 +340,14 @@ thread_local! {
 /// Initialize the WebGPU miner. Returns adapter name or empty string if unavailable.
 #[wasm_bindgen]
 pub async fn gpu_init() -> String {
+    // Log to browser console since eprintln doesn't work in WASM
+    web_sys::console::log_1(&"GPU: initializing wgpu WebGPU backend...".into());
+
     let miner = GpuMiner::try_new().await;
     match miner {
         Some(m) => {
             let name = m.adapter_name().to_string();
+            web_sys::console::log_1(&format!("GPU: initialized: {}", name).into());
             GPU_MINER.with(|cell| *cell.borrow_mut() = Some(m));
             NONCE_TABLE.with(|cell| {
                 if cell.borrow().is_none() {
@@ -352,7 +356,10 @@ pub async fn gpu_init() -> String {
             });
             name
         }
-        None => String::new(),
+        None => {
+            web_sys::console::error_1(&"GPU: GpuMiner::try_new() returned None — no adapter or device init failed".into());
+            String::new()
+        }
     }
 }
 
