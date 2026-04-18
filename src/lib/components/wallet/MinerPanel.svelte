@@ -199,12 +199,14 @@
 					<Monitor class="w-3 h-3" /> GPU
 				</button>
 			{/if}
-			<button onclick={toggle}
-				class="flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold transition-all
+			<button onclick={toggle} disabled={gpuInitializing}
+				class="flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold transition-all disabled:opacity-50
 					{running
 						? 'bg-danger text-danger-foreground hover:bg-danger'
 						: 'bg-primary text-primary-foreground hover:bg-primary'}">
-				{#if running}
+				{#if gpuInitializing}
+					<Zap class="w-3.5 h-3.5 animate-pulse" /> Initializing GPU...
+				{:else if running}
 					<Square class="w-3.5 h-3.5" /> Stop
 				{:else}
 					<Zap class="w-3.5 h-3.5" /> Start
