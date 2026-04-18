@@ -279,7 +279,7 @@
 				</div>
 				<div>
 					<span class="font-semibold text-foreground text-sm">Recover from Mnemonic</span>
-					<span class="block text-xs text-muted-foreground mt-0.5">Enter your 24-word recovery phrase or hex secret</span>
+					<span class="block text-xs text-muted-foreground mt-0.5">Enter your recovery phrase or hex secret</span>
 				</div>
 			</button>
 
