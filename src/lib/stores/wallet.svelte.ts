@@ -140,7 +140,8 @@ export const setupWallet = async (): Promise<Result<string>> => {
 		const resultJson = wasm.create_master_wallet(undefined);
 		const result = JSON.parse(resultJson);
 		Persistence.setMnemonic(result.mnemonic);
-		await saveMaster(network, result.master_state);
+		await saveMaster('production', result.master_state);
+		await saveMaster('testnet', result.master_state);
 		Persistence.setActive(network, 'webcash', 'main');
 		activeFamily = 'webcash';
 		activeLabel = 'main';
@@ -163,7 +164,9 @@ export const setupFromMnemonic = async (mnemonic: string): Promise<Result<string
 		const resultJson = wasm.create_master_wallet(mnemonic);
 		const result = JSON.parse(resultJson);
 		Persistence.setMnemonic(result.mnemonic);
-		await saveMaster(network, result.master_state);
+		// Save master to BOTH networks so scanning works on both
+		await saveMaster('production', result.master_state);
+		await saveMaster('testnet', result.master_state);
 		Persistence.setActive(network, 'webcash', 'main');
 		activeFamily = 'webcash';
 		activeLabel = 'main';
@@ -486,8 +489,9 @@ export const importFullBackup = async (backupJson: string): Promise<Result<void>
 		const network = getNetwork();
 		const resultJson = wasm.import_full_backup(backupJson);
 		const result = JSON.parse(resultJson);
-		// Persist master state
-		await saveMaster(network, result.master_state);
+		// Persist master state to BOTH networks
+		await saveMaster('production', result.master_state);
+		await saveMaster('testnet', result.master_state);
 		masterState = result.master_state;
 		// Extract mnemonic from restored master and persist it
 		try {

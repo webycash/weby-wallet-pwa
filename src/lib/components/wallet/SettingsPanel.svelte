@@ -194,7 +194,7 @@
 			<EncryptionSetup />
 			<div class="flex flex-col gap-2 pt-3 border-t border-border">
 				<Button variant="outline" class="w-full justify-start" onclick={handleShowMnemonic}>
-					<KeyRound class="w-4 h-4" /> Export Mnemonic BIP39
+					<KeyRound class="w-4 h-4" /> Export Mnemonic
 				</Button>
 				<Button variant="outline" class="w-full justify-start" onclick={handleQrExport}>
 					<QrCode class="w-4 h-4" /> Pair QR Code
@@ -205,7 +205,7 @@
 			</div>
 			{#if mnemonicWords}
 				<div class="pt-3 border-t border-border">
-					<p class="text-xs text-muted-foreground mb-2">BIP39 Mnemonic (keep secret)</p>
+					<p class="text-xs text-muted-foreground mb-2">BIP39/BIP32 Mnemonic (keep secret)</p>
 					<div class="rounded-lg bg-muted p-3 text-sm font-mono leading-relaxed break-words select-all">
 						{mnemonicWords}
 					</div>
