@@ -137,6 +137,8 @@
 		fmt = (wats: number) => wasm.format_amount(BigInt(wats));
 		await refresh();
 		initializing = false;
+		const appLoader = document.getElementById('app-loader');
+		if (appLoader) { appLoader.classList.add('fade-out'); setTimeout(() => appLoader.remove(), 300); }
 		if (pendingWebcash) { activePanel = 'insert'; setTimeout(() => handleInsert(pendingWebcash), 500); }
 		document.addEventListener('visibilitychange', handleVisibility);
 	});
@@ -155,9 +157,7 @@
 </script>
 
 {#if initializing}
-<div class="min-h-[60vh] flex items-center justify-center">
-	<LoaderCircle class="w-10 h-10 text-primary animate-spin" />
-</div>
+<div class="min-h-[60vh]"></div>
 {:else}
 <div class="container mx-auto px-4 sm:px-6 py-8 max-w-2xl space-y-6">
 	{#if showBackupWarning}

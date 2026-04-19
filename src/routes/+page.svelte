@@ -20,8 +20,17 @@
 	let receiveError = $state('');
 	let receiveSuccess = $state(false);
 
+	const dismissLoader = () => {
+		const el = document.getElementById('app-loader');
+		if (el) { el.classList.add('fade-out'); setTimeout(() => el.remove(), 300); }
+	};
+
 	onMount(() => {
 		if (!browser) return;
+		// Dismiss loader for non-Dashboard screens (license, setup, lock)
+		if (!walletExists() || !licenseAccepted() || encryptionType() !== 'none') {
+			dismissLoader();
+		}
 		const params = new URLSearchParams(window.location.search);
 		const wc = params.get('webcash');
 		const net = params.get('network') as NetworkMode | null;
