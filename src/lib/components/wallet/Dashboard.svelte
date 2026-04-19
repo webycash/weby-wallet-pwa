@@ -12,7 +12,7 @@
 	import { getWasm } from '$lib/core/wasm';
 	import type { SecretWebcash, WalletStats, NetworkMode } from '$lib/core/types';
 	import { ArrowDownToLine, ArrowUpFromLine, ShieldCheck, Merge, Pickaxe,
-		Download, Settings, ChevronDown, RotateCcw, LoaderCircle } from '@lucide/svelte';
+		Download, Settings, ChevronDown, RotateCcw, LoaderCircle, Share } from '@lucide/svelte';
 
 	import Button from '$lib/components/ui/button/button.svelte';
 	import * as Card from '$lib/components/ui/card';
@@ -169,8 +169,12 @@
 		</div>
 	{/if}
 
-	<!-- Network toggle + Settings -->
-	<div class="flex items-center justify-center gap-3">
+	<!-- Logo + Network toggle + Settings -->
+	<div class="flex items-center justify-between">
+		<a href="https://weby.cash" class="block w-8 h-8">
+			<img src="/wallet/logo.svg" alt="weby" class="w-8 h-8" />
+		</a>
+		<div class="flex items-center gap-3">
 		<div class="flex rounded-full border border-border bg-muted p-0.5">
 			<button onclick={() => { network = 'production'; setNetwork('production'); resetDb(); refresh(); }}
 				class="rounded-full px-5 py-1.5 text-xs font-semibold transition-all {network === 'production' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}">
@@ -185,6 +189,7 @@
 			class={showSettings ? 'border-primary text-primary' : ''}>
 			<Settings class="w-4 h-4" />
 		</Button>
+		</div>
 	</div>
 
 	<!-- Wallet Family Tabs -->
@@ -284,6 +289,20 @@
 
 	<WebcashList webcash={webcashList} formatAmount={fmt} />
 
-	<p class="text-center text-xs text-muted-foreground pt-2">All data stays on your device</p>
+	<div class="text-center space-y-3 pt-2">
+		<p class="text-xs text-muted-foreground">All data stays on your device</p>
+		<button onclick={() => {
+			if ('standalone' in navigator && !(navigator as any).standalone && /iPhone|iPad/.test(navigator.userAgent)) {
+				alert('Tap the Share button in Safari, then "Add to Home Screen"');
+			} else if ('getInstalledRelatedApps' in navigator || window.matchMedia('(display-mode: standalone)').matches) {
+				alert('App is already installed');
+			} else {
+				alert('Open this page in Safari or Chrome, then use "Add to Home Screen" or "Install App"');
+			}
+		}} class="inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-all">
+			<img src="/wallet/favicon-96x96.png" alt="" class="w-5 h-5 rounded" />
+			Install App
+		</button>
+	</div>
 </div>
 {/if}
