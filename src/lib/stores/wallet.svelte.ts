@@ -10,6 +10,7 @@ import * as Persistence from '$lib/core/persistence';
 import { getNetwork } from './network.svelte';
 import type { NetworkMode, CheckResult, Result, WalletSnapshot } from '$lib/core/types';
 import { ok, err } from '$lib/core/types';
+import { parseWebcasa, decryptWebcasa, isEncrypted, toWebcasaJson } from '$lib/core/webcasa';
 
 type Wasm = Awaited<ReturnType<typeof getWasm>>;
 
@@ -35,6 +36,11 @@ const loadMaster = async (network: string): Promise<string | null> => {
 const saveMaster = async (network: string, state: string) => {
 	masterState = state;
 	await Persistence.saveState(network, state, MASTER_KEY);
+};
+
+const isActiveRoaming = (): boolean => {
+	const entry = Persistence.findEntry(getNetwork(), activeFamily, activeLabel);
+	return entry?.roaming === true;
 };
 
 const ensureState = async (): Promise<{ wasm: Wasm; state: string; master: string; network: NetworkMode }> => {
@@ -71,24 +77,24 @@ const ensureState = async (): Promise<{ wasm: Wasm; state: string; master: strin
 			stateNetwork = network;
 			return { wasm, state: walletState, master: master!, network };
 		}
-		// Old format under new key — discard
 	}
+
+	// Roaming wallets cannot be created — only imported
+	if (isActiveRoaming()) throw new Error('Roaming wallet state missing — reimport required');
 
 	// Migrate legacy "current" key — detect old BrowserWallet format vs webylib MemStore
 	const legacy = await Persistence.loadState(network);
 	if (legacy) {
 		const parsed = JSON.parse(legacy);
 		if (parsed.meta && parsed.outputs && parsed.depths) {
-			// Already webylib MemStore format
 			await Persistence.saveState(network, legacy, key);
 			walletState = legacy;
 			stateNetwork = network;
 			return { wasm, state: walletState, master: master!, network };
 		}
-		// Old BrowserWallet format — discard, create fresh from mnemonic
 	}
 
-	// Create fresh wallet state for this slot
+	// Create fresh wallet state for this slot (deterministic only)
 	const secret = wasm.derive_wallet_secret(master!, activeFamily, activeLabel);
 	const createJson = await wasm.create_wallet(network, Persistence.getMnemonic() ?? undefined);
 	const created = JSON.parse(createJson);
@@ -184,6 +190,7 @@ export interface WalletInfo {
 	label: string;
 	balance: number;
 	output_count: number;
+	roaming?: boolean;
 }
 
 export const setActive = async (family: string, label: string) => {
@@ -211,16 +218,34 @@ export const addWallet = async (family: string, label: string) => {
 };
 
 export const removeWallet = async (family: string, label: string) => {
-	const { wasm, master, network } = await ensureState();
-	const newMaster = wasm.remove_wallet(master, family, label);
-	await saveMaster(network, newMaster);
+	const network = getNetwork();
+	const entry = Persistence.findEntry(network, family, label);
+	if (entry?.roaming) {
+		// Roaming: not in master store, just remove from registry + IDB
+		const registry = Persistence.getRegistry(network).filter(e => !(e.family === family && e.label === label));
+		Persistence.setRegistry(network, registry);
+	} else {
+		const { wasm, master } = await ensureState();
+		const newMaster = wasm.remove_wallet(master, family, label);
+		await saveMaster(network, newMaster);
+	}
 	await Persistence.deleteKey(network, Persistence.walletStateKey(family, label));
 };
 
 export const renameWallet = async (family: string, oldLabel: string, newLabel: string) => {
-	const { wasm, master, network } = await ensureState();
-	const newMaster = wasm.rename_wallet(master, family, oldLabel, newLabel);
-	await saveMaster(network, newMaster);
+	const network = getNetwork();
+	const entry = Persistence.findEntry(network, family, oldLabel);
+	if (entry?.roaming) {
+		// Roaming: update registry entry label
+		const registry = Persistence.getRegistry(network).map(e =>
+			e.family === family && e.label === oldLabel ? { ...e, label: newLabel } : e
+		);
+		Persistence.setRegistry(network, registry);
+	} else {
+		const { wasm, master } = await ensureState();
+		const newMaster = wasm.rename_wallet(master, family, oldLabel, newLabel);
+		await saveMaster(network, newMaster);
+	}
 
 	// Move the wallet state to the new key
 	const oldKey = Persistence.walletStateKey(family, oldLabel);
@@ -241,9 +266,11 @@ export const listWallets = async (family: string): Promise<WalletInfo[]> => {
 	const { wasm, master, network } = await ensureState();
 	const wallets: any[] = wasm.list_wallets(master, family);
 	const result: WalletInfo[] = [];
+	const seenLabels = new Set<string>();
 
 	for (const w of wallets) {
 		const label = w.label || `${family}-${w.slot_index}`;
+		seenLabels.add(label);
 		const key = Persistence.walletStateKey(family, label);
 		const state = await Persistence.loadState(network, key);
 		let balance = 0;
@@ -256,6 +283,24 @@ export const listWallets = async (family: string): Promise<WalletInfo[]> => {
 			} catch { /* skip */ }
 		}
 		result.push({ family, label, balance, output_count });
+	}
+
+	// Append roaming wallets from registry (not in master store)
+	const registry = Persistence.getRegistry(network);
+	for (const entry of registry) {
+		if (entry.family !== family || !entry.roaming || seenLabels.has(entry.label)) continue;
+		const key = Persistence.walletStateKey(family, entry.label);
+		const state = await Persistence.loadState(network, key);
+		let balance = 0;
+		let output_count = 0;
+		if (state) {
+			try {
+				balance = Number(wasm.wallet_balance(state, network));
+				const parsed = JSON.parse(state);
+				output_count = parsed.outputs?.filter((o: { spent: boolean }) => !o.spent).length ?? 0;
+			} catch { /* skip */ }
+		}
+		result.push({ family, label: entry.label, balance, output_count, roaming: true });
 	}
 	return result;
 };
@@ -409,7 +454,75 @@ export const formatPublicWebcash = async (hash: string, amountWats: number): Pro
 	return wasm.format_public_webcash(hash, BigInt(amountWats));
 };
 
-export const parseWebcash = async (s: string) => {
+export const parseWebcashStr = async (s: string) => {
 	const wasm = await getWasm();
 	return wasm.parse_webcash(s);
+};
+
+// ── Roaming Wallet Support ─────────────────────────────────────
+
+export const isRoaming = (): boolean => isActiveRoaming();
+
+export const canMine = (): boolean => activeLabel === 'main' && !isActiveRoaming();
+
+export const importRoamingFromFile = async (file: File, label: string, password?: string): Promise<Result<void>> => {
+	try {
+		const wasm = await getWasm();
+		const network = getNetwork();
+		const raw = await file.text();
+		const wallet = password && isEncrypted(raw)
+			? await decryptWebcasa(raw, password)
+			: parseWebcasa(raw);
+		const state = await wasm.create_roaming_wallet(
+			network, wallet.master_secret,
+			JSON.stringify(wallet.webcash),
+			JSON.stringify(wallet.walletdepths),
+		);
+		const key = Persistence.walletStateKey('webcash', label);
+		await Persistence.saveState(network, state, key);
+		const registry = Persistence.getRegistry(network);
+		registry.push({ family: 'webcash', label, index: -1, roaming: true });
+		Persistence.setRegistry(network, registry);
+		await setActive('webcash', label);
+		return ok(undefined);
+	} catch (e) { return err(`Import failed: ${e}`); }
+};
+
+export const importRoamingFromSecret = async (masterSecretHex: string, label: string): Promise<Result<void>> => {
+	try {
+		if (!/^[0-9a-fA-F]{64}$/.test(masterSecretHex))
+			return err('Master secret must be 64 hex characters');
+		const wasm = await getWasm();
+		const network = getNetwork();
+		const state = await wasm.create_roaming_wallet(network, masterSecretHex, '[]', '{}');
+		const key = Persistence.walletStateKey('webcash', label);
+		await Persistence.saveState(network, state, key);
+		const registry = Persistence.getRegistry(network);
+		registry.push({ family: 'webcash', label, index: -1, roaming: true });
+		Persistence.setRegistry(network, registry);
+		await setActive('webcash', label);
+		walletState = state;
+		stateNetwork = network;
+		// Auto-recover to find outputs on server
+		const r = await recoverWallet(20);
+		if (!r.ok) return err(r.error);
+		return ok(undefined);
+	} catch (e) { return err(`Import failed: ${e}`); }
+};
+
+export const exportWebcasaFile = async (): Promise<void> => {
+	const { wasm, state, network } = await ensureState();
+	const masterSecret = wasm.master_secret_hex(state, network);
+	const snap = JSON.parse(wasm.export_snapshot(state, network));
+	const webcash: string[] = snap.unspent_outputs.map((o: { secret: string; amount: number }) =>
+		wasm.format_webcash(o.secret, BigInt(o.amount)),
+	);
+	const json = toWebcasaJson(masterSecret, webcash, snap.depths);
+	const blob = new Blob([json], { type: 'text/plain' });
+	const url = URL.createObjectURL(blob);
+	const a = document.createElement('a');
+	a.href = url;
+	a.download = `${activeLabel}_wallet.webcash`;
+	a.click();
+	URL.revokeObjectURL(url);
 };

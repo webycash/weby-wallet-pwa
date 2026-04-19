@@ -33,6 +33,22 @@ pub async fn create_wallet(network: &str, mnemonic_words: Option<String>) -> Res
 }
 
 #[wasm_bindgen]
+pub async fn create_roaming_wallet(network: &str, master_secret_hex: &str, webcash_secrets_json: &str, depths_json: &str) -> Result<String, JsError> {
+    let wl = Wallet::new_memory(net(network)).map_err(e)?;
+    wl.store_master_secret(master_secret_hex).await.map_err(e)?;
+    let secrets: Vec<String> = serde_json::from_str(webcash_secrets_json).map_err(e)?;
+    for s in &secrets { wl.store_directly(SecretWebcash::parse(s).map_err(e)?).await.map_err(e)?; }
+    // Set chain depths by patching the serialised MemStore JSON
+    let depths: std::collections::HashMap<String, u64> = serde_json::from_str(depths_json).map_err(e)?;
+    if depths.is_empty() { return wl.to_json().map_err(e); }
+    let mut state: serde_json::Value = serde_json::from_str(&wl.to_json().map_err(e)?).map_err(e)?;
+    if let Some(d) = state.get_mut("depths") {
+        for (chain, depth) in &depths { d[chain] = serde_json::json!(depth); }
+    }
+    Ok(state.to_string())
+}
+
+#[wasm_bindgen]
 pub fn wallet_balance(s: &str, n: &str) -> Result<i64, JsError> { Ok(w(s,n)?.export_snapshot().map_err(e)?.unspent_outputs.iter().map(|o| o.amount).sum()) }
 
 #[wasm_bindgen]

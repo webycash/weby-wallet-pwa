@@ -1,15 +1,16 @@
 <script lang="ts">
 	import { exportWalletSnapshot, removeWallet, renameWallet,
-		getMnemonic } from '$lib/stores/wallet.svelte';
+		getMnemonic, isRoaming, importRoamingFromFile, importRoamingFromSecret,
+		exportWebcasaFile } from '$lib/stores/wallet.svelte';
 	import { markBackedUp, encryptionType } from '$lib/stores/settings.svelte';
 	import * as Persistence from '$lib/core/persistence';
-	import { QrCode, Download, Trash2, Pencil, Lock, Key } from '@lucide/svelte';
+	import { QrCode, Download, Trash2, Pencil, Lock, Key, Upload, FileDown } from '@lucide/svelte';
 
 	import Button from '$lib/components/ui/button/button.svelte';
 	import EncryptionSetup from './EncryptionSetup.svelte';
 
-	let { activeFamily, activeLabel, onRefresh, onMessage }:
-		{ activeFamily: string; activeLabel: string; onRefresh: () => Promise<void>; onMessage: (msg: string, type?: 'success' | 'error') => void } = $props();
+	let { activeFamily, activeLabel, isRoamingWallet, onRefresh, onMessage }:
+		{ activeFamily: string; activeLabel: string; isRoamingWallet: boolean; onRefresh: () => Promise<void>; onMessage: (msg: string, type?: 'success' | 'error') => void } = $props();
 
 	let qrDataUrl = $state('');
 	let renameInput = $state('');
@@ -68,6 +69,56 @@
 		} catch (e) { onMessage(`${e}`, 'error'); }
 	};
 
+	// ── Roaming import state ───────────────────────────────────────
+	let importFile = $state<File | null>(null);
+	let importLabel = $state('');
+	let importPassword = $state('');
+	let importShowPassword = $state(false);
+	let importLoading = $state(false);
+	let importSecretHex = $state('');
+	let importSecretLabel = $state('');
+	let importSecretLoading = $state(false);
+
+	const nextRoamingLabel = (): string => {
+		const network = Persistence.getActive(Persistence.getActive('production').family ? 'production' : 'testnet').family;
+		const registry = Persistence.getRegistry('production').concat(Persistence.getRegistry('testnet'));
+		let n = 1;
+		while (registry.some(e => e.label === `imported-${n}`)) n++;
+		return `imported-${n}`;
+	};
+
+	const handleFileImport = async () => {
+		if (!importFile) return;
+		const label = importLabel.trim() || nextRoamingLabel();
+		importLoading = true;
+		const r = await importRoamingFromFile(importFile, label, importPassword || undefined);
+		importLoading = false;
+		if (r.ok) {
+			onMessage(`Roaming wallet "${label}" imported`);
+			importFile = null; importLabel = ''; importPassword = ''; importShowPassword = false;
+			await onRefresh();
+		} else onMessage(r.error, 'error');
+	};
+
+	const handleSecretImport = async () => {
+		const label = importSecretLabel.trim() || nextRoamingLabel();
+		importSecretLoading = true;
+		const r = await importRoamingFromSecret(importSecretHex.trim(), label);
+		importSecretLoading = false;
+		if (r.ok) {
+			onMessage(`Roaming wallet "${label}" imported and recovered`);
+			importSecretHex = ''; importSecretLabel = '';
+			await onRefresh();
+		} else onMessage(r.error, 'error');
+	};
+
+	const handleExportWebcasa = async () => {
+		try {
+			await exportWebcasaFile();
+			onMessage('Wallet exported as .webcash');
+		} catch (e) { onMessage(`Export failed: ${e}`, 'error'); }
+	};
+
 	const sectionClass = 'rounded-xl bg-card overflow-hidden';
 	const summaryClass = 'flex items-center gap-3 px-4 py-3 cursor-pointer select-none hover:bg-muted transition-colors text-sm font-semibold';
 	const contentClass = 'px-4 pb-4 space-y-3';
@@ -87,6 +138,9 @@
 				<span class="text-sm text-muted-foreground">Label:</span>
 				<span class="text-sm font-medium capitalize">{activeLabel}</span>
 				<span class="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground capitalize">{activeFamily}</span>
+				{#if isRoamingWallet}
+					<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-warning/20 text-warning font-semibold">Roaming</span>
+				{/if}
 			</div>
 			{#if showRename}
 				<div class="flex gap-2">
@@ -146,7 +200,49 @@
 			<span class="flex-1">Webcash</span>
 		</summary>
 		<div class={contentClass}>
-			<p class="text-sm text-muted-foreground">Webcash wallet settings will appear here as features are added.</p>
+			<!-- Export current wallet -->
+			<Button variant="outline" class="w-full justify-start" onclick={handleExportWebcasa}>
+				<FileDown class="w-4 h-4" /> Export .webcash
+			</Button>
+
+			<!-- Import .webcash file -->
+			<div class="rounded-lg border border-border p-3 space-y-2">
+				<p class="text-xs font-semibold text-muted-foreground">Import .webcash file</p>
+				<input type="file" accept=".webcash,.json"
+					onchange={(e) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) importFile = f; }}
+					class="w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-muted file:px-3 file:py-1.5 file:text-sm file:font-medium" />
+				<input bind:value={importLabel} placeholder="Label (e.g. imported-1)"
+					class="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm" />
+				<div class="flex items-center gap-2">
+					<label class="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
+						<input type="checkbox" bind:checked={importShowPassword} class="rounded" />
+						Encrypted?
+					</label>
+				</div>
+				{#if importShowPassword}
+					<input type="password" bind:value={importPassword} placeholder="Webcasa password"
+						class="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm" />
+				{/if}
+				<Button variant="outline" class="w-full" onclick={handleFileImport}
+					disabled={!importFile || importLoading}>
+					<Upload class="w-3.5 h-3.5" />
+					{importLoading ? 'Importing...' : 'Import as Roaming Wallet'}
+				</Button>
+			</div>
+
+			<!-- Import by master secret -->
+			<div class="rounded-lg border border-border p-3 space-y-2">
+				<p class="text-xs font-semibold text-muted-foreground">Import by master secret</p>
+				<input bind:value={importSecretHex} placeholder="64-character hex master secret"
+					class="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-mono" />
+				<input bind:value={importSecretLabel} placeholder="Label (e.g. imported-1)"
+					class="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm" />
+				<Button variant="outline" class="w-full" onclick={handleSecretImport}
+					disabled={!importSecretHex.trim() || importSecretLoading}>
+					<Upload class="w-3.5 h-3.5" />
+					{importSecretLoading ? 'Importing & Recovering...' : 'Import as Roaming Wallet'}
+				</Button>
+			</div>
 		</div>
 	</details>
 

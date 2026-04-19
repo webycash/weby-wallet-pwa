@@ -17,6 +17,7 @@ declare module '$wasm/wallet_wasm' {
 
 	// Per-wallet lifecycle (webylib::Wallet — webcash operations)
 	export function create_wallet(network: string, mnemonic_words?: string): Promise<string>;
+	export function create_roaming_wallet(network: string, master_secret_hex: string, webcash_secrets_json: string, depths_json: string): Promise<string>;
 
 	// State queries
 	export function wallet_balance(state_json: string, network: string): bigint;

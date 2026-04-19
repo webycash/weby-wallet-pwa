@@ -86,13 +86,16 @@ export const hasState = async (network: string): Promise<boolean> => {
 const REGISTRY_KEY = (network: string) => `weby_wallet_registry_${network}`;
 const ACTIVE_KEY = (network: string) => `weby_wallet_active_${network}`;
 
-export interface WalletEntry { family: string; label: string; index: number }
+export interface WalletEntry { family: string; label: string; index: number; roaming?: boolean }
 
 export const getRegistry = (network: string): WalletEntry[] => {
 	const raw = localStorage.getItem(REGISTRY_KEY(network));
 	if (!raw) return [{ family: 'webcash', label: 'main', index: 0 }];
 	return JSON.parse(raw);
 };
+
+export const findEntry = (network: string, family: string, label: string): WalletEntry | undefined =>
+	getRegistry(network).find(e => e.family === family && e.label === label);
 
 export const setRegistry = (network: string, entries: WalletEntry[]) => {
 	localStorage.setItem(REGISTRY_KEY(network), JSON.stringify(entries));
