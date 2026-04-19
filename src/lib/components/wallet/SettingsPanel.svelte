@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { exportWalletSnapshot, removeWallet, renameWallet,
-		getMnemonic, isRoaming, importRoamingFromFile, importRoamingFromSecret,
-		exportWebcasaFile } from '$lib/stores/wallet.svelte';
+		getMnemonic, exportMasterBackup, isRoaming, importRoamingFromFile,
+		importRoamingFromSecret, exportWebcasaFile } from '$lib/stores/wallet.svelte';
 	import { markBackedUp, encryptionType } from '$lib/stores/settings.svelte';
 	import * as Persistence from '$lib/core/persistence';
 	import { QrCode, Download, Trash2, Pencil, Lock, Key, Upload, FileDown, FileUp, KeyRound } from '@lucide/svelte';
@@ -26,16 +26,19 @@
 	};
 
 	const handleBackup = async () => {
-		const snap = await exportWalletSnapshot();
-		const blob = new Blob([JSON.stringify(snap, null, 2)], { type: 'application/json' });
-		const url = URL.createObjectURL(blob);
-		const a = document.createElement('a');
-		a.href = url;
-		a.download = `weby-wallet-${new Date().toISOString().slice(0, 10)}.json`;
-		a.click();
-		URL.revokeObjectURL(url);
-		markBackedUp();
-		onMessage('Backup downloaded');
+		try {
+			const backup = await exportMasterBackup();
+			const data = { ...backup, created: new Date().toISOString() };
+			const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = `weby-master-${new Date().toISOString().slice(0, 10)}.json`;
+			a.click();
+			URL.revokeObjectURL(url);
+			markBackedUp();
+			onMessage('Master backup downloaded');
+		} catch (e) { onMessage(`Backup failed: ${e}`, 'error'); }
 	};
 
 	const handleDeleteMaster = async () => {

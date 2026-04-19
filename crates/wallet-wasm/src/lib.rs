@@ -107,6 +107,14 @@ pub fn export_snapshot(s: &str, n: &str) -> Result<String, JsError> { serde_json
 // ── Master wallet (WalletCore + MemHarmoniiStore) ───────────────
 
 #[wasm_bindgen]
+pub fn export_master_backup(m: &str) -> Result<String, JsError> {
+    let c = core(m)?;
+    let mnemonic = c.export_master_key_mnemonic().map_err(e)?;
+    let root_hex = c.export_master_key_hex().map_err(e)?;
+    Ok(serde_json::to_string(&serde_json::json!({"mnemonic": mnemonic, "root_key_hex": root_hex})).map_err(e)?)
+}
+
+#[wasm_bindgen]
 pub fn create_master_wallet(mnemonic_words: Option<String>) -> Result<String, JsError> {
     let kc = match mnemonic_words { Some(ref w) => HdKeychain::from_mnemonic_words(w), None => HdKeychain::generate_new() }.map_err(e)?;
     let c = WalletCore::new(Box::new(MemHarmoniiStore::new()));

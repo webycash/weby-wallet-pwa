@@ -8,6 +8,7 @@ declare module '$wasm/wallet_wasm' {
 	export default init;
 
 	// Master wallet (HarmoniiStore — multi-wallet, identities, key material)
+	export function export_master_backup(master_json: string): string;
 	export function create_master_wallet(mnemonic_words?: string): string;
 	export function list_wallets(master_json: string, family: string): any[];
 	export function add_wallet(master_json: string, family: string, label: string): string;

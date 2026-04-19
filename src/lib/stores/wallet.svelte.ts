@@ -349,7 +349,18 @@ export const getMasterSecret = async (): Promise<string | undefined> => {
 };
 
 export const getMnemonic = async (): Promise<string | undefined> => {
-	return Persistence.getMnemonic() ?? undefined;
+	try {
+		const { wasm, master } = await ensureState();
+		const backup = JSON.parse(wasm.export_master_backup(master));
+		return backup.mnemonic;
+	} catch {
+		return Persistence.getMnemonic() ?? undefined;
+	}
+};
+
+export const exportMasterBackup = async (): Promise<{ mnemonic: string; root_key_hex: string }> => {
+	const { wasm, master } = await ensureState();
+	return JSON.parse(wasm.export_master_backup(master));
 };
 
 // ── Wallet Operations (single async WASM calls — HTTP in Rust) ──
