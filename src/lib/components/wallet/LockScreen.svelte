@@ -8,7 +8,6 @@
 	import { Lock, Fingerprint, KeyRound } from '@lucide/svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import * as Card from '$lib/components/ui/card';
-	import Spinner from '$lib/components/ui/spinner.svelte';
 
 	let { onUnlock }: { onUnlock: () => void } = $props();
 
@@ -107,15 +106,14 @@
 	<Card.Root>
 		<Card.Content class="p-8 space-y-6">
 			{#if encType === 'passkey'}
-				<div class="rounded-full bg-primary w-16 h-16 flex items-center justify-center mx-auto">
-					{#if loading}<Spinner class="text-primary-foreground" />{:else}<Fingerprint class="w-8 h-8 text-primary-foreground" />{/if}
+				<div class="rounded-full bg-primary w-16 h-16 flex items-center justify-center mx-auto" class:animate-pulse={loading}>
+					<Fingerprint class="w-8 h-8 text-primary-foreground" />
 				</div>
 				<div>
 					<h2 class="text-lg font-bold text-foreground">Unlock Wallet</h2>
 					<p class="text-sm text-muted-foreground mt-1">{loading ? 'Authenticating...' : 'Authenticate to access your wallet'}</p>
 				</div>
-				<Button class="w-full" onclick={unlockPasskey} disabled={loading}>
-					{#if loading}<Spinner size="sm" />{/if}
+				<Button class="w-full {loading ? 'opacity-50 animate-pulse' : ''}" onclick={unlockPasskey} disabled={loading}>
 					{loading ? 'Authenticating...' : 'Unlock with Passkey'}
 				</Button>
 			{:else}
@@ -145,8 +143,7 @@
 							</p>
 						{/if}
 					</div>
-					<Button type="submit" class="w-full" disabled={loading}>
-						{#if loading}<Spinner size="sm" />{/if}
+					<Button type="submit" class="w-full {loading ? 'opacity-50 animate-pulse' : ''}" disabled={loading}>
 						{loading ? 'Decrypting...' : 'Unlock'}
 					</Button>
 				</form>

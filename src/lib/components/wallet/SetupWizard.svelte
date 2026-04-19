@@ -8,7 +8,6 @@
 	import Button from '$lib/components/ui/button/button.svelte';
 	import * as Card from '$lib/components/ui/card';
 	import SelectionButton from '$lib/components/ui/selection-button.svelte';
-	import Spinner from '$lib/components/ui/spinner.svelte';
 
 	type Step = 'choose' | 'recover' | 'qrscan' | 'encrypt' | 'backup';
 
@@ -260,8 +259,8 @@
 			<button onclick={createNew}
 				class="w-full flex items-center gap-4 rounded-full border border-border bg-card p-5 text-left hover:border-primary hover:bg-muted transition-all"
 				disabled={loading}>
-				<div class="rounded-full bg-primary p-2.5">
-					{#if loading}<Spinner size="sm" class="text-primary-foreground" />{:else}<Plus class="w-5 h-5 text-primary-foreground" />{/if}
+				<div class="rounded-full bg-primary p-2.5" class:animate-pulse={loading}>
+					<Plus class="w-5 h-5 text-primary-foreground" />
 				</div>
 				<div>
 					<span class="font-semibold text-foreground text-sm">{loading ? 'Creating...' : 'Create New Wallet'}</span>
@@ -320,8 +319,8 @@
 			</button>
 			<button onclick={recoverFromSecret}
 				class="flex-1 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary transition-all disabled:opacity-40"
-				disabled={loading || (recoverInput.trim().length < 10)}>
-				{#if loading}<Spinner size="sm" />{/if}
+				class:animate-pulse={loading}
+			disabled={loading || (recoverInput.trim().length < 10)}>
 				{loading ? 'Scanning...' : 'Recover'}
 			</button>
 		</div>
@@ -424,9 +423,9 @@
 		{/if}
 
 		<button onclick={confirmEncryption}
-			class="w-full flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary transition-all disabled:opacity-40"
+			class="w-full flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-all
+				{encLoading ? 'opacity-50 animate-pulse' : 'hover:opacity-90'}"
 			disabled={encLoading || (selectedEncryption === 'password' && (!encPassword || encPassword.length < 8))}>
-			{#if encLoading}<Spinner size="sm" />{/if}
 			{#if encLoading}
 				{selectedEncryption === 'passkey' ? 'Authenticating...' : 'Encrypting...'}
 			{:else if selectedEncryption === 'passkey'}

@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { ArrowUpFromLine } from '@lucide/svelte';
-	import Spinner from '$lib/components/ui/spinner.svelte';
 	let { onSubmit, disabled, formatAmount, balanceWats }: {
 		onSubmit: (amountWats: number, memo: string) => void;
 		disabled: boolean;
@@ -54,13 +53,10 @@
 		/>
 	</div>
 	<button onclick={submit}
-		class="w-full flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary transition-all disabled:opacity-40"
+		class="w-full flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-all
+			{disabled ? 'opacity-50 pointer-events-none animate-pulse' : 'hover:opacity-90'}"
 		disabled={disabled || !amountStr}>
-		{#if disabled}
-			<Spinner size="sm" />
-		{:else}
-			<ArrowUpFromLine class="w-4 h-4" />
-		{/if}
-		Pay
+		<ArrowUpFromLine class="w-4 h-4" />
+		{disabled ? 'Paying...' : 'Pay'}
 	</button>
 </div>

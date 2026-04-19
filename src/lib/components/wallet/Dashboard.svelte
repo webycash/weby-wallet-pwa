@@ -16,7 +16,6 @@
 
 	import Button from '$lib/components/ui/button/button.svelte';
 	import * as Card from '$lib/components/ui/card';
-	import Spinner from '$lib/components/ui/spinner.svelte';
 
 	import BalanceCard from './BalanceCard.svelte';
 	import InsertForm from './InsertForm.svelte';
@@ -150,8 +149,10 @@
 </script>
 
 {#if initializing}
-<div class="min-h-[60vh] flex items-center justify-center">
-	<Spinner class="opacity-40" />
+<div class="min-h-[60vh] flex flex-col items-center justify-center gap-4">
+	<div class="w-14 h-14 rounded-full border-2 border-primary flex items-center justify-center animate-pulse">
+		<span class="text-2xl font-bold text-primary">W</span>
+	</div>
 </div>
 {:else}
 <div class="container mx-auto px-4 sm:px-6 py-6 max-w-2xl space-y-4">
