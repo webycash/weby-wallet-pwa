@@ -30,27 +30,27 @@ function esc(s) {
 
 function giftCardSvg(amount, memo) {
   const memoLine = memo
-    ? `<text x="600" y="430" text-anchor="middle" font-size="22" font-weight="400"
-           font-family="Inter,sans-serif" fill="#5a6a8a">"${esc(memo.slice(0, 50))}"</text>`
+    ? `<text x="600" y="430" text-anchor="middle" font-size="40" font-weight="400"
+           font-family="Inter,sans-serif" fill="#5a6a8a">"${esc(memo.slice(0, 40))}"</text>`
     : '';
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
   <rect width="1200" height="630" fill="#ffffff"/>
 
   <!-- Logo top-left -->
-  <circle cx="72" cy="68" r="24" stroke="#003DA5" stroke-width="2.5" fill="none"/>
-  <text x="72" y="77" text-anchor="middle" font-size="22" font-weight="700"
+  <circle cx="100" cy="96" r="52" stroke="#003DA5" stroke-width="3" fill="none"/>
+  <text x="100" y="115" text-anchor="middle" font-size="48" font-weight="700"
         font-family="Inter,sans-serif" fill="#003DA5">W</text>
 
-  <!-- Amount with webcash symbol -->
+  <!-- Redeem top-right -->
+  <text x="1152" y="90" text-anchor="end" font-size="36" font-weight="600"
+        font-family="Inter,sans-serif" fill="#8898b8" letter-spacing="4">REDEEM</text>
+
+  <!-- Amount then symbol -->
   <text x="600" y="340" text-anchor="middle" font-size="140" font-weight="700"
-        font-family="Inter,sans-serif" fill="#0a1a3a" letter-spacing="-3">&#x20A9;${esc(amount)}</text>
+        font-family="Inter,sans-serif" fill="#0a1a3a" letter-spacing="-3">${esc(amount)}  &#x20A9;</text>
 
   ${memoLine}
-
-  <!-- Redeem bottom-right -->
-  <text x="1152" y="594" text-anchor="end" font-size="14" font-weight="500"
-        font-family="Inter,sans-serif" fill="#8898b8" letter-spacing="2">REDEEM</text>
 </svg>`;
 }
 
