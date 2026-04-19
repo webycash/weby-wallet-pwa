@@ -5,7 +5,7 @@
 	import { setNetwork, getNetwork } from '$lib/stores/network.svelte';
 	import { isWebAuthnAvailable, encryptWithPasskey, encryptWithPassword } from '$lib/core/encryption';
 	import type { WalletSnapshot } from '$lib/core/types';
-	import { Plus, KeyRound, Upload, Lock, Fingerprint, ShieldOff, ScanLine } from '@lucide/svelte';
+	import { Plus, KeyRound, Upload, Lock, Fingerprint, ShieldOff, ScanLine, LoaderCircle } from '@lucide/svelte';
 	import SelectionButton from '$lib/components/ui/selection-button.svelte';
 
 	type Step = 'choose' | 'recover' | 'qrscan' | 'encrypt';
@@ -270,7 +270,14 @@
 </script>
 
 <div class="container mx-auto px-4 py-8 max-w-lg">
-	{#if step === 'choose'}
+	{#if loading}
+		<div class="min-h-[50vh] flex flex-col items-center justify-center gap-4">
+			<LoaderCircle class="w-10 h-10 text-primary animate-spin" />
+			{#if scanProgress}
+				<p class="text-sm text-muted-foreground">{scanProgress}</p>
+			{/if}
+		</div>
+	{:else if step === 'choose'}
 		<div class="text-center mb-8">
 			<h1 class="text-2xl font-bold text-foreground mb-2">Create Your Wallet</h1>
 			<p class="text-sm text-muted-foreground">All data stays on your device. Private by default.</p>
