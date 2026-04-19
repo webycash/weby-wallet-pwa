@@ -2,6 +2,7 @@
 	import { getNetwork } from '$lib/stores/network.svelte';
 	import { getWasm } from '$lib/core/wasm';
 	import { ShieldCheck } from '@lucide/svelte';
+	import Spinner from '$lib/components/ui/spinner.svelte';
 
 	let input = $state('');
 	let result = $state<'valid' | 'spent' | 'unknown' | null>(null);
@@ -42,7 +43,11 @@
 	<button onclick={verify}
 		class="w-full flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary transition-all disabled:opacity-40"
 		disabled={loading || !input.trim()}>
-		<ShieldCheck class="w-4 h-4" />
+		{#if loading}
+			<Spinner size="sm" />
+		{:else}
+			<ShieldCheck class="w-4 h-4" />
+		{/if}
 		{loading ? 'Checking...' : 'Verify'}
 	</button>
 

@@ -8,6 +8,7 @@
 	import Button from '$lib/components/ui/button/button.svelte';
 	import * as Card from '$lib/components/ui/card';
 	import SelectionButton from '$lib/components/ui/selection-button.svelte';
+	import Spinner from '$lib/components/ui/spinner.svelte';
 
 	type Step = 'choose' | 'recover' | 'qrscan' | 'encrypt' | 'backup';
 
@@ -260,10 +261,10 @@
 				class="w-full flex items-center gap-4 rounded-full border border-border bg-card p-5 text-left hover:border-primary hover:bg-muted transition-all"
 				disabled={loading}>
 				<div class="rounded-full bg-primary p-2.5">
-					<Plus class="w-5 h-5 text-primary-foreground" />
+					{#if loading}<Spinner size="sm" class="text-primary-foreground" />{:else}<Plus class="w-5 h-5 text-primary-foreground" />{/if}
 				</div>
 				<div>
-					<span class="font-semibold text-foreground text-sm">Create New Wallet</span>
+					<span class="font-semibold text-foreground text-sm">{loading ? 'Creating...' : 'Create New Wallet'}</span>
 					<span class="block text-xs text-muted-foreground mt-0.5">Generate a fresh master secret</span>
 				</div>
 			</button>
@@ -320,6 +321,7 @@
 			<button onclick={recoverFromSecret}
 				class="flex-1 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary transition-all disabled:opacity-40"
 				disabled={loading || (recoverInput.trim().length < 10)}>
+				{#if loading}<Spinner size="sm" />{/if}
 				{loading ? 'Scanning...' : 'Recover'}
 			</button>
 		</div>
@@ -422,8 +424,9 @@
 		{/if}
 
 		<button onclick={confirmEncryption}
-			class="w-full rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary transition-all disabled:opacity-40"
+			class="w-full flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary transition-all disabled:opacity-40"
 			disabled={encLoading || (selectedEncryption === 'password' && (!encPassword || encPassword.length < 8))}>
+			{#if encLoading}<Spinner size="sm" />{/if}
 			{#if encLoading}
 				{selectedEncryption === 'passkey' ? 'Authenticating...' : 'Encrypting...'}
 			{:else if selectedEncryption === 'passkey'}

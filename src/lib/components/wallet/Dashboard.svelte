@@ -16,6 +16,7 @@
 
 	import Button from '$lib/components/ui/button/button.svelte';
 	import * as Card from '$lib/components/ui/card';
+	import Spinner from '$lib/components/ui/spinner.svelte';
 
 	import BalanceCard from './BalanceCard.svelte';
 	import InsertForm from './InsertForm.svelte';
@@ -37,6 +38,7 @@
 	let message = $state('');
 	let messageType = $state<'success' | 'error'>('success');
 	let loading = $state(false);
+	let initializing = $state(true);
 	let fmt = $state<((wats: number) => string) | null>(null);
 	let showBackupWarning = $state(!backedUp() && !backupDismissed());
 	let showSettings = $state(false);
@@ -131,6 +133,7 @@
 		const wasm = await getWasm();
 		fmt = (wats: number) => wasm.format_amount(BigInt(wats));
 		await refresh();
+		initializing = false;
 		if (pendingWebcash) { activePanel = 'insert'; setTimeout(() => handleInsert(pendingWebcash), 500); }
 		document.addEventListener('visibilitychange', handleVisibility);
 	});
@@ -146,6 +149,11 @@
 	]);
 </script>
 
+{#if initializing}
+<div class="min-h-[60vh] flex items-center justify-center">
+	<Spinner class="opacity-40" />
+</div>
+{:else}
 <div class="container mx-auto px-4 sm:px-6 py-6 max-w-2xl space-y-4">
 	{#if showBackupWarning}
 		<div class="flex items-center gap-3 rounded-xl bg-muted px-4 py-3">
@@ -265,3 +273,4 @@
 
 	<p class="text-center text-xs text-muted-foreground pt-2">All data stays on your device</p>
 </div>
+{/if}

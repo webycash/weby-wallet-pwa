@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { NetworkMode } from '$lib/core/types';
-	import { Gift, CheckCircle, AlertCircle, Loader2 } from '@lucide/svelte';
+	import { Gift, CheckCircle, AlertCircle } from '@lucide/svelte';
+	import Spinner from '$lib/components/ui/spinner.svelte';
 
 	let { amount, memo = '', network, success, error, onContinue }: {
 		amount: string;
@@ -57,7 +58,7 @@
 				{:else}
 					<!-- Loading state -->
 					<div class="w-16 h-16 rounded-full bg-primary flex items-center justify-center mx-auto mb-4">
-						<Loader2 class="w-8 h-8 text-primary animate-spin" />
+						<Spinner size="lg" class="text-primary-foreground" />
 					</div>
 					<p class="text-xs font-medium text-primary uppercase tracking-widest mb-3">Receiving</p>
 					<p class="text-5xl font-bold text-foreground tracking-tight tabular-nums mb-2">

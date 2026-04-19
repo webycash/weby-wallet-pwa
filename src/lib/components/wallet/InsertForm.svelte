@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { ArrowDownToLine } from '@lucide/svelte';
+	import Spinner from '$lib/components/ui/spinner.svelte';
 	let { onSubmit, disabled }: { onSubmit: (s: string) => void; disabled: boolean } = $props();
 	let input = $state('');
 
@@ -9,7 +10,7 @@
 </script>
 
 <div class="rounded-2xl border border-border bg-card p-5">
-	<label class="text-xs font-medium text-muted-foreground" for="insert-input">Paste webcash to receive</label>
+	<label class="text-xs font-medium text-muted-foreground" for="insert-input">Paste webcash to insert</label>
 	<textarea
 		id="insert-input"
 		bind:value={input}
@@ -20,7 +21,11 @@
 	<button onclick={submit}
 		class="mt-3 w-full flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary transition-all disabled:opacity-40"
 		disabled={disabled || !input.trim()}>
-		<ArrowDownToLine class="w-4 h-4" />
+		{#if disabled}
+			<Spinner size="sm" />
+		{:else}
+			<ArrowDownToLine class="w-4 h-4" />
+		{/if}
 		Insert
 	</button>
 </div>
