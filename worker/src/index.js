@@ -40,10 +40,10 @@ function giftCardSvg(amount, memo) {
   <rect width="1200" height="630" fill="#ffffff"/>
 
   <!-- Webycash logo top-left -->
-  <svg x="36" y="28" width="140" height="140" viewBox="0 0 1024 1024">
+  <g transform="translate(40,20) scale(0.16)">
     ${LOGO_CIRCLE}
     ${LOGO_TEXT}
-  </svg>
+  </g>
 
   <!-- Redeem top-right -->
   <text x="1152" y="100" text-anchor="end" font-size="56" font-weight="600"
