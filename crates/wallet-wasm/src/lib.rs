@@ -218,7 +218,9 @@ pub async fn gpu_init() -> String {
 #[wasm_bindgen]
 pub fn gpu_available() -> bool { GPU_MINER.with(|c| c.borrow().is_some()) }
 
-/// Mine a batch of work units on GPU using HD-derived secrets (recoverable).
+/// Mine a batch of work units on GPU. Random secrets are used for the preimage;
+/// after a solution is found and submitted, the mined webcash is replaced with
+/// an HD-derived RECEIVE secret via insert() to make it recoverable.
 #[wasm_bindgen]
 pub async fn gpu_mine(s: &str, n: &str, difficulty: u32, mining_amount: &str, subsidy_amount: &str) -> Result<String, JsError> {
     use harmoniis_wallet::miner::work_unit::WorkUnit;
@@ -226,13 +228,7 @@ pub async fn gpu_mine(s: &str, n: &str, difficulty: u32, mining_amount: &str, su
     let wl = w(s, n)?;
     let m_amt = Amount::from_str(mining_amount).map_err(e)?;
     let s_amt = Amount::from_str(subsidy_amount).map_err(e)?;
-    // Derive 2 HD secrets per work unit (keep + subsidy) from MINING chain
-    let mut works = Vec::with_capacity(BATCH);
-    for _ in 0..BATCH {
-        let (keep_hex, _) = wl.derive_next_secret(harmoniis_wallet::webylib::hd::ChainCode::Mining).map_err(e)?;
-        let (subsidy_hex, _) = wl.derive_next_secret(harmoniis_wallet::webylib::hd::ChainCode::Mining).map_err(e)?;
-        works.push(WorkUnit::from_secrets(difficulty, m_amt, s_amt, &keep_hex, &subsidy_hex));
-    }
+    let works: Vec<WorkUnit> = (0..BATCH).map(|_| WorkUnit::new(difficulty, m_amt, s_amt)).collect();
     let midstates: Vec<_> = works.iter().map(|w| w.midstate.clone()).collect();
     let miner = GPU_MINER.with(|c| { let b = c.borrow(); Ok::<_,JsError>((b.as_ref().ok_or_else(|| JsError::new("GPU not initialized"))? as *const GpuMiner,)) })?;
     let chunks = unsafe { &*miner.0 }.mine_batch(&midstates, difficulty).await.map_err(e)?;
@@ -241,8 +237,9 @@ pub async fn gpu_mine(s: &str, n: &str, difficulty: u32, mining_amount: &str, su
         if let Some(r) = chunk.result {
             let nt = NONCE_TABLE.with(|c| c.borrow().as_ref().unwrap().clone());
             let preimage = work.preimage_string(&nt, r.nonce1_idx, r.nonce2_idx);
+            let keep_str = work.keep_secret.to_string();
             wl.store_directly(work.keep_secret).await.map_err(e)?;
-            return Ok(serde_json::to_string(&serde_json::json!({"found":true,"state":wl.to_json().map_err(e)?,"preimage_b64":preimage,"hash_hex":hex::encode(r.hash),"difficulty_achieved":r.difficulty_achieved,"attempted":total_attempted})).map_err(e)?);
+            return Ok(serde_json::to_string(&serde_json::json!({"found":true,"state":wl.to_json().map_err(e)?,"preimage_b64":preimage,"hash_hex":hex::encode(r.hash),"difficulty_achieved":r.difficulty_achieved,"attempted":total_attempted,"keep_webcash":keep_str})).map_err(e)?);
         }
     }
     Ok(serde_json::to_string(&serde_json::json!({"found":false,"state":wl.to_json().map_err(e)?,"attempted":total_attempted})).map_err(e)?)

@@ -119,6 +119,14 @@
 						await wasm.submit_mining_report(network, res.preimage_b64, res.hash_hex);
 						solutionsSubmitted++;
 						submitted = true;
+						// Replace random mining secret with HD RECEIVE secret (recoverable)
+						if (res.keep_webcash) {
+							const st = await getRawState();
+							if (st) {
+								const replaced = await wasm.insert_webcash(st, network, res.keep_webcash);
+								await setRawState(replaced);
+							}
+						}
 					} catch { /* best-effort */ }
 
 					history = [...history, {
