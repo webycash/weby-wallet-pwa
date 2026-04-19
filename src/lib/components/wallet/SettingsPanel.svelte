@@ -4,7 +4,7 @@
 		exportWebcasaFile } from '$lib/stores/wallet.svelte';
 	import { markBackedUp, encryptionType } from '$lib/stores/settings.svelte';
 	import * as Persistence from '$lib/core/persistence';
-	import { QrCode, Download, Trash2, Pencil, Lock, Key, Upload, FileDown, FileUp, KeyRound } from '@lucide/svelte';
+	import { QrCode, Download, Trash2, Pencil, Lock, Key, Upload, FileDown, FileUp, KeyRound, Copy } from '@lucide/svelte';
 
 	let fileInputEl = $state<HTMLInputElement | null>(null);
 
@@ -17,6 +17,19 @@
 	let qrDataUrl = $state('');
 	let renameInput = $state('');
 	let showRename = $state(false);
+	let mnemonicWords = $state('');
+
+	const handleShowMnemonic = async () => {
+		if (mnemonicWords) { mnemonicWords = ''; return; }
+		const m = await getMnemonic();
+		if (m) mnemonicWords = m;
+		else onMessage('No mnemonic found', 'error');
+	};
+
+	const handleCopyMnemonic = async () => {
+		await navigator.clipboard.writeText(mnemonicWords);
+		onMessage('Mnemonic copied');
+	};
 
 	const handleQrExport = async () => {
 		const mnemonic = await getMnemonic();
@@ -180,13 +193,27 @@
 		<div class={contentClass}>
 			<EncryptionSetup />
 			<div class="flex flex-col gap-2 pt-3 border-t border-border">
+				<Button variant="outline" class="w-full justify-start" onclick={handleShowMnemonic}>
+					<KeyRound class="w-4 h-4" /> Export Mnemonic BIP39
+				</Button>
 				<Button variant="outline" class="w-full justify-start" onclick={handleQrExport}>
 					<QrCode class="w-4 h-4" /> Pair QR Code
 				</Button>
 				<Button variant="outline" class="w-full justify-start" onclick={handleBackup}>
 					<Download class="w-4 h-4" /> Backup
 				</Button>
+			</div>
+			{#if mnemonicWords}
+				<div class="pt-3 border-t border-border">
+					<p class="text-xs text-muted-foreground mb-2">BIP39 Mnemonic (keep secret)</p>
+					<div class="rounded-lg bg-muted p-3 text-sm font-mono leading-relaxed break-words select-all">
+						{mnemonicWords}
+					</div>
+					<Button variant="outline" size="sm" class="w-full mt-2" onclick={handleCopyMnemonic}>
+						<Copy class="w-3.5 h-3.5" /> Copy
+					</Button>
 				</div>
+			{/if}
 			{#if qrDataUrl}
 				<div class="pt-3 border-t border-border text-center">
 					<p class="text-xs text-muted-foreground mb-3">Scan to import wallet</p>

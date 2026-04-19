@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { setupWallet, setupFromMnemonic, importWalletSnapshot, scanDeterministicSlots,
-		resetDb, exportWalletSnapshot } from '$lib/stores/wallet.svelte';
+	import { setupWallet, setupFromMnemonic, importWalletSnapshot, importFullBackup,
+		scanDeterministicSlots, resetDb, exportWalletSnapshot } from '$lib/stores/wallet.svelte';
 	import { markWalletCreated, setEncryptionType, type EncryptionType } from '$lib/stores/settings.svelte';
 	import { setNetwork, getNetwork } from '$lib/stores/network.svelte';
 	import { isWebAuthnAvailable, encryptWithPasskey, encryptWithPassword } from '$lib/core/encryption';
@@ -159,10 +159,18 @@
 		error = '';
 		try {
 			const text = await file.text();
-			const snapshot: WalletSnapshot = JSON.parse(text);
-			const result = await importWalletSnapshot(snapshot);
-			if (result.ok) {
+			const parsed = JSON.parse(text);
+			let result;
+			// Detect format: FullBackup has master_state + webcash_wallets, WalletSnapshot has master_secret + unspent_outputs
+			if (parsed.master_state && parsed.webcash_wallets) {
+				result = await importFullBackup(text);
+				masterSecret = '';
+			} else {
+				const snapshot: WalletSnapshot = parsed;
+				result = await importWalletSnapshot(snapshot);
 				masterSecret = snapshot.master_secret;
+			}
+			if (result.ok) {
 				await scanBothNetworks();
 				step = 'encrypt';
 			} else {

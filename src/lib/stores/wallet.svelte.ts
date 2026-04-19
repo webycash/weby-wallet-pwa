@@ -460,13 +460,55 @@ export const importWalletSnapshot = async (snapshot: WalletSnapshot): Promise<Re
 	try {
 		const wasm = await getWasm();
 		const network = getNetwork();
-		// Restore from mnemonic derived from snapshot master secret
-		const mnemonic = Persistence.getMnemonic();
-		if (!mnemonic) return err('No mnemonic found');
-		const walletJson = await wasm.create_wallet(network, mnemonic);
-		const wallet = JSON.parse(walletJson);
-		// The snapshot's outputs will be recovered via recoverWallet
-		await updateWalletState(wallet.state);
+		// Convert snapshot master_secret (webcash hex) to mnemonic via HD derivation
+		const mnemonic = Persistence.getMnemonic() ?? wasm.mnemonic_from_hex(snapshot.master_secret);
+		// Set up the full master wallet from the mnemonic
+		const result = await setupFromMnemonic(mnemonic);
+		if (!result.ok) return err(result.error);
+		// Re-import the snapshot's outputs into the main webcash wallet
+		const state = await wasm.create_roaming_wallet(
+			network, snapshot.master_secret,
+			JSON.stringify(snapshot.unspent_outputs.map((o: { secret: string; amount: number }) =>
+				wasm.format_webcash(o.secret, BigInt(o.amount))
+			)),
+			JSON.stringify(snapshot.depths),
+		);
+		await updateWalletState(state);
+		return ok(undefined);
+	} catch (e) {
+		return err(`Import failed: ${e}`);
+	}
+};
+
+export const importFullBackup = async (backupJson: string): Promise<Result<void>> => {
+	try {
+		const wasm = await getWasm();
+		const network = getNetwork();
+		const resultJson = wasm.import_full_backup(backupJson);
+		const result = JSON.parse(resultJson);
+		// Persist master state
+		await saveMaster(network, result.master_state);
+		masterState = result.master_state;
+		// Extract mnemonic from restored master and persist it
+		try {
+			const masterCore = JSON.parse(result.master_state);
+			const mnemonic = masterCore?.meta?.root_mnemonic;
+			if (mnemonic) Persistence.setMnemonic(mnemonic);
+		} catch { /* mnemonic extraction is best-effort */ }
+		// Persist all webcash wallet states to IndexedDB
+		const wallets: Record<string, string> = result.webcash_wallets;
+		for (const [label, state] of Object.entries(wallets)) {
+			const key = Persistence.walletStateKey('webcash', label);
+			await Persistence.saveState(network, state, key);
+		}
+		// Set active to main and load its state
+		Persistence.setActive(network, 'webcash', 'main');
+		activeFamily = 'webcash';
+		activeLabel = 'main';
+		if (wallets['main']) {
+			walletState = wallets['main'];
+			stateNetwork = network;
+		}
 		return ok(undefined);
 	} catch (e) {
 		return err(`Import failed: ${e}`);
