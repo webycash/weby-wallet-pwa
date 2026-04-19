@@ -61,19 +61,20 @@
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">
-		<div id="app-loader" style="position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;transition:opacity .3s ease">
-			<svg id="app-spinner" width="56" height="56" viewBox="0 0 56 56" fill="none" style="animation:spin 1s linear infinite">
-				<circle cx="28" cy="28" r="25" stroke-width="2" opacity=".1"/>
-				<path d="M53 28a25 25 0 00-25-25" stroke-width="2" stroke-linecap="round"/>
-				<defs><linearGradient id="t" x1="53" y1="28" x2="28" y2="3"><stop/><stop offset="1" stop-opacity="0"/></linearGradient></defs>
-			</svg>
-		</div>
+		<div id="app-loader" style="position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;transition:opacity .3s ease"></div>
 		<script>
 			(function(){
 				var dark=document.documentElement.classList.contains('dark');
-				var c=dark?'#7ba3f0':'#1a3f8a';
-				var s=document.getElementById('app-spinner');
-				if(s){s.querySelector('circle').setAttribute('stroke',c);s.querySelector('path').style.stroke='url(#t)';var stops=s.querySelectorAll('stop');stops[0].setAttribute('stop-color',c);stops[1].setAttribute('stop-color',c)}
+				var c=dark?'rgba(140,180,255,0.9)':'rgba(0,50,160,0.85)';
+				var bg=dark?'rgba(140,180,255,0.08)':'rgba(0,50,160,0.08)';
+				var el=document.getElementById('app-loader');
+				if(!el)return;
+				el.innerHTML='<svg width="52" height="52" viewBox="0 0 52 52" fill="none" style="animation:spin .9s linear infinite">'
+					+'<circle cx="26" cy="26" r="22" stroke="'+bg+'" stroke-width="3.5"/>'
+					+'<path d="M48 26a22 22 0 00-22-22" stroke="url(#lg)" stroke-width="3.5" stroke-linecap="round"/>'
+					+'<defs><linearGradient id="lg" x1="48" y1="26" x2="26" y2="4">'
+					+'<stop stop-color="'+c+'"/><stop offset="1" stop-color="'+c+'" stop-opacity="0"/>'
+					+'</linearGradient></defs></svg>';
 			})()
 		</script>
 		<div style="display:contents">%sveltekit.body%</div>
