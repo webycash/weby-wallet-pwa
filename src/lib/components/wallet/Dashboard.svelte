@@ -159,7 +159,7 @@
 	<LoaderCircle class="w-10 h-10 text-primary animate-spin" />
 </div>
 {:else}
-<div class="container mx-auto px-4 sm:px-6 py-6 max-w-2xl space-y-4">
+<div class="container mx-auto px-4 sm:px-6 py-8 max-w-2xl space-y-6">
 	{#if showBackupWarning}
 		<div class="flex items-center gap-3 rounded-xl bg-muted px-4 py-3">
 			<div class="w-1.5 h-1.5 rounded-full bg-danger shrink-0"></div>
