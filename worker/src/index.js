@@ -18,6 +18,8 @@ import resvgWasm from '@resvg/resvg-wasm/index_bg.wasm';
 import interBold from './Inter-Bold.woff2';
 import interRegular from './Inter-Regular.woff2';
 
+import { LOGO_CIRCLE, LOGO_TEXT } from './logo.js';
+
 let wasmReady = false;
 
 const ORIGIN = 'https://webycash.github.io';
@@ -37,10 +39,11 @@ function giftCardSvg(amount, memo) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
   <rect width="1200" height="630" fill="#ffffff"/>
 
-  <!-- Logo top-left -->
-  <circle cx="100" cy="96" r="52" stroke="#003DA5" stroke-width="3" fill="none"/>
-  <text x="100" y="115" text-anchor="middle" font-size="48" font-weight="700"
-        font-family="Inter,sans-serif" fill="#003DA5">W</text>
+  <!-- Webycash logo top-left -->
+  <svg x="32" y="24" width="100" height="100" viewBox="0 0 1024 1024">
+    ${LOGO_CIRCLE}
+    ${LOGO_TEXT}
+  </svg>
 
   <!-- Redeem top-right -->
   <text x="1152" y="90" text-anchor="end" font-size="36" font-weight="600"
@@ -51,6 +54,10 @@ function giftCardSvg(amount, memo) {
         font-family="Inter,sans-serif" fill="#0a1a3a" letter-spacing="-3">${esc(amount)}  &#x20A9;</text>
 
   ${memoLine}
+
+  <!-- Website bottom center -->
+  <text x="600" y="580" text-anchor="middle" font-size="24" font-weight="500"
+        font-family="Inter,sans-serif" fill="#8898b8">weby.cash</text>
 </svg>`;
 }
 
