@@ -1,33 +1,17 @@
-/**
- * Generate static OG fallback image (1200x630 PNG).
- * Run: node scripts/gen-og.mjs
- */
 import { Resvg } from '@resvg/resvg-js';
 import { writeFileSync } from 'fs';
 
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0.3" y2="1">
-      <stop offset="0%" stop-color="#0f1118"/>
-      <stop offset="100%" stop-color="#0b0d14"/>
-    </linearGradient>
-    <radialGradient id="glow" cx="50%" cy="50%" r="40%">
-      <stop offset="0%" stop-color="#055DFF" stop-opacity="0.06"/>
-      <stop offset="100%" stop-color="#055DFF" stop-opacity="0"/>
-    </radialGradient>
-  </defs>
-  <rect width="1200" height="630" fill="url(#bg)"/>
-  <rect width="1200" height="630" fill="url(#glow)"/>
-  <circle cx="56" cy="46" r="16" stroke="#055DFF" stroke-width="1.5" fill="none" opacity="0.4"/>
-  <text x="56" y="52" text-anchor="middle" font-size="14" font-weight="700"
-        font-family="Arial,Helvetica,sans-serif" fill="#055DFF" opacity="0.4">W</text>
-  <text x="600" y="350" text-anchor="middle" font-size="110" font-weight="700"
-        font-family="Arial,Helvetica,sans-serif" fill="#e4e8f0" letter-spacing="-2">webcash</text>
-  <text x="1150" y="600" text-anchor="end" font-size="12" font-weight="500"
-        font-family="Arial,Helvetica,sans-serif" fill="#3a4a6a" letter-spacing="2">REDEEM</text>
+  <rect width="1200" height="630" fill="#ffffff"/>
+  <circle cx="72" cy="68" r="24" stroke="#003DA5" stroke-width="2.5" fill="none"/>
+  <text x="72" y="77" text-anchor="middle" font-size="22" font-weight="700"
+        font-family="Arial,sans-serif" fill="#003DA5">W</text>
+  <text x="600" y="340" text-anchor="middle" font-size="120" font-weight="700"
+        font-family="Arial,sans-serif" fill="#0a1a3a" letter-spacing="-2">&#x20A9; webcash</text>
+  <text x="1152" y="594" text-anchor="end" font-size="14" font-weight="500"
+        font-family="Arial,sans-serif" fill="#8898b8" letter-spacing="2">REDEEM</text>
 </svg>`;
 
 const resvg = new Resvg(svg, { fitTo: { mode: 'width', value: 1200 } });
-const png = resvg.render().asPng();
-writeFileSync('static/og.png', png);
-console.log(`og.png: ${(png.length / 1024).toFixed(0)} KB`);
+writeFileSync('static/og.png', resvg.render().asPng());
+console.log(`og.png: ${(resvg.render().asPng().length / 1024).toFixed(0)} KB`);
