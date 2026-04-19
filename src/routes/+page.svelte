@@ -21,8 +21,13 @@
 	let receiveSuccess = $state(false);
 
 	const dismissLoader = () => {
-		const el = document.getElementById('app-loader');
-		if (el) { el.classList.add('fade-out'); setTimeout(() => el.remove(), 300); }
+		// Wait for next frame + paint so CSS is fully applied
+		requestAnimationFrame(() => {
+			requestAnimationFrame(() => {
+				const el = document.getElementById('app-loader');
+				if (el) { el.classList.add('fade-out'); setTimeout(() => el.remove(), 300); }
+			});
+		});
 	};
 
 	onMount(() => {
