@@ -818,9 +818,9 @@ dependencies = [
 
 [[package]]
 name = "harmoniis-wallet"
-version = "0.1.83"
+version = "0.1.84"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1230f448b323001e3fa927119bfec89f5da466c0508c6d659ce871ee12efdd7c"
+checksum = "e3d021f367895edbb2590526eac715bb7c295f778c24f541be20ad6598cab5e1"
 dependencies = [
  "anyhow",
  "async-trait",
