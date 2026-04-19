@@ -5,6 +5,15 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 		<meta name="referrer" content="no-referrer" />
 
+		<!-- Theme detection + background — MUST be first to prevent white flash -->
+		<script>
+			(function(){
+				var d=document.documentElement,dark=window.matchMedia('(prefers-color-scheme:dark)').matches;
+				if(dark)d.classList.add('dark');
+				d.style.background=dark?'#0A0B14':'#fff';
+			})()
+		</script>
+
 		<title>Weby Wallet</title>
 		<meta name="description" content="You received webcash — open to claim it in your wallet" />
 
@@ -41,65 +50,24 @@
 		<link rel="icon" href="%sveltekit.assets%/icons/icon-192.png" type="image/png" sizes="192x192" />
 		<link rel="apple-touch-icon" href="%sveltekit.assets%/icons/apple-touch-icon.png" />
 
-		<script>(function(){var d=document.documentElement;if(window.matchMedia('(prefers-color-scheme:dark)').matches){d.classList.add('dark')}})()</script>
+		<!-- Loader animation — inline to avoid FOUC -->
 		<style>
-			#app-loader {
-				position: fixed;
-				inset: 0;
-				z-index: 9999;
-				display: flex;
-				flex-direction: column;
-				align-items: center;
-				justify-content: center;
-				gap: 24px;
-				transition: opacity 0.3s ease;
-			}
-			@media (prefers-color-scheme: light) {
-				#app-loader { background: #fff; }
-				#app-loader .mark { border-color: #003DA5; }
-				#app-loader .mark span { color: #003DA5; }
-				#app-loader .label { color: #6B7A99; }
-			}
-			@media (prefers-color-scheme: dark) {
-				#app-loader { background: #0A0B14; }
-				#app-loader .mark { border-color: #3B82F6; }
-				#app-loader .mark span { color: #3B82F6; }
-				#app-loader .label { color: #6B7A99; }
-			}
-			#app-loader .mark {
-				width: 56px;
-				height: 56px;
-				border-radius: 50%;
-				border: 2px solid;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				animation: breathe 2s ease-in-out infinite;
-			}
-			#app-loader .mark span {
-				font-size: 24px;
-				font-weight: 700;
-				font-family: system-ui, sans-serif;
-			}
-			#app-loader .label {
-				font-size: 13px;
-				font-weight: 500;
-				font-family: system-ui, sans-serif;
-				letter-spacing: 0.05em;
-			}
-			#app-loader.fade-out { opacity: 0; pointer-events: none; }
-			@keyframes breathe {
-				0%, 100% { opacity: 0.4; transform: scale(1); }
-				50% { opacity: 1; transform: scale(1.05); }
-			}
+			@keyframes breathe{0%,100%{opacity:.4;transform:scale(1)}50%{opacity:1;transform:scale(1.05)}}
+			#app-loader.fade-out{opacity:0;pointer-events:none}
 		</style>
+
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">
-		<div id="app-loader">
-			<div class="mark"><span>W</span></div>
-			<div class="label">Loading wallet</div>
+		<div id="app-loader" style="position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;transition:opacity .3s ease">
+			<div style="width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;animation:breathe 2s ease-in-out infinite">
+				<svg width="56" height="56" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+					<circle cx="32" cy="32" r="30" stroke="#055DFF" stroke-width="2.5"/>
+					<text x="32" y="42" text-anchor="middle" font-size="28" font-weight="700" font-family="system-ui,sans-serif" fill="#055DFF">W</text>
+				</svg>
+			</div>
+			<span style="font-size:13px;font-weight:500;color:#6B7A99;font-family:system-ui,sans-serif;letter-spacing:.05em">Loading wallet</span>
 		</div>
-		<div style="display: contents">%sveltekit.body%</div>
+		<div style="display:contents">%sveltekit.body%</div>
 	</body>
 </html>
