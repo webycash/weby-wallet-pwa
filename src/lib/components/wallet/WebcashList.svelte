@@ -17,20 +17,18 @@
 </script>
 
 {#if webcash.length > 0}
-	<div class="rounded-2xl border border-border bg-card overflow-hidden">
+	<div class="rounded-xl bg-card overflow-hidden">
 		<button onclick={() => expanded = !expanded}
-			class="w-full px-5 py-3.5 flex items-center justify-between hover:bg-muted transition-all">
-			<span class="text-xs font-semibold text-muted-foreground tracking-wider uppercase">
-				Webcash
-			</span>
+			class="w-full px-5 py-3 flex items-center justify-between hover:bg-muted transition-all">
+			<span class="text-xs font-semibold text-muted-foreground tracking-wider">Log</span>
 			<div class="flex items-center gap-2">
-				<span class="text-xs text-muted-foreground">{webcash.length} outputs</span>
+				<span class="text-xs text-muted-foreground">{webcash.length}</span>
 				<ChevronDown class="w-4 h-4 text-muted-foreground transition-transform {expanded ? 'rotate-180' : ''}" />
 			</div>
 		</button>
 
 		{#if expanded}
-			<div class="border-t border-border divide-y divide-border/30 max-h-72 overflow-y-auto">
+			<div class="divide-y divide-border/30 max-h-72 overflow-y-auto">
 				{#each webcash as wc, i}
 					<div class="px-5 py-3 flex items-center justify-between gap-3 hover:bg-muted transition-all">
 						<code class="text-xs text-muted-foreground font-mono truncate flex-1 min-w-0">
