@@ -4,7 +4,9 @@
 		exportWebcasaFile } from '$lib/stores/wallet.svelte';
 	import { markBackedUp, encryptionType } from '$lib/stores/settings.svelte';
 	import * as Persistence from '$lib/core/persistence';
-	import { QrCode, Download, Trash2, Pencil, Lock, Key, Upload, FileDown } from '@lucide/svelte';
+	import { QrCode, Download, Trash2, Pencil, Lock, Key, Upload, FileDown, FileUp, KeyRound } from '@lucide/svelte';
+
+	let fileInputEl = $state<HTMLInputElement | null>(null);
 
 	import Button from '$lib/components/ui/button/button.svelte';
 	import EncryptionSetup from './EncryptionSetup.svelte';
@@ -78,6 +80,7 @@
 	let importSecretHex = $state('');
 	let importSecretLabel = $state('');
 	let importSecretLoading = $state(false);
+	let showSecretImport = $state(false);
 
 	const nextRoamingLabel = (): string => {
 		const network = Persistence.getActive(Persistence.getActive('production').family ? 'production' : 'testnet').family;
@@ -130,7 +133,7 @@
 	<details open class={sectionClass}>
 		<summary class={summaryClass}>
 			<Key class="w-4 h-4 text-muted-foreground" />
-			<span class="flex-1">Wallet</span>
+			<span class="flex-1">Selected Wallet</span>
 			<span class="text-xs text-muted-foreground font-normal capitalize">{activeLabel}</span>
 		</summary>
 		<div class={contentClass}>
@@ -152,6 +155,9 @@
 				<div class="flex gap-2">
 					<Button variant="outline" class="flex-1" onclick={() => { renameInput = activeLabel; showRename = true; }}>
 						<Pencil class="w-3.5 h-3.5" /> Rename
+					</Button>
+					<Button variant="outline" class="flex-1" onclick={handleExportWebcasa}>
+						<Download class="w-3.5 h-3.5" /> Export
 					</Button>
 					{#if activeLabel !== 'main'}
 						<Button variant="destructive" class="flex-1" onclick={handleDeleteDerived}>
@@ -200,48 +206,53 @@
 			<span class="flex-1">Webcash</span>
 		</summary>
 		<div class={contentClass}>
-			<!-- Export current wallet -->
-			<Button variant="outline" class="w-full justify-start" onclick={handleExportWebcasa}>
-				<FileDown class="w-4 h-4" /> Export .webcash
-			</Button>
+			<p class="text-xs text-muted-foreground">Import a roaming webcash wallet from file or master secret.</p>
 
-			<!-- Import .webcash file -->
-			<div class="rounded-lg border border-border p-3 space-y-2">
-				<p class="text-xs font-semibold text-muted-foreground">Import .webcash file</p>
-				<input type="file" accept=".webcash,.json"
-					onchange={(e) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) importFile = f; }}
-					class="w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-muted file:px-3 file:py-1.5 file:text-sm file:font-medium" />
-				<input bind:value={importLabel} placeholder="Label (e.g. imported-1)"
-					class="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm" />
-				<div class="flex items-center gap-2">
+			<input type="file" accept=".webcash,.json" bind:this={fileInputEl}
+				onchange={(e) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) importFile = f; }}
+				class="hidden" />
+
+			<div class="flex flex-col gap-2">
+				<Button variant="outline" class="w-full justify-start" onclick={() => fileInputEl?.click()}>
+					<FileUp class="w-4 h-4" />
+					{importFile ? importFile.name : 'Import from File'}
+				</Button>
+
+				{#if importFile}
+					<input bind:value={importLabel} placeholder="Label"
+						class="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm" />
 					<label class="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
 						<input type="checkbox" bind:checked={importShowPassword} class="rounded" />
-						Encrypted?
+						Encrypted
 					</label>
-				</div>
-				{#if importShowPassword}
-					<input type="password" bind:value={importPassword} placeholder="Webcasa password"
-						class="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm" />
+					{#if importShowPassword}
+						<input type="password" bind:value={importPassword} placeholder="Password"
+							class="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm" />
+					{/if}
+					<Button variant="outline" class="w-full" onclick={handleFileImport} disabled={importLoading}>
+						<Upload class="w-3.5 h-3.5" />
+						{importLoading ? 'Importing...' : 'Import'}
+					</Button>
 				{/if}
-				<Button variant="outline" class="w-full" onclick={handleFileImport}
-					disabled={!importFile || importLoading}>
-					<Upload class="w-3.5 h-3.5" />
-					{importLoading ? 'Importing...' : 'Import as Roaming Wallet'}
-				</Button>
 			</div>
 
-			<!-- Import by master secret -->
-			<div class="rounded-lg border border-border p-3 space-y-2">
-				<p class="text-xs font-semibold text-muted-foreground">Import by master secret</p>
-				<input bind:value={importSecretHex} placeholder="64-character hex master secret"
-					class="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-mono" />
-				<input bind:value={importSecretLabel} placeholder="Label (e.g. imported-1)"
-					class="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm" />
-				<Button variant="outline" class="w-full" onclick={handleSecretImport}
-					disabled={!importSecretHex.trim() || importSecretLoading}>
-					<Upload class="w-3.5 h-3.5" />
-					{importSecretLoading ? 'Importing & Recovering...' : 'Import as Roaming Wallet'}
+			<div class="border-t border-border pt-3 flex flex-col gap-2">
+				<Button variant="outline" class="w-full justify-start"
+					onclick={() => showSecretImport = !showSecretImport}>
+					<KeyRound class="w-4 h-4" /> Import from Master Secret
 				</Button>
+
+				{#if showSecretImport}
+					<input bind:value={importSecretHex} placeholder="64-character hex"
+						class="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-mono" />
+					<input bind:value={importSecretLabel} placeholder="Label"
+						class="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm" />
+					<Button variant="outline" class="w-full" onclick={handleSecretImport}
+						disabled={!importSecretHex.trim() || importSecretLoading}>
+						<Upload class="w-3.5 h-3.5" />
+						{importSecretLoading ? 'Recovering...' : 'Import'}
+					</Button>
+				{/if}
 			</div>
 		</div>
 	</details>
