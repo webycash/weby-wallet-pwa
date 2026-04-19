@@ -77,9 +77,13 @@ jobs:
         id: deployment
 
       # Deploy OG worker to Cloudflare
-      - name: Deploy OG Worker
+      - name: Install OG Worker deps
         working-directory: worker
-        run: npm install && npx wrangler deploy
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npm install
+      - name: Deploy OG Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: worker
+          command: deploy
