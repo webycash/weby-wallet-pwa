@@ -4,9 +4,21 @@ build/
 .DS_Store
 *.swp
 *.swo
+
+# Secrets — never commit
 .env
 .env.*
+.dev.vars
+.prod.vars
+.vars
+*.vars
 !.env.example
+*.pem
+*.key
+*.secret
+*credentials*
+*token*
+!src/**
 
 # WASM build artifacts
 *.wasm
