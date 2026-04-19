@@ -75,3 +75,11 @@ jobs:
           path: build/
       - uses: actions/deploy-pages@v4
         id: deployment
+
+      # Deploy OG worker to Cloudflare
+      - name: Deploy OG Worker
+        working-directory: worker
+        run: npm ci && npx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

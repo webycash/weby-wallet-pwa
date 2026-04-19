@@ -3,5 +3,5 @@ main = "src/index.js"
 compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
 
-# Route: weby.cash/wallet* in Cloudflare dashboard
-# Requires Workers Paid plan for >1MB WASM
+[[routes]]
+pattern = "weby.cash/wallet*"

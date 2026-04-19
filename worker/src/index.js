@@ -18,7 +18,7 @@ import resvgWasm from '@resvg/resvg-wasm/index_bg.wasm';
 
 let wasmReady = false;
 
-const ORIGIN = 'https://webycash.github.io/weby-wallet-pwa';
+const ORIGIN = 'https://webycash.github.io';
 
 const BOTS = /facebookexternalhit|Facebot|Twitterbot|WhatsApp|TelegramBot|LinkedInBot|Slackbot|Discordbot|Pinterest|Applebot|iMessageLinkPreviews|Googlebot|bingbot/i;
 
@@ -134,7 +134,9 @@ export default {
     }
 
     // --- Pass through to origin for real users ---
-    const originUrl = new URL(url.pathname + url.search, ORIGIN);
+    // Map /wallet/... to /weby-wallet-pwa/... on GitHub Pages
+    const originPath = url.pathname.replace(/^\/wallet/, '/weby-wallet-pwa');
+    const originUrl = new URL(originPath + url.search, ORIGIN);
     const res = await fetch(originUrl, {
       headers: request.headers,
       redirect: 'follow',
