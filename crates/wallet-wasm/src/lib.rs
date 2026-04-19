@@ -164,7 +164,7 @@ thread_local! {
 #[wasm_bindgen]
 pub async fn gpu_init() -> String {
     let backend = harmoniis_wallet::miner::gpu::platform_backend();
-    let inst = wgpu::Instance::new(&wgpu::InstanceDescriptor { backends: backend, ..Default::default() });
+    let inst = harmoniis_wallet::miner::gpu::create_instance(backend);
     let adapter = match inst.request_adapter(&wgpu::RequestAdapterOptions { power_preference: wgpu::PowerPreference::HighPerformance, ..Default::default() }).await {
         Ok(a) => a, Err(_) => return String::new(),
     };
