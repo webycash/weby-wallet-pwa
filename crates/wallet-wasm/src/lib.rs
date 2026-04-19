@@ -218,8 +218,7 @@ pub async fn gpu_init() -> String {
 #[wasm_bindgen]
 pub fn gpu_available() -> bool { GPU_MINER.with(|c| c.borrow().is_some()) }
 
-/// Mine a batch of work units on GPU. Builds BATCH_SIZE work units, submits all
-/// at once (1 submit, 1 sync), returns the first solution found.
+/// Mine a batch of work units on GPU using HD-derived secrets (recoverable).
 #[wasm_bindgen]
 pub async fn gpu_mine(s: &str, n: &str, difficulty: u32, mining_amount: &str, subsidy_amount: &str) -> Result<String, JsError> {
     use harmoniis_wallet::miner::work_unit::WorkUnit;
@@ -227,7 +226,13 @@ pub async fn gpu_mine(s: &str, n: &str, difficulty: u32, mining_amount: &str, su
     let wl = w(s, n)?;
     let m_amt = Amount::from_str(mining_amount).map_err(e)?;
     let s_amt = Amount::from_str(subsidy_amount).map_err(e)?;
-    let works: Vec<WorkUnit> = (0..BATCH).map(|_| WorkUnit::new(difficulty, m_amt, s_amt)).collect();
+    // Derive 2 HD secrets per work unit (keep + subsidy) from MINING chain
+    let mut works = Vec::with_capacity(BATCH);
+    for _ in 0..BATCH {
+        let (keep_hex, _) = wl.derive_next_secret(harmoniis_wallet::webylib::hd::ChainCode::Mining).map_err(e)?;
+        let (subsidy_hex, _) = wl.derive_next_secret(harmoniis_wallet::webylib::hd::ChainCode::Mining).map_err(e)?;
+        works.push(WorkUnit::from_secrets(difficulty, m_amt, s_amt, &keep_hex, &subsidy_hex));
+    }
     let midstates: Vec<_> = works.iter().map(|w| w.midstate.clone()).collect();
     let miner = GPU_MINER.with(|c| { let b = c.borrow(); Ok::<_,JsError>((b.as_ref().ok_or_else(|| JsError::new("GPU not initialized"))? as *const GpuMiner,)) })?;
     let chunks = unsafe { &*miner.0 }.mine_batch(&midstates, difficulty).await.map_err(e)?;
