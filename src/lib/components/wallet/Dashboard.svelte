@@ -3,7 +3,7 @@
 	import { getBalance, getStats, getWebcash, exportWalletSnapshot,
 		insertWebcash, payWebcash, checkWallet, mergeOutputs, recoverWallet, resetDb,
 		setActive, addWallet, listWallets, getActiveFamily, getActiveLabel,
-		lockWallet, getRawState, type WalletInfo } from '$lib/stores/wallet.svelte';
+		lockWallet, getRawState, isRoaming, canMine, type WalletInfo } from '$lib/stores/wallet.svelte';
 	import { getNetwork, setNetwork } from '$lib/stores/network.svelte';
 	import { markBackedUp, backedUp, dismissBackup, backupDismissed,
 		clearWallet, encryptionType } from '$lib/stores/settings.svelte';
@@ -49,6 +49,7 @@
 	let activeLabel = $state('main');
 	let walletList = $state<WalletInfo[]>([]);
 	let showWalletDropdown = $state(false);
+	let isRoamingWallet = $state(false);
 
 	const FAMILIES = [
 		{ id: 'webcash', name: 'Webcash', enabled: true },
@@ -80,10 +81,13 @@
 		try {
 			activeFamily = await getActiveFamily();
 			activeLabel = await getActiveLabel();
+			isRoamingWallet = isRoaming();
 			walletList = await listWallets(activeFamily);
 			balanceWats = await getBalance();
 			walletStats = await getStats();
 			webcashList = await getWebcash();
+			// Close miner if switched to non-main wallet
+			if (activePanel === 'mine' && !canMine()) activePanel = null;
 		} finally { loading = false; }
 	};
 
@@ -138,21 +142,25 @@
 	});
 	onDestroy(() => document.removeEventListener('visibilitychange', handleVisibility));
 
+	const canMineWallet = $derived(activeLabel === 'main' && !isRoamingWallet);
+
 	const actions = $derived([
 		{ id: 'insert', label: 'Insert', icon: ArrowDownToLine },
 		{ id: 'pay', label: 'Pay', icon: ArrowUpFromLine },
 		{ id: 'verify', label: 'Verify', icon: ShieldCheck },
 		{ id: 'merge', label: 'Merge', icon: Merge, action: handleMerge },
 		{ id: 'recover', label: 'Recover', icon: RotateCcw, action: handleRecover },
-		{ id: 'mine', label: 'Mine', icon: Pickaxe },
+		...(canMineWallet ? [{ id: 'mine', label: 'Mine', icon: Pickaxe }] : []),
 	]);
 </script>
 
 {#if initializing}
-<div class="min-h-[60vh] flex flex-col items-center justify-center gap-4">
-	<div class="w-14 h-14 rounded-full border-2 border-primary flex items-center justify-center animate-pulse">
-		<span class="text-2xl font-bold text-primary">W</span>
-	</div>
+<div class="min-h-[60vh] flex items-center justify-center">
+	<svg width="40" height="40" viewBox="0 0 40 40" fill="none" class="animate-spin" style="animation-duration:1s">
+		<circle cx="20" cy="20" r="18" stroke="currentColor" stroke-width="1.5" class="text-primary/10" />
+		<path d="M38 20a18 18 0 00-18-18" stroke="url(#dt)" stroke-width="1.5" stroke-linecap="round" />
+		<defs><linearGradient id="dt" x1="38" y1="20" x2="20" y2="2"><stop class="text-primary" stop-color="currentColor" /><stop offset="1" stop-color="currentColor" stop-opacity="0" /></linearGradient></defs>
+	</svg>
 </div>
 {:else}
 <div class="container mx-auto px-4 sm:px-6 py-6 max-w-2xl space-y-4">
@@ -202,6 +210,9 @@
 		<button onclick={() => showWalletDropdown = !showWalletDropdown}
 			class="flex items-center gap-2 mx-auto px-4 py-1.5 rounded-full bg-muted hover:bg-muted/80 text-sm font-medium transition-all">
 			<span class="capitalize">{activeLabel}</span>
+			{#if isRoamingWallet}
+				<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-warning/20 text-warning font-semibold">Roaming</span>
+			{/if}
 			<ChevronDown class="w-3.5 h-3.5 text-muted-foreground transition-transform {showWalletDropdown ? 'rotate-180' : ''}" />
 		</button>
 		{#if showWalletDropdown}
@@ -213,7 +224,12 @@
 					<button onclick={() => switchWallet(w.label)}
 						class="w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors flex items-center justify-between
 							{w.label === activeLabel ? 'font-semibold text-primary' : 'text-foreground'}">
-						<span class="capitalize">{w.label}</span>
+						<span class="flex items-center gap-1.5">
+							<span class="capitalize">{w.label}</span>
+							{#if w.roaming}
+								<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-warning/20 text-warning font-semibold">Roaming</span>
+							{/if}
+						</span>
 						{#if fmt && w.balance > 0}<span class="text-xs text-muted-foreground">{fmt(w.balance)}</span>{/if}
 					</button>
 				{/each}
@@ -238,7 +254,7 @@
 
 	<!-- Settings Panel -->
 	{#if showSettings}
-		<SettingsPanel {activeFamily} {activeLabel} onRefresh={refresh} onMessage={showMessage} />
+		<SettingsPanel {activeFamily} {activeLabel} {isRoamingWallet} onRefresh={refresh} onMessage={showMessage} />
 	{/if}
 
 	<!-- Action Buttons -->
