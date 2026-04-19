@@ -396,7 +396,6 @@ pub fn secret_to_public_hash(secret: &str) -> String {
 use std::cell::RefCell;
 use harmoniis_wallet::miner::gpu::GpuMiner;
 use harmoniis_wallet::miner::nonce_table::NonceTable;
-use harmoniis_wallet::miner::sha256::Sha256Midstate;
 
 thread_local! {
     static GPU_MINER: RefCell<Option<GpuMiner>> = RefCell::new(None);
@@ -445,7 +444,7 @@ pub fn gpu_available() -> bool {
     GPU_MINER.with(|cell| cell.borrow().is_some())
 }
 
-/// Mine one GPU batch. Returns JSON with solution or {found: false}.
+/// Mine one GPU batch using harmoniis-wallet WorkUnit. Returns JSON with solution or {found: false}.
 #[wasm_bindgen]
 pub async fn gpu_mine(
     state_json: &str,
@@ -455,47 +454,15 @@ pub async fn gpu_mine(
     subsidy_amount: &str,
 ) -> Result<String, JsError> {
     use std::str::FromStr;
+    use harmoniis_wallet::miner::work_unit::WorkUnit;
 
     let wallet = open_wallet(state_json, network)?;
 
-    // Derive next mining secret via HD chain
-    let (keep_secret_hex, _mining_depth) = wallet
-        .derive_next_secret(harmoniis_wallet::webylib::hd::ChainCode::Mining)
-        .map_err(to_jserr)?;
-
     let mining_amt = Amount::from_str(mining_amount).map_err(to_jserr)?;
     let subsidy_amt = Amount::from_str(subsidy_amount).map_err(to_jserr)?;
-    let keep_amount = mining_amt - subsidy_amt;
 
-    // Build work unit with HD-derived keep secret
-    let keep_webcash_str = format!("e{}:secret:{}", keep_amount, keep_secret_hex);
-    let keep_secret = SecretWebcash::parse(&keep_webcash_str).map_err(to_jserr)?;
-
-    // Random subsidy secret
-    let mut subsidy_sk = [0u8; 32];
-    getrandom::getrandom(&mut subsidy_sk).map_err(to_jserr)?;
-    let subsidy_webcash_str = format!("e{}:secret:{}", subsidy_amt, hex::encode(subsidy_sk));
-    subsidy_sk.fill(0);
-    let subsidy_secret = SecretWebcash::parse(&subsidy_webcash_str).map_err(to_jserr)?;
-
-    let timestamp = js_sys::Date::now() / 1000.0;
-
-    // Build preimage prefix (same format as work_unit.rs)
-    let keep_str = keep_secret.to_string();
-    let subsidy_str = subsidy_secret.to_string();
-    let mut prefix = format!(
-        "{{\"legalese\": {{\"terms\": true}}, \"webcash\": [\"{}\", \"{}\"], \"subsidy\": [\"{}\"], \"difficulty\": {}, \"timestamp\": {}, \"nonce\": ",
-        keep_str, subsidy_str, subsidy_str, difficulty, timestamp
-    );
-    let target_len = 48 * (1 + prefix.len() / 48);
-    while prefix.len() < target_len {
-        prefix.push(' ');
-    }
-    prefix.pop();
-    prefix.push('1');
-
-    let prefix_b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &prefix);
-    let midstate = Sha256Midstate::from_prefix(prefix_b64.as_bytes());
+    // Build work unit via harmoniis-wallet (correct preimage construction)
+    let work = WorkUnit::new(difficulty, mining_amt, subsidy_amt);
 
     // Run GPU mining
     let miner_ref = GPU_MINER.with(|cell| {
@@ -506,7 +473,7 @@ pub async fn gpu_mine(
     let miner = unsafe { &*miner_ref.0 };
 
     let chunks = miner
-        .mine_batch(&[midstate], difficulty)
+        .mine_batch(&[work.midstate.clone()], difficulty)
         .await
         .map_err(to_jserr)?;
 
@@ -517,34 +484,23 @@ pub async fn gpu_mine(
 
     if let Some(mining_result) = chunk.result {
         let nonce_table = NONCE_TABLE.with(|cell| cell.borrow().as_ref().unwrap().clone());
-        let nonce1 = nonce_table.get(mining_result.nonce1_idx);
-        let nonce2 = nonce_table.get(mining_result.nonce2_idx);
-
-        let mut full_b64 = prefix_b64;
-        full_b64.push_str(std::str::from_utf8(nonce1).unwrap_or(""));
-        full_b64.push_str(std::str::from_utf8(nonce2).unwrap_or(""));
-        full_b64.push_str("fQ==");
-
+        let full_preimage = work.preimage_string(&nonce_table, mining_result.nonce1_idx, mining_result.nonce2_idx);
         let hash_hex = hex::encode(mining_result.hash);
-        let keep_secret_str = keep_secret.secret.as_str().unwrap_or("".into()).to_string();
 
-        // Store mined output in wallet state
-        wallet.store_directly(keep_secret).await.map_err(to_jserr)?;
+        // Store the keep secret in wallet
+        wallet.store_directly(work.keep_secret).await.map_err(to_jserr)?;
         let new_state = wallet.to_json().map_err(to_jserr)?;
 
         serde_json::to_string(&serde_json::json!({
             "found": true,
             "state": new_state,
-            "preimage_b64": full_b64,
+            "preimage_b64": full_preimage,
             "hash_hex": hash_hex,
             "difficulty_achieved": mining_result.difficulty_achieved,
-            "secret": keep_secret_str,
-            "webcash_str": keep_webcash_str,
             "attempted": chunk.attempted,
         }))
         .map_err(to_jserr)
     } else {
-        // No solution found — return state unchanged (depth was incremented)
         let new_state = wallet.to_json().map_err(to_jserr)?;
         serde_json::to_string(&serde_json::json!({
             "found": false,
