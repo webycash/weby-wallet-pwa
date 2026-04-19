@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { setupWallet, setupFromMnemonic, importWalletSnapshot, recoverWallet } from '$lib/stores/wallet.svelte';
 	import { markWalletCreated, setEncryptionType, type EncryptionType } from '$lib/stores/settings.svelte';
-	import { getNetwork } from '$lib/stores/network.svelte';
 	import { isWebAuthnAvailable, encryptWithPasskey, encryptWithPassword } from '$lib/core/encryption';
 	import type { WalletSnapshot } from '$lib/core/types';
 	import { exportWalletSnapshot } from '$lib/stores/wallet.svelte';
@@ -117,7 +116,7 @@
 		if (!setupResult.ok) { error = setupResult.error; loading = false; return; }
 		masterSecret = setupResult.value;
 
-		const result = await recoverWallet(getNetwork(), mnemonic, 20);
+		const result = await recoverWallet(20);
 		if (result.ok) {
 			step = 'encrypt';
 		} else {
@@ -138,7 +137,7 @@
 			if (result.ok) {
 				masterSecret = snapshot.master_secret;
 				// Auto-recover to find any webcash on the server
-				await recoverWallet(getNetwork(), snapshot.master_secret, 20);
+				await recoverWallet(20);
 				step = 'encrypt';
 			} else {
 				error = result.error;

@@ -49,7 +49,7 @@
 				if (!result.ok) { receiveError = result.error; return; }
 				markWalletCreated();
 
-				const insertResult = await insertWebcash(pendingNetwork, pendingWebcash);
+				const insertResult = await insertWebcash(pendingWebcash);
 				if (insertResult.ok) {
 					receiveSuccess = true;
 				} else {

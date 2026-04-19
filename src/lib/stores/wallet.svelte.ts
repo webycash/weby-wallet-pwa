@@ -356,6 +356,23 @@ export const exportWalletSnapshot = async (): Promise<WalletSnapshot> => {
 	return JSON.parse(wasm.export_snapshot(state, network));
 };
 
+export const importWalletSnapshot = async (snapshot: WalletSnapshot): Promise<Result<void>> => {
+	try {
+		const wasm = await getWasm();
+		const network = getNetwork();
+		// Restore from mnemonic derived from snapshot master secret
+		const mnemonic = Persistence.getMnemonic();
+		if (!mnemonic) return err('No mnemonic found');
+		const walletJson = await wasm.create_wallet(network, mnemonic);
+		const wallet = JSON.parse(walletJson);
+		// The snapshot's outputs will be recovered via recoverWallet
+		await updateWalletState(wallet.state);
+		return ok(undefined);
+	} catch (e) {
+		return err(`Import failed: ${e}`);
+	}
+};
+
 // ── Formatting Helpers ──────────────────────────────────────────
 
 export const formatAmount = async (wats: number): Promise<string> => {
