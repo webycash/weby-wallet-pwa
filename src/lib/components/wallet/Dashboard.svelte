@@ -137,8 +137,8 @@
 	onDestroy(() => document.removeEventListener('visibilitychange', handleVisibility));
 
 	const actions = $derived([
-		{ id: 'insert', label: 'Receive', icon: ArrowDownToLine },
-		{ id: 'pay', label: 'Send', icon: ArrowUpFromLine },
+		{ id: 'insert', label: 'Insert', icon: ArrowDownToLine },
+		{ id: 'pay', label: 'Pay', icon: ArrowUpFromLine },
 		{ id: 'verify', label: 'Verify', icon: ShieldCheck },
 		{ id: 'merge', label: 'Merge', icon: Merge, action: handleMerge },
 		{ id: 'recover', label: 'Recover', icon: RotateCcw, action: handleRecover },

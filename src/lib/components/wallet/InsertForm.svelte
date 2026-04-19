@@ -21,6 +21,6 @@
 		class="mt-3 w-full flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary transition-all disabled:opacity-40"
 		disabled={disabled || !input.trim()}>
 		<ArrowDownToLine class="w-4 h-4" />
-		Receive
+		Insert
 	</button>
 </div>
