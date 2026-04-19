@@ -13,8 +13,7 @@ export default defineConfig({
 		wasm(),
 		topLevelAwait(),
 		sveltekit(),
-		compression({ algorithm: 'gzip', include: /\.(js|css|html|wasm|json|svg)$/ }),
-		compression({ algorithm: 'brotliCompress', include: /\.(js|css|html|wasm|json|svg)$/ }),
+		compression({ algorithms: ['gzip', 'brotliCompress'], include: /\.(js|css|html|wasm|json|svg)$/ }),
 	],
 	build: {
 		target: 'es2022'
