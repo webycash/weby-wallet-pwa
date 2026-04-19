@@ -65,18 +65,27 @@ const ensureState = async (): Promise<{ wasm: Wasm; state: string; master: strin
 	const key = walletKey();
 	const loaded = await Persistence.loadState(network, key);
 	if (loaded) {
-		walletState = loaded;
-		stateNetwork = network;
-		return { wasm, state: walletState, master: master!, network };
+		const parsed = JSON.parse(loaded);
+		if (parsed.meta && parsed.outputs && parsed.depths) {
+			walletState = loaded;
+			stateNetwork = network;
+			return { wasm, state: walletState, master: master!, network };
+		}
+		// Old format under new key — discard
 	}
 
-	// Migrate legacy "current" key
+	// Migrate legacy "current" key — detect old BrowserWallet format vs webylib MemStore
 	const legacy = await Persistence.loadState(network);
 	if (legacy) {
-		await Persistence.saveState(network, legacy, key);
-		walletState = legacy;
-		stateNetwork = network;
-		return { wasm, state: walletState, master: master!, network };
+		const parsed = JSON.parse(legacy);
+		if (parsed.meta && parsed.outputs && parsed.depths) {
+			// Already webylib MemStore format
+			await Persistence.saveState(network, legacy, key);
+			walletState = legacy;
+			stateNetwork = network;
+			return { wasm, state: walletState, master: master!, network };
+		}
+		// Old BrowserWallet format — discard, create fresh from mnemonic
 	}
 
 	// Create fresh wallet state for this slot
