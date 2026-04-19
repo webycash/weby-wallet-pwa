@@ -20,6 +20,13 @@
 	let encLoading = $state(false);
 	let encError = $state('');
 
+	const credentialSuffix = (() => {
+		const arr = new Uint8Array(4);
+		crypto.getRandomValues(arr);
+		const chars = '0123456789abcdefghijklmnopqrstuvwxyz';
+		return Array.from(arr).map(b => chars[b % chars.length]).join('');
+	})();
+
 	const webauthnAvailable = isWebAuthnAvailable();
 	let videoEl = $state<HTMLVideoElement>();
 	let canvasEl = $state<HTMLCanvasElement>();
@@ -172,14 +179,7 @@
 
 			setEncryptionType(selectedEncryption);
 
-			// Auto-save to password manager with unique credential name
-			const arr = new Uint8Array(4);
-			crypto.getRandomValues(arr);
-			const suffix = Array.from(arr).map(b => {
-				const chars = '0123456789abcdefghijklmnopqrstuvwxyz';
-				return chars[b % chars.length];
-			}).join('');
-			await saveToPasswordManager(`webycash-master-wallet-secret-${suffix}`);
+			await saveToPasswordManager(`webycash-master-wallet-secret-${credentialSuffix}`);
 			finish();
 		} catch (e: any) {
 			encError = e.message || 'Encryption failed';
@@ -391,7 +391,7 @@
 
 		{#if selectedEncryption === 'password'}
 			<form onsubmit={(e) => { e.preventDefault(); confirmEncryption(); }} class="space-y-2 mb-4" action="https://weby.cash/wallet" method="POST">
-				<input type="text" name="username" autocomplete="username" value="webycash-encrypt-password" class="hidden" tabindex="-1" aria-hidden="true" />
+				<input type="text" name="username" autocomplete="username" value={`webycash-encrypt-password-${credentialSuffix}`} class="hidden" tabindex="-1" aria-hidden="true" />
 				<input
 					type="password"
 					name="password"
