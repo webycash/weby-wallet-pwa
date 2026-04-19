@@ -8,7 +8,7 @@ publish = false
 crate-type = ["cdylib"]
 
 [dependencies]
-harmoniis-wallet = { version = "0.1.87", default-features = false, features = ["wasm", "gpu-wasm"] }
+harmoniis-wallet = { version = "0.1.88", default-features = false, features = ["wasm", "gpu-wasm"] }
 sha2 = "0.10"
 wasm-bindgen-futures = "0.4"
 wasm-bindgen = "0.2"
