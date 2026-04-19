@@ -1,6 +1,7 @@
 name = "weby-og"
-main = "og-worker.js"
-compatibility_date = "2024-01-01"
+main = "src/index.js"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
 
-[triggers]
-# Add route in Cloudflare dashboard: weby.cash/wallet*
+# Route: weby.cash/wallet* in Cloudflare dashboard
+# Requires Workers Paid plan for >1MB WASM
