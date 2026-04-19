@@ -12,7 +12,7 @@
 	import { getWasm } from '$lib/core/wasm';
 	import type { SecretWebcash, WalletStats, NetworkMode } from '$lib/core/types';
 	import { ArrowDownToLine, ArrowUpFromLine, ShieldCheck, Merge, Pickaxe,
-		Download, Settings, ChevronDown, RotateCcw } from '@lucide/svelte';
+		Download, Settings, ChevronDown, RotateCcw, LoaderCircle } from '@lucide/svelte';
 
 	import Button from '$lib/components/ui/button/button.svelte';
 	import * as Card from '$lib/components/ui/card';
@@ -155,7 +155,9 @@
 </script>
 
 {#if initializing}
-<div class="min-h-[60vh]"></div>
+<div class="min-h-[60vh] flex items-center justify-center">
+	<LoaderCircle class="w-10 h-10 text-primary animate-spin" />
+</div>
 {:else}
 <div class="container mx-auto px-4 sm:px-6 py-6 max-w-2xl space-y-4">
 	{#if showBackupWarning}
