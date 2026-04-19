@@ -6,3 +6,8 @@ compatibility_flags = ["nodejs_compat"]
 [[routes]]
 pattern = "weby.cash/wallet*"
 zone_name = "weby.cash"
+
+[[rules]]
+type = "Data"
+globs = ["**/*.woff2"]
+fallthrough = false

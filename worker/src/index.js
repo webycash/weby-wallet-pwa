@@ -15,6 +15,8 @@
 
 import { Resvg, initWasm } from '@resvg/resvg-wasm';
 import resvgWasm from '@resvg/resvg-wasm/index_bg.wasm';
+import interBold from './Inter-Bold.woff2';
+import interRegular from './Inter-Regular.woff2';
 
 let wasmReady = false;
 
@@ -29,7 +31,7 @@ function esc(s) {
 function giftCardSvg(amount, memo) {
   const memoLine = memo
     ? `<text x="600" y="460" text-anchor="middle" font-size="16" font-weight="400"
-           font-family="Arial,Helvetica,sans-serif" fill="#3a4a6a">"${esc(memo.slice(0, 60))}"</text>`
+           font-family="Inter,sans-serif" fill="#3a4a6a">"${esc(memo.slice(0, 60))}"</text>`
     : '';
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
@@ -50,21 +52,21 @@ function giftCardSvg(amount, memo) {
   <!-- Logo top-left -->
   <circle cx="56" cy="46" r="16" stroke="#055DFF" stroke-width="1.5" fill="none" opacity="0.4"/>
   <text x="56" y="52" text-anchor="middle" font-size="14" font-weight="700"
-        font-family="Arial,Helvetica,sans-serif" fill="#055DFF" opacity="0.4">W</text>
+        font-family="Inter,sans-serif" fill="#055DFF" opacity="0.4">W</text>
 
   <!-- Amount -->
   <text x="600" y="350" text-anchor="middle" font-size="160" font-weight="700"
-        font-family="Arial,Helvetica,sans-serif" fill="#e4e8f0" letter-spacing="-4">${esc(amount)}</text>
+        font-family="Inter,sans-serif" fill="#e4e8f0" letter-spacing="-4">${esc(amount)}</text>
 
   <!-- Currency -->
   <text x="600" y="410" text-anchor="middle" font-size="20" font-weight="500"
-        font-family="Arial,Helvetica,sans-serif" fill="#055DFF" opacity="0.6" letter-spacing="4">WEBCASH</text>
+        font-family="Inter,sans-serif" fill="#055DFF" opacity="0.6" letter-spacing="4">WEBCASH</text>
 
   ${memoLine}
 
   <!-- Redeem bottom-right -->
   <text x="1150" y="600" text-anchor="end" font-size="12" font-weight="500"
-        font-family="Arial,Helvetica,sans-serif" fill="#3a4a6a" letter-spacing="2">REDEEM</text>
+        font-family="Inter,sans-serif" fill="#3a4a6a" letter-spacing="2">REDEEM</text>
 </svg>`;
 }
 
@@ -84,7 +86,13 @@ export default {
       }
 
       const svg = giftCardSvg(amount, memo);
-      const resvg = new Resvg(svg, { fitTo: { mode: 'width', value: 1200 } });
+      const resvg = new Resvg(svg, {
+        fitTo: { mode: 'width', value: 1200 },
+        font: {
+          fontBuffers: [new Uint8Array(interBold), new Uint8Array(interRegular)],
+          defaultFontFamily: 'Inter',
+        },
+      });
       const png = resvg.render().asPng();
 
       return new Response(png, {
