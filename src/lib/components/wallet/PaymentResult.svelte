@@ -29,7 +29,7 @@
 
 	const copyWebcash = async () => { await navigator.clipboard.writeText(webcash); copied = true; setTimeout(() => { copied = false; }, 2000); };
 	const copyLink = async () => { await navigator.clipboard.writeText(walletUrl); copiedLink = true; setTimeout(() => { copiedLink = false; }, 2000); };
-	const shareNative = async () => { if (navigator.share) await navigator.share({ title: 'Webcash Payment', text: shareText, url: walletUrl }); };
+	const shareNative = async () => { if (navigator.share) await navigator.share({ url: walletUrl }); };
 	const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 </script>
 
