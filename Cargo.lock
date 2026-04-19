@@ -792,9 +792,9 @@ dependencies = [
 
 [[package]]
 name = "harmoniis-wallet"
-version = "0.1.90"
+version = "0.1.91"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "90b05d8a4946714e8c2694c96a0679bd0f1859050904948fc7887490e5ca79af"
+checksum = "8bd37fe3c19dc05ab520d014d4cde620a34b6c7c156f3a3752d6340049899888"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -823,6 +823,8 @@ dependencies = [
  "sha2",
  "thiserror",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
  "webylib",
  "wgpu",
  "x25519-dalek",
@@ -2516,9 +2518,9 @@ dependencies = [
 
 [[package]]
 name = "webylib"
-version = "0.3.5"
+version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8a7b0e69ef29104df0780075093d2221ca1ecc8854fc5231c0171d362e19017"
+checksum = "8ddf6c4bada3ff40c9a803b68a765ff3548b898146bccdd51c27c719f5a79d89"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -2526,11 +2528,13 @@ dependencies = [
  "async-trait",
  "base64",
  "chrono",
+ "futures-channel",
  "getrandom 0.2.17",
  "getrandom 0.3.4",
  "hex",
  "hkdf",
  "hmac",
+ "js-sys",
  "log",
  "rand 0.9.4",
  "rand_chacha 0.9.0",
@@ -2541,6 +2545,9 @@ dependencies = [
  "thiserror",
  "url",
  "uuid",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
  "zeroize",
 ]
 
