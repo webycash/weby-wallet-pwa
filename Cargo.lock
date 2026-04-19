@@ -818,9 +818,9 @@ dependencies = [
 
 [[package]]
 name = "harmoniis-wallet"
-version = "0.1.84"
+version = "0.1.85"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3d021f367895edbb2590526eac715bb7c295f778c24f541be20ad6598cab5e1"
+checksum = "7009675c50553e5e90e561533841a166174a55a1431e34f76c4ac73122e0a3e3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2495,9 +2495,9 @@ dependencies = [
 
 [[package]]
 name = "webylib"
-version = "0.3.3"
+version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34662fcacaeb69aeafd7e5961223508085234a0682fa3ccc81a3912c3588e20b"
+checksum = "3c3bd77408f33c524c17b2e8b8cd73bd3b2b9d7cd8eb39341a3875c3d720b378"
 dependencies = [
  "aes-gcm",
  "anyhow",
