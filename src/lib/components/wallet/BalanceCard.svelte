@@ -60,7 +60,6 @@
 			<p class="text-4xl sm:text-5xl font-bold text-foreground tracking-tight">{WEBCASH_SYMBOL} ••••••</p>
 		{:else if showUsd}
 			<p class="text-4xl sm:text-5xl font-bold text-foreground tracking-tight tabular-nums">{usdDisplay}</p>
-			<p class="text-sm text-muted-foreground mt-2 font-medium">{WEBCASH_SYMBOL} {display}</p>
 		{:else}
 			<p class="text-4xl sm:text-5xl font-bold text-foreground tracking-tight tabular-nums">{WEBCASH_SYMBOL} {display}</p>
 		{/if}

@@ -21,12 +21,11 @@
 	let receiveSuccess = $state(false);
 
 	const dismissLoader = () => {
-		// Wait for next frame + paint so CSS is fully applied
 		requestAnimationFrame(() => {
-			requestAnimationFrame(() => {
-				const el = document.getElementById('app-loader');
-				if (el) { el.classList.add('fade-out'); setTimeout(() => el.remove(), 300); }
-			});
+			const root = document.getElementById('app-root');
+			if (root) root.style.visibility = 'visible';
+			const el = document.getElementById('app-loader');
+			if (el) { el.classList.add('fade-out'); setTimeout(() => el.remove(), 300); }
 		});
 	};
 

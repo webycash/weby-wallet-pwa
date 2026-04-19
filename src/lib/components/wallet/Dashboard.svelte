@@ -137,6 +137,8 @@
 		fmt = (wats: number) => wasm.format_amount(BigInt(wats));
 		await refresh();
 		initializing = false;
+		const appRoot = document.getElementById('app-root');
+		if (appRoot) appRoot.style.visibility = 'visible';
 		const appLoader = document.getElementById('app-loader');
 		if (appLoader) { appLoader.classList.add('fade-out'); setTimeout(() => appLoader.remove(), 300); }
 		if (pendingWebcash) { activePanel = 'insert'; setTimeout(() => handleInsert(pendingWebcash), 500); }
