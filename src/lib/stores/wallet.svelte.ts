@@ -422,6 +422,33 @@ export const recoverWallet = async (gapLimit: number = 20): Promise<Result<{ rec
 	} catch (e) { return err(`Recovery failed: ${e}`); }
 };
 
+// ── Slot scanning (delegates to harmoniis-wallet) ──────────────
+
+export const scanDeterministicSlots = async (maxSlots: number = 10, gapLimit: number = 20): Promise<Result<{ found: number; totalRecovered: number }>> => {
+	try {
+		const wasm = await getWasm();
+		const network = getNetwork();
+		let master = await loadMaster(network);
+		if (!master) return err('No master wallet');
+		const resultJson = await wasm.scan_webcash_slots(master, network, maxSlots, gapLimit);
+		const result = JSON.parse(resultJson);
+		// Persist updated master (slots registered)
+		await saveMaster(network, result.master_state);
+		// Persist discovered webcash wallet states to IndexedDB
+		const wallets: Record<string, string> = result.wallets;
+		for (const [label, state] of Object.entries(wallets)) {
+			const key = Persistence.walletStateKey('webcash', label);
+			await Persistence.saveState(network, state, key);
+		}
+		// Update in-memory state if main was recovered
+		if (wallets['main']) {
+			walletState = wallets['main'];
+			stateNetwork = network;
+		}
+		return ok({ found: Object.keys(wallets).length, totalRecovered: result.total_recovered });
+	} catch (e) { return err(`Slot scan failed: ${e}`); }
+};
+
 // ── Snapshot ────────────────────────────────────────────────────
 
 export const exportWalletSnapshot = async (): Promise<WalletSnapshot> => {

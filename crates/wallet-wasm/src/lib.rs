@@ -106,6 +106,15 @@ pub fn export_snapshot(s: &str, n: &str) -> Result<String, JsError> { serde_json
 
 // ── Master wallet (WalletCore + MemHarmoniiStore) ───────────────
 
+/// Scan deterministic webcash slots for active wallets via server recovery.
+#[wasm_bindgen]
+pub async fn scan_webcash_slots(m: &str, network: &str, max_slots: u32, gap_limit: usize) -> Result<String, JsError> {
+    let c = core(m)?;
+    let result = c.scan_webcash_slots(net(network), max_slots, gap_limit).await.map_err(e)?;
+    let master_updated = save(&c)?;
+    Ok(serde_json::to_string(&serde_json::json!({"master_state": master_updated, "wallets": result.wallets, "total_recovered": result.total_recovered})).map_err(e)?)
+}
+
 /// Full backup: master HarmoniiStore state + all webcash wallet states.
 /// `webcash_wallets_json` is a JSON object mapping label -> webylib MemStore JSON.
 #[wasm_bindgen]
