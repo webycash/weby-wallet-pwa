@@ -54,29 +54,19 @@
 		<link rel="apple-touch-icon" sizes="180x180" href="%sveltekit.assets%/apple-touch-icon.png" />
 
 		<style>
-			@keyframes spin{to{transform:rotate(360deg)}}
+			@keyframes loader-spin{to{transform:rotate(360deg)}}
+			#app-loader .ring{width:48px;height:48px;border-radius:50%;border:4px solid transparent;animation:loader-spin .8s linear infinite}
 			#app-loader.fade-out{opacity:0;pointer-events:none}
+			@media(prefers-color-scheme:light){#app-loader .ring{border-top-color:#003DA5;border-right-color:rgba(0,61,165,0.3)}}
+			@media(prefers-color-scheme:dark){#app-loader .ring{border-top-color:#8bb4ff;border-right-color:rgba(139,180,255,0.3)}}
 		</style>
 
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">
-		<div id="app-loader" style="position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;transition:opacity .3s ease"></div>
-		<script>
-			(function(){
-				var dark=document.documentElement.classList.contains('dark');
-				var c=dark?'rgba(140,180,255,0.9)':'rgba(0,50,160,0.85)';
-				var bg=dark?'rgba(140,180,255,0.08)':'rgba(0,50,160,0.08)';
-				var el=document.getElementById('app-loader');
-				if(!el)return;
-				el.innerHTML='<svg width="52" height="52" viewBox="0 0 52 52" fill="none" style="animation:spin .9s linear infinite">'
-					+'<circle cx="26" cy="26" r="22" stroke="'+bg+'" stroke-width="3.5"/>'
-					+'<path d="M48 26a22 22 0 00-22-22" stroke="url(#lg)" stroke-width="3.5" stroke-linecap="round"/>'
-					+'<defs><linearGradient id="lg" x1="48" y1="26" x2="26" y2="4">'
-					+'<stop stop-color="'+c+'"/><stop offset="1" stop-color="'+c+'" stop-opacity="0"/>'
-					+'</linearGradient></defs></svg>';
-			})()
-		</script>
+		<div id="app-loader" style="position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;transition:opacity .3s ease">
+			<div class="ring"></div>
+		</div>
 		<div style="display:contents">%sveltekit.body%</div>
 	</body>
 </html>

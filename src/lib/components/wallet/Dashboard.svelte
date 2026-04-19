@@ -155,13 +155,7 @@
 </script>
 
 {#if initializing}
-<div class="min-h-[60vh] flex items-center justify-center">
-	<svg width="40" height="40" viewBox="0 0 40 40" fill="none" class="animate-spin" style="animation-duration:1s">
-		<circle cx="20" cy="20" r="18" stroke="currentColor" stroke-width="1.5" class="text-primary/10" />
-		<path d="M38 20a18 18 0 00-18-18" stroke="url(#dt)" stroke-width="1.5" stroke-linecap="round" />
-		<defs><linearGradient id="dt" x1="38" y1="20" x2="20" y2="2"><stop class="text-primary" stop-color="currentColor" /><stop offset="1" stop-color="currentColor" stop-opacity="0" /></linearGradient></defs>
-	</svg>
-</div>
+<div class="min-h-[60vh]"></div>
 {:else}
 <div class="container mx-auto px-4 sm:px-6 py-6 max-w-2xl space-y-4">
 	{#if showBackupWarning}
