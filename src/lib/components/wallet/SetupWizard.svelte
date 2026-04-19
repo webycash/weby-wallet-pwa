@@ -1,9 +1,10 @@
 <script lang="ts">
-	import { setupWallet, setupFromMnemonic, importWalletSnapshot, scanDeterministicSlots } from '$lib/stores/wallet.svelte';
+	import { setupWallet, setupFromMnemonic, importWalletSnapshot, scanDeterministicSlots,
+		resetDb, exportWalletSnapshot } from '$lib/stores/wallet.svelte';
 	import { markWalletCreated, setEncryptionType, type EncryptionType } from '$lib/stores/settings.svelte';
+	import { setNetwork, getNetwork } from '$lib/stores/network.svelte';
 	import { isWebAuthnAvailable, encryptWithPasskey, encryptWithPassword } from '$lib/core/encryption';
 	import type { WalletSnapshot } from '$lib/core/types';
-	import { exportWalletSnapshot } from '$lib/stores/wallet.svelte';
 	import { Plus, KeyRound, Upload, Lock, Fingerprint, ShieldOff, ScanLine } from '@lucide/svelte';
 	import SelectionButton from '$lib/components/ui/selection-button.svelte';
 
@@ -65,7 +66,10 @@
 
 				if (code?.data) {
 					const value = code.data.trim();
-					if (/^[0-9a-f]{64}$/i.test(value)) {
+					// Accept 64-char hex or mnemonic words (at least 12 words)
+					const isHex = /^[0-9a-f]{64}$/i.test(value);
+					const isMnemonic = value.split(/\s+/).length >= 12;
+					if (isHex || isMnemonic) {
 						scanStatus = 'QR code found!';
 						recoverInput = value;
 						stopCamera();
@@ -88,6 +92,26 @@
 		if (step === 'qrscan') startCamera();
 		return () => stopCamera();
 	});
+
+	let scanProgress = $state('');
+
+	const scanBothNetworks = async () => {
+		const original = getNetwork();
+		// Scan production
+		scanProgress = 'Scanning mainnet...';
+		setNetwork('production');
+		resetDb();
+		await scanDeterministicSlots(10, 20);
+		// Scan testnet
+		scanProgress = 'Scanning testnet...';
+		setNetwork('testnet');
+		resetDb();
+		await scanDeterministicSlots(10, 20);
+		// Restore original network
+		setNetwork(original);
+		resetDb();
+		scanProgress = '';
+	};
 
 	const createNew = async () => {
 		loading = true;
@@ -119,11 +143,11 @@
 		if (!setupResult.ok) { error = setupResult.error; loading = false; return; }
 		masterSecret = setupResult.value;
 
-		const result = await scanDeterministicSlots(10, 20);
-		if (result.ok) {
+		try {
+			await scanBothNetworks();
 			step = 'encrypt';
-		} else {
-			error = result.error;
+		} catch (e) {
+			error = `Scan failed: ${e}`;
 		}
 		loading = false;
 	};
@@ -139,7 +163,7 @@
 			const result = await importWalletSnapshot(snapshot);
 			if (result.ok) {
 				masterSecret = snapshot.master_secret;
-				await scanDeterministicSlots(10, 20);
+				await scanBothNetworks();
 				step = 'encrypt';
 			} else {
 				error = result.error;
@@ -314,7 +338,7 @@
 				class="flex-1 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary transition-all disabled:opacity-40"
 				class:animate-pulse={loading}
 			disabled={loading || (recoverInput.trim().length < 10)}>
-				{loading ? 'Scanning...' : 'Recover'}
+				{loading ? (scanProgress || 'Scanning...') : 'Recover'}
 			</button>
 		</div>
 
@@ -352,7 +376,7 @@
 			<button onclick={recoverFromSecret}
 				class="flex-1 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary transition-all disabled:opacity-40"
 				disabled={loading || (recoverInput.trim().length < 10)}>
-				{loading ? 'Importing...' : 'Import'}
+				{loading ? (scanProgress || 'Importing...') : 'Import'}
 			</button>
 		</div>
 
