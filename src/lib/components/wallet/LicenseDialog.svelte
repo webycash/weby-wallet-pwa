@@ -22,17 +22,17 @@
 	};
 </script>
 
-<div class="container mx-auto px-4 py-12 max-w-sm">
-	{#if hasGift}
-		<div class="rounded-3xl border border-primary bg-gradient-to-br from-primary via-primary to-transparent p-6 text-center mb-8">
-			<Gift class="w-8 h-8 text-primary mx-auto mb-3" />
-			<p class="text-sm text-muted-foreground mb-1">Someone sent you</p>
-			<p class="text-3xl font-bold text-foreground">₩{giftAmount || '?'}</p>
-			{#if giftMemo}<p class="text-sm text-muted-foreground mt-2 italic">"{giftMemo}"</p>{/if}
-		</div>
-	{/if}
+<div class="min-h-[100dvh] flex items-center justify-center px-4">
+	<div class="w-full max-w-xs space-y-6">
+		{#if hasGift}
+			<div class="text-center mb-2">
+				<Gift class="w-8 h-8 text-primary mx-auto mb-3" />
+				<p class="text-sm text-muted-foreground mb-1">Someone sent you</p>
+				<p class="text-3xl font-bold text-foreground">₩{giftAmount || '?'}</p>
+				{#if giftMemo}<p class="text-sm text-muted-foreground mt-2 italic">"{giftMemo}"</p>{/if}
+			</div>
+		{/if}
 
-	<div class="space-y-6">
 		<div>
 			<h2 class="text-lg font-bold text-foreground">Terms of Service</h2>
 			<p class="text-sm text-muted-foreground mt-1">
