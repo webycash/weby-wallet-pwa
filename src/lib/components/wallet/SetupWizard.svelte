@@ -4,20 +4,16 @@
 	import { isWebAuthnAvailable, encryptWithPasskey, encryptWithPassword } from '$lib/core/encryption';
 	import type { WalletSnapshot } from '$lib/core/types';
 	import { exportWalletSnapshot } from '$lib/stores/wallet.svelte';
-	import { Plus, KeyRound, Upload, Lock, Fingerprint, ShieldOff, Copy, Check, ScanLine } from '@lucide/svelte';
-	import Button from '$lib/components/ui/button/button.svelte';
-	import * as Card from '$lib/components/ui/card';
+	import { Plus, KeyRound, Upload, Lock, Fingerprint, ShieldOff, ScanLine } from '@lucide/svelte';
 	import SelectionButton from '$lib/components/ui/selection-button.svelte';
 
-	type Step = 'choose' | 'recover' | 'qrscan' | 'encrypt' | 'backup';
+	type Step = 'choose' | 'recover' | 'qrscan' | 'encrypt';
 
 	let step = $state<Step>('choose');
 	let masterSecret = $state('');
 	let recoverInput = $state('');
 	let error = $state('');
 	let loading = $state(false);
-	let copied = $state(false);
-	let saved = $state(false);
 	let selectedEncryption = $state<EncryptionType>('none');
 	let encPassword = $state('');
 	let encPasswordConfirm = $state('');
@@ -175,7 +171,16 @@
 			}
 
 			setEncryptionType(selectedEncryption);
-			step = 'backup';
+
+			// Auto-save to password manager with unique credential name
+			const arr = new Uint8Array(4);
+			crypto.getRandomValues(arr);
+			const suffix = Array.from(arr).map(b => {
+				const chars = '0123456789abcdefghijklmnopqrstuvwxyz';
+				return chars[b % chars.length];
+			}).join('');
+			await saveToPasswordManager(`webycash-master-wallet-secret-${suffix}`);
+			finish();
 		} catch (e: any) {
 			encError = e.message || 'Encryption failed';
 		}
@@ -188,19 +193,13 @@
 		window.location.reload();
 	};
 
-	const copySecret = async () => {
-		await navigator.clipboard.writeText(masterSecret);
-		copied = true;
-		setTimeout(() => { copied = false; }, 2000);
-	};
-
-	const saveToPasswordManager = async () => {
+	const saveToPasswordManager = async (credentialId: string) => {
 		try {
 			if ('PasswordCredential' in window) {
 				// @ts-ignore — PasswordCredential constructor
 				const cred = new PasswordCredential({
-					id: 'webycash-master-secret',
-					name: 'Webycash Master Secret',
+					id: credentialId,
+					name: credentialId,
 					password: masterSecret,
 					origin: 'https://weby.cash',
 				});
@@ -217,7 +216,7 @@
 				userInput.type = 'text';
 				userInput.name = 'username';
 				userInput.autocomplete = 'username';
-				userInput.value = 'webycash-master-secret';
+				userInput.value = credentialId;
 
 				const passInput = document.createElement('input');
 				passInput.type = 'password';
@@ -233,12 +232,8 @@
 				form.requestSubmit();
 				setTimeout(() => { document.body.removeChild(form); }, 2000);
 			}
-			saved = true;
-			setTimeout(() => { saved = false; }, 3000);
 		} catch {
-			await navigator.clipboard.writeText(masterSecret);
-			saved = true;
-			setTimeout(() => { saved = false; }, 3000);
+			// Best-effort — wallet creation proceeds regardless
 		}
 	};
 </script>
@@ -436,40 +431,6 @@
 			{/if}
 		</button>
 
-	{:else if step === 'backup'}
-		<h2 class="text-xl font-bold text-foreground mb-2">Back Up Your Secret</h2>
-		<Card.Root class="border-danger mb-5">
-			<Card.Content class="p-4">
-				<p class="text-sm font-medium text-foreground">This is the only way to recover your wallet.</p>
-				<p class="text-xs text-muted-foreground mt-1">Write it down or save it somewhere secure. It cannot be recovered later.</p>
-			</Card.Content>
-		</Card.Root>
-		<Card.Root>
-			<Card.Content class="p-4">
-				<code class="text-xs font-mono break-all select-all text-foreground leading-relaxed block">
-					{masterSecret}
-				</code>
-			</Card.Content>
-		</Card.Root>
-		<div class="grid grid-cols-2 gap-2 mt-4">
-			<Button variant="outline" onclick={copySecret}>
-				{#if copied}
-					<Check class="w-4 h-4" /> Copied
-				{:else}
-					<Copy class="w-4 h-4" /> Copy Secret
-				{/if}
-			</Button>
-			<Button variant="outline" onclick={saveToPasswordManager}>
-				{#if saved}
-					<Check class="w-4 h-4" /> Saved
-				{:else}
-					<KeyRound class="w-4 h-4" /> Save
-				{/if}
-			</Button>
-		</div>
-		<Button class="w-full mt-4" onclick={finish}>
-			Open Wallet
-		</Button>
 	{/if}
 
 	{#if error}
