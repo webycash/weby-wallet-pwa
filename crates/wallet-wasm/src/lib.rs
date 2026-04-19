@@ -106,12 +106,20 @@ pub fn export_snapshot(s: &str, n: &str) -> Result<String, JsError> { serde_json
 
 // ── Master wallet (WalletCore + MemHarmoniiStore) ───────────────
 
+/// Full backup: master HarmoniiStore state + all webcash wallet states.
+/// `webcash_wallets_json` is a JSON object mapping label -> webylib MemStore JSON.
 #[wasm_bindgen]
-pub fn export_master_backup(m: &str) -> Result<String, JsError> {
+pub fn export_full_backup(m: &str, webcash_wallets_json: &str) -> Result<String, JsError> {
     let c = core(m)?;
-    let mnemonic = c.export_master_key_mnemonic().map_err(e)?;
-    let root_hex = c.export_master_key_hex().map_err(e)?;
-    Ok(serde_json::to_string(&serde_json::json!({"mnemonic": mnemonic, "root_key_hex": root_hex})).map_err(e)?)
+    let wallets: std::collections::HashMap<String, String> = serde_json::from_str(webcash_wallets_json).map_err(e)?;
+    c.export_full_backup(wallets).map_err(e)
+}
+
+#[wasm_bindgen]
+pub fn import_full_backup(backup_json: &str) -> Result<String, JsError> {
+    let (core, wallets) = WalletCore::import_full_backup(backup_json).map_err(e)?;
+    let master = save(&core)?;
+    Ok(serde_json::to_string(&serde_json::json!({"master_state": master, "webcash_wallets": wallets})).map_err(e)?)
 }
 
 #[wasm_bindgen]

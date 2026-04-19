@@ -164,7 +164,7 @@
 		<div class="flex items-center gap-3 rounded-xl bg-muted px-4 py-3">
 			<div class="w-1.5 h-1.5 rounded-full bg-danger shrink-0"></div>
 			<p class="text-sm text-muted-foreground flex-1">Not backed up</p>
-			<Button variant="outline" size="sm" onclick={async () => { const backup = await exportMasterBackup(); const b = new Blob([JSON.stringify({ ...backup, created: new Date().toISOString() }, null, 2)], { type: 'application/json' }); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = `weby-master-${new Date().toISOString().slice(0, 10)}.json`; a.click(); URL.revokeObjectURL(u); markBackedUp(); showBackupWarning = false; }} class="h-7 text-xs">Back up</Button>
+			<Button variant="outline" size="sm" onclick={async () => { const json = await exportMasterBackup(); const b = new Blob([json], { type: 'application/json' }); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = `weby-master-${new Date().toISOString().slice(0, 10)}.json`; a.click(); URL.revokeObjectURL(u); markBackedUp(); showBackupWarning = false; }} class="h-7 text-xs">Back up</Button>
 			<button onclick={() => { dismissBackup(); showBackupWarning = false; }} class="text-muted-foreground hover:text-foreground text-sm">&times;</button>
 		</div>
 	{/if}

@@ -32,32 +32,32 @@ function esc(s) {
 
 function giftCardSvg(amount, memo) {
   const memoLine = memo
-    ? `<text x="600" y="430" text-anchor="middle" font-size="40" font-weight="400"
-           font-family="Inter,sans-serif" fill="#5a6a8a">"${esc(memo.slice(0, 40))}"</text>`
+    ? `<text x="600" y="440" text-anchor="middle" font-size="48" font-weight="400"
+           font-family="Inter,sans-serif" fill="#001BA4" opacity="0.5">"${esc(memo.slice(0, 40))}"</text>`
     : '';
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
   <rect width="1200" height="630" fill="#ffffff"/>
 
   <!-- Webycash logo top-left -->
-  <svg x="32" y="24" width="100" height="100" viewBox="0 0 1024 1024">
+  <svg x="36" y="28" width="140" height="140" viewBox="0 0 1024 1024">
     ${LOGO_CIRCLE}
     ${LOGO_TEXT}
   </svg>
 
   <!-- Redeem top-right -->
-  <text x="1152" y="90" text-anchor="end" font-size="36" font-weight="600"
-        font-family="Inter,sans-serif" fill="#8898b8" letter-spacing="4">REDEEM</text>
+  <text x="1152" y="100" text-anchor="end" font-size="56" font-weight="600"
+        font-family="Inter,sans-serif" fill="#001BA4" opacity="0.35" letter-spacing="5">REDEEM</text>
 
   <!-- Amount then symbol -->
   <text x="600" y="340" text-anchor="middle" font-size="140" font-weight="700"
-        font-family="Inter,sans-serif" fill="#0a1a3a" letter-spacing="-3">${esc(amount)}  &#x20A9;</text>
+        font-family="Inter,sans-serif" fill="#001BA4" letter-spacing="-3">${esc(amount)}  &#x20A9;</text>
 
   ${memoLine}
 
   <!-- Website bottom center -->
-  <text x="600" y="580" text-anchor="middle" font-size="24" font-weight="500"
-        font-family="Inter,sans-serif" fill="#8898b8">weby.cash</text>
+  <text x="600" y="580" text-anchor="middle" font-size="42" font-weight="600"
+        font-family="Inter,sans-serif" fill="#001BA4" opacity="0.3">weby.cash</text>
 </svg>`;
 }
 

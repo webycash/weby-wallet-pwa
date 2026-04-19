@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { exportWalletSnapshot, removeWallet, renameWallet,
-		getMnemonic, exportMasterBackup, isRoaming, importRoamingFromFile,
-		importRoamingFromSecret, exportWebcasaFile } from '$lib/stores/wallet.svelte';
+	import { removeWallet, renameWallet, getMnemonic, exportMasterBackup,
+		isRoaming, importRoamingFromFile, importRoamingFromSecret,
+		exportWebcasaFile } from '$lib/stores/wallet.svelte';
 	import { markBackedUp, encryptionType } from '$lib/stores/settings.svelte';
 	import * as Persistence from '$lib/core/persistence';
 	import { QrCode, Download, Trash2, Pencil, Lock, Key, Upload, FileDown, FileUp, KeyRound } from '@lucide/svelte';
@@ -27,9 +27,8 @@
 
 	const handleBackup = async () => {
 		try {
-			const backup = await exportMasterBackup();
-			const data = { ...backup, created: new Date().toISOString() };
-			const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+			const backupJson = await exportMasterBackup();
+			const blob = new Blob([backupJson], { type: 'application/json' });
 			const url = URL.createObjectURL(blob);
 			const a = document.createElement('a');
 			a.href = url;

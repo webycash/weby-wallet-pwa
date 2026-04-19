@@ -349,18 +349,26 @@ export const getMasterSecret = async (): Promise<string | undefined> => {
 };
 
 export const getMnemonic = async (): Promise<string | undefined> => {
-	try {
-		const { wasm, master } = await ensureState();
-		const backup = JSON.parse(wasm.export_master_backup(master));
-		return backup.mnemonic;
-	} catch {
-		return Persistence.getMnemonic() ?? undefined;
-	}
+	return Persistence.getMnemonic() ?? undefined;
 };
 
-export const exportMasterBackup = async (): Promise<{ mnemonic: string; root_key_hex: string }> => {
-	const { wasm, master } = await ensureState();
-	return JSON.parse(wasm.export_master_backup(master));
+export const exportMasterBackup = async (): Promise<string> => {
+	const { wasm, master, network } = await ensureState();
+	// Collect all webcash wallet states from IndexedDB
+	const wallets: Record<string, string> = {};
+	const registry = Persistence.getRegistry(network);
+	const hdWallets: any[] = wasm.list_wallets(master, 'webcash');
+	const allLabels = new Set<string>();
+	for (const w of hdWallets) { allLabels.add(w.label || `webcash-${w.slot_index}`); }
+	for (const entry of registry) {
+		if (entry.family === 'webcash') allLabels.add(entry.label);
+	}
+	for (const label of allLabels) {
+		const key = Persistence.walletStateKey('webcash', label);
+		const state = await Persistence.loadState(network, key);
+		if (state) wallets[label] = state;
+	}
+	return wasm.export_full_backup(master, JSON.stringify(wallets));
 };
 
 // ── Wallet Operations (single async WASM calls — HTTP in Rust) ──
