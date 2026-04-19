@@ -1,0 +1,6 @@
+name = "weby-og"
+main = "og-worker.js"
+compatibility_date = "2024-01-01"
+
+[triggers]
+# Add route in Cloudflare dashboard: weby.cash/wallet*
