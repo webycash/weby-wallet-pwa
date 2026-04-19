@@ -142,7 +142,11 @@
 	};
 </script>
 
-<div class="rounded-xl bg-card overflow-hidden">
+<div class="rounded-xl bg-card border border-border overflow-hidden">
+	<!-- Mining cost -->
+	<div class="px-5 pt-4 pb-2">
+		<p class="text-xs text-muted-foreground">Mining cost: ~ ${(0.24 / Math.min(3600 / (Math.pow(2, 28) / (14.5e9)), 600) / 195.3125).toFixed(6)}/₩</p>
+	</div>
 	<!-- Header -->
 	<div class="flex items-center justify-between px-5 py-4 border-b border-border">
 		<div class="flex items-center gap-2">

@@ -170,7 +170,7 @@
 	</details>
 
 	<!-- Master -->
-	<details class={sectionClass}>
+	<details open class={sectionClass}>
 		<summary class={summaryClass}>
 			<Lock class="w-4 h-4 text-muted-foreground" />
 			<span class="flex-1">Master</span>
