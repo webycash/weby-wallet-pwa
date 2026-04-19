@@ -10,7 +10,7 @@
 	"categories": ["finance"],
 	"icons": [
 		{
-			"src": "/wallet/favicon.svg",
+			"src": "/wallet/logo.svg",
 			"sizes": "any",
 			"type": "image/svg+xml",
 			"purpose": "any"
