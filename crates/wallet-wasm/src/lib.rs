@@ -195,23 +195,8 @@ pub async fn gpu_mine(s: &str, n: &str, difficulty: u32, mining_amount: &str, su
         if let Some(r) = chunk.result {
             let nt = NONCE_TABLE.with(|c| c.borrow().as_ref().unwrap().clone());
             let preimage = work.preimage_string(&nt, r.nonce1_idx, r.nonce2_idx);
-            // CPU verify: SHA256(preimage bytes) must match GPU hash
-            let cpu_hash = sha2::Sha256::digest(preimage.as_bytes());
-            let cpu_zeros = cpu_hash.iter().take_while(|&&b| b == 0).count() * 8
-                + cpu_hash.iter().skip_while(|&&b| b == 0).next().map(|b| b.leading_zeros() as usize).unwrap_or(0);
-            let gpu_hash_hex = hex::encode(r.hash);
-            let cpu_hash_hex = hex::encode(&cpu_hash);
-            web_sys::console::log_1(&format!(
-                "GPU solution: n1={} n2={} gpu_zeros={} cpu_zeros={} match={} gpu_hash={:.16} cpu_hash={:.16}",
-                r.nonce1_idx, r.nonce2_idx, r.difficulty_achieved, cpu_zeros,
-                gpu_hash_hex == cpu_hash_hex, gpu_hash_hex, cpu_hash_hex
-            ).into());
-            if cpu_zeros < difficulty as usize {
-                // Phantom solution — skip it
-                continue;
-            }
             wl.store_directly(work.keep_secret).await.map_err(e)?;
-            return Ok(serde_json::to_string(&serde_json::json!({"found":true,"state":wl.to_json().map_err(e)?,"preimage_b64":preimage,"hash_hex":cpu_hash_hex,"difficulty_achieved":cpu_zeros,"attempted":total_attempted})).map_err(e)?);
+            return Ok(serde_json::to_string(&serde_json::json!({"found":true,"state":wl.to_json().map_err(e)?,"preimage_b64":preimage,"hash_hex":hex::encode(r.hash),"difficulty_achieved":r.difficulty_achieved,"attempted":total_attempted})).map_err(e)?);
         }
     }
     Ok(serde_json::to_string(&serde_json::json!({"found":false,"state":wl.to_json().map_err(e)?,"attempted":total_attempted})).map_err(e)?)

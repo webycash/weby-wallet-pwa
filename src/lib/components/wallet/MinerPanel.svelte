@@ -26,6 +26,16 @@
 	let uptimeSecs = $state(0);
 
 	let netStats = $state<any>(null);
+	let showHistory = $state(false);
+
+	interface MinedSolution {
+		time: string;
+		hash: string;
+		difficulty: number;
+		amount: string;
+		submitted: boolean;
+	}
+	let history = $state<MinedSolution[]>([]);
 
 	const fmt = (n: number): string => {
 		if (n >= 1e9) return `${(n / 1e9).toFixed(1)}G`;
@@ -104,10 +114,20 @@
 					result = res.webcash_str;
 					resultHash = res.hash_hex;
 
+					let submitted = false;
 					try {
 						await wasm.submit_mining_report(network, res.preimage_b64, res.hash_hex);
 						solutionsSubmitted++;
+						submitted = true;
 					} catch { /* best-effort */ }
+
+					history = [...history, {
+						time: new Date().toLocaleTimeString(),
+						hash: res.hash_hex,
+						difficulty: res.difficulty_achieved,
+						amount: miningAmount,
+						submitted,
+					}];
 
 					onBalanceUpdate();
 				}
@@ -231,6 +251,43 @@
 				<p class="text-[10px] uppercase tracking-wider opacity-80">Webcash</p>
 				<code class="text-xs font-mono break-all block">{result}</code>
 			</div>
+		</div>
+	{/if}
+
+	<!-- Mining history -->
+	{#if history.length > 0}
+		<div class="border-t border-border">
+			<button onclick={() => showHistory = !showHistory}
+				class="w-full flex items-center justify-between px-4 py-2.5 text-xs font-semibold text-muted-foreground hover:bg-muted transition-colors">
+				<span>Solutions ({history.length})</span>
+				<span class="text-[10px]">{showHistory ? 'Hide' : 'Show'}</span>
+			</button>
+			{#if showHistory}
+				<div class="px-4 pb-3">
+					<table class="w-full text-xs">
+						<thead>
+							<tr class="text-muted-foreground text-left">
+								<th class="pb-1.5 font-medium">Time</th>
+								<th class="pb-1.5 font-medium">Hash</th>
+								<th class="pb-1.5 font-medium text-right">Zeros</th>
+								<th class="pb-1.5 font-medium text-right">Amount</th>
+								<th class="pb-1.5 font-medium text-right">Status</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each history.toReversed() as s}
+								<tr class="border-t border-border/50">
+									<td class="py-1.5 tabular-nums">{s.time}</td>
+									<td class="py-1.5 font-mono text-[10px] opacity-70">{s.hash.slice(0, 16)}...</td>
+									<td class="py-1.5 tabular-nums text-right">{s.difficulty}</td>
+									<td class="py-1.5 tabular-nums text-right">{s.amount}</td>
+									<td class="py-1.5 text-right">{s.submitted ? 'OK' : 'Failed'}</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			{/if}
 		</div>
 	{/if}
 
