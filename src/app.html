@@ -55,6 +55,11 @@
 		<meta name="apple-mobile-web-app-title" content="Weby" />
 		<link rel="manifest" href="%sveltekit.assets%/manifest.json" />
 
+		<!-- Fonts — preconnect + render-blocking link to prevent FOUC -->
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700&display=swap" />
+
 		<!-- Icons -->
 		<link rel="icon" type="image/png" href="%sveltekit.assets%/favicon-96x96.png" sizes="96x96" />
 		<link rel="icon" type="image/svg+xml" href="%sveltekit.assets%/favicon.svg" />
@@ -75,6 +80,6 @@
 		<div id="app-loader" style="position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center">
 			<div class="ring"></div>
 		</div>
-		<div id="app-root" style="display:contents;opacity:0;transition:opacity .5s cubic-bezier(0,0,0.2,1)">%sveltekit.body%</div>
+		<div id="app-root" style="opacity:0;transition:opacity .5s cubic-bezier(0,0,0.2,1)">%sveltekit.body%</div>
 	</body>
 </html>

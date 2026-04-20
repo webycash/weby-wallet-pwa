@@ -1,7 +1,6 @@
 <script lang="ts">
-	import { ArrowDownToLine, ClipboardPaste, ScanLine, X } from '@lucide/svelte';
+	import { ClipboardPaste, ScanLine, X } from '@lucide/svelte';
 	let { onSubmit, disabled }: { onSubmit: (s: string) => void; disabled: boolean } = $props();
-	let input = $state('');
 	let scanning = $state(false);
 	let scanStatus = $state('');
 	let videoEl = $state<HTMLVideoElement>();
@@ -9,16 +8,11 @@
 	let cameraStream: MediaStream | null = null;
 	let scanTimer: ReturnType<typeof setInterval> | null = null;
 
-	const submit = () => {
-		if (input.trim()) { onSubmit(input.trim()); input = ''; }
-	};
-
 	const paste = async () => {
 		try {
 			const text = await navigator.clipboard.readText();
 			const webcash = extractWebcash(text.trim());
-			if (webcash) { onSubmit(webcash); input = ''; }
-			else if (text.trim()) input = text.trim();
+			if (webcash) onSubmit(webcash);
 		} catch {}
 	};
 
@@ -65,7 +59,10 @@
 					const value = code.data.trim();
 					const webcash = extractWebcash(value);
 					if (webcash) {
-						stopScan();
+						if (scanTimer) { clearInterval(scanTimer); scanTimer = null; }
+						cameraStream?.getTracks().forEach(t => t.stop());
+						cameraStream = null;
+						scanning = false;
 						onSubmit(webcash);
 					}
 				}
@@ -85,32 +82,18 @@
 </script>
 
 <div class="rounded-2xl border border-border bg-card p-5">
-	<label class="text-xs font-medium text-muted-foreground" for="insert-input">Paste webcash to insert</label>
-	<div class="relative mt-2">
-		<textarea
-			id="insert-input"
-			bind:value={input}
-			placeholder="e0.001:secret:abc123..."
-			class="w-full rounded-xl border border-input bg-background px-4 py-3 pr-20 text-base font-mono h-20 resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
-			spellcheck="false"
-		></textarea>
+	<p class="text-xs font-medium text-muted-foreground mb-3">Insert webcash</p>
+	<div class="grid grid-cols-2 gap-2">
 		<button onclick={paste}
-			class="absolute top-2 right-2 flex items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-all">
-			<ClipboardPaste class="w-3.5 h-3.5" /> Paste
+			class="flex items-center justify-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-all
+				{disabled ? 'opacity-50 pointer-events-none animate-pulse' : ''}"
+			disabled={disabled}>
+			<ClipboardPaste class="w-4 h-4" /> {disabled ? 'Inserting...' : 'Paste'}
 		</button>
-	</div>
-
-	<div class="grid grid-cols-2 gap-2 mt-3">
 		<button onclick={startScan}
-			class="flex items-center justify-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-all">
+			class="flex items-center justify-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-all"
+			disabled={disabled || scanning}>
 			<ScanLine class="w-4 h-4" /> Scan QR
-		</button>
-		<button onclick={submit}
-			class="flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-all
-				{disabled ? 'opacity-50 pointer-events-none animate-pulse' : 'hover:opacity-90'}"
-			disabled={disabled || !input.trim()}>
-			<ArrowDownToLine class="w-4 h-4" />
-			{disabled ? 'Inserting...' : 'Insert'}
 		</button>
 	</div>
 </div>

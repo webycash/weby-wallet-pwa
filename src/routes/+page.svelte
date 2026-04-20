@@ -22,12 +22,13 @@
 	let receiveError = $state('');
 	let receiveSuccess = $state(false);
 
-	const dismissLoader = () => {
+	const dismissLoader = async () => {
+		await document.fonts.ready;
 		requestAnimationFrame(() => {
-			const root = document.getElementById('app-root');
-			if (root) root.style.opacity = '1';
 			const el = document.getElementById('app-loader');
 			if (el) el.remove();
+			const root = document.getElementById('app-root');
+			if (root) root.style.opacity = '1';
 		});
 	};
 

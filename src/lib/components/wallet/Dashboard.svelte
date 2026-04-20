@@ -137,10 +137,11 @@
 		fmt = (wats: number) => wasm.format_amount(BigInt(wats));
 		await refresh();
 		initializing = false;
-		const appRoot = document.getElementById('app-root');
-		if (appRoot) appRoot.style.opacity = '1';
+		await document.fonts.ready;
 		const appLoader = document.getElementById('app-loader');
 		if (appLoader) appLoader.remove();
+		const appRoot = document.getElementById('app-root');
+		if (appRoot) appRoot.style.opacity = '1';
 		if (pendingWebcash) { activePanel = 'insert'; setTimeout(() => handleInsert(pendingWebcash), 500); }
 		document.addEventListener('visibilitychange', handleVisibility);
 	});
