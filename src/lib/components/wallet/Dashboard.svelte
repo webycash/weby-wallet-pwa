@@ -43,6 +43,7 @@
 	let showSettings = $state(false);
 	let paymentResult = $state('');
 	let paymentMemo = $state('');
+	const isStandalone = typeof window !== 'undefined' && (window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone === true);
 
 	// Multi-wallet state
 	let activeFamily = $state('webcash');
@@ -320,12 +321,14 @@
 		<WebcashList webcash={webcashList} formatAmount={fmt} />
 	</div>
 
-	<div class="flex flex-col items-center gap-3 pt-4 pb-2">
-		<button onclick={() => onInstall?.()}
-			class="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-all">
-			<img src="/wallet/favicon-96x96.png" alt="" class="w-7 h-7 rounded-lg" />
-			Install App
-		</button>
+	<div class="flex flex-col items-center gap-4 pt-4 pb-2">
+		{#if !isStandalone}
+			<button onclick={() => onInstall?.()}
+				class="inline-flex items-center gap-2.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-all">
+				<img src="/wallet/favicon-96x96.png" alt="" class="w-9 h-9 rounded-xl" />
+				Install App
+			</button>
+		{/if}
 		<p class="text-xs text-muted-foreground">All data stays on your device</p>
 	</div>
 </div>
