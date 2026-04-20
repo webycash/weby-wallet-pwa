@@ -122,8 +122,8 @@
 					</button>
 				{:else}
 					<button onclick={install} disabled={installing}
-						class="w-full rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-all
-							{installing ? 'opacity-60 animate-pulse' : 'hover:opacity-90'}">
+						class="mx-auto flex rounded-full border border-border px-5 py-2 text-sm font-medium text-foreground transition-all
+							{installing ? 'opacity-60 animate-pulse' : 'hover:border-primary hover:text-primary'}">
 						{installing ? 'Installing\u2026' : 'Install'}
 					</button>
 				{/if}
