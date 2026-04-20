@@ -226,11 +226,11 @@
 			<!-- svelte-ignore a11y_click_events_have_key_events -->
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<div class="fixed inset-0 z-40" onclick={() => showWalletDropdown = false}></div>
-			<div class="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 min-w-[10rem] rounded-2xl bg-muted shadow-lg overflow-hidden">
+			<div class="absolute top-full left-1/2 -translate-x-1/2 mt-1 z-50 min-w-[10rem] rounded-2xl bg-muted overflow-hidden">
 				{#each walletList as w}
 					<button onclick={() => switchWallet(w.label)}
-						class="w-full px-4 py-2.5 text-sm text-center hover:bg-background/50 transition-colors
-							{w.label === activeLabel ? 'font-semibold' : 'opacity-70'}">
+						class="w-full px-4 py-2 text-sm font-medium text-center transition-colors
+							{w.label === activeLabel ? 'font-semibold' : 'opacity-60'} hover:opacity-100">
 						<span class="capitalize">{w.label}</span>
 						{#if w.roaming}
 							<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-warning/20 text-warning font-semibold ml-1">Roaming</span>
@@ -239,7 +239,7 @@
 					</button>
 				{/each}
 				<button onclick={handleNewWallet}
-					class="w-full px-4 py-2.5 text-sm text-center font-medium opacity-70 hover:opacity-100 hover:bg-background/50 transition-all">
+					class="w-full px-4 py-2 text-sm font-medium text-center opacity-60 hover:opacity-100 transition-colors">
 					+ New wallet
 				</button>
 			</div>
@@ -319,8 +319,7 @@
 		<WebcashList webcash={webcashList} formatAmount={fmt} />
 	</div>
 
-	<div class="flex items-center justify-between pt-4 pb-2">
-		<p class="text-xs text-muted-foreground">All data stays on your device</p>
+	<div class="flex flex-col items-center gap-3 pt-4 pb-2">
 		<button onclick={() => {
 			if ('standalone' in navigator && !(navigator as any).standalone && /iPhone|iPad/.test(navigator.userAgent)) {
 				alert('Tap the Share button in Safari, then "Add to Home Screen"');
@@ -333,6 +332,7 @@
 			<img src="/wallet/favicon-96x96.png" alt="" class="w-7 h-7 rounded-lg" />
 			Install App
 		</button>
+		<p class="text-xs text-muted-foreground">All data stays on your device</p>
 	</div>
 </div>
 {/if}

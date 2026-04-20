@@ -269,7 +269,7 @@
 	};
 </script>
 
-<div class="container mx-auto px-4 py-8 max-w-lg">
+<div class="container mx-auto px-4 py-8 max-w-lg fade-in">
 	{#if loading}
 		<div class="min-h-[50vh] flex flex-col items-center justify-center gap-4">
 			<LoaderCircle class="w-10 h-10 text-primary animate-spin" />
