@@ -34,22 +34,21 @@
 		</div>
 		<input
 			id="pay-amount"
-			type="number"
-			step="0.00000001"
-			min="0"
+			type="text"
+			inputmode="decimal"
 			bind:value={amountStr}
 			placeholder="0.00"
-			class="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+			class="w-full rounded-full border border-input bg-background px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
 		/>
 	</div>
 	<div>
-		<label class="text-xs font-medium text-muted-foreground" for="pay-memo">Reference (optional)</label>
+		<label class="text-xs font-medium text-muted-foreground" for="pay-memo">Reference (memo)</label>
 		<input
 			id="pay-memo"
 			type="text"
 			bind:value={memo}
 			placeholder="What is this for?"
-			class="mt-1.5 w-full rounded-xl border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+			class="mt-1.5 w-full rounded-full border border-input bg-background px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
 		/>
 	</div>
 	<button onclick={submit}

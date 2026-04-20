@@ -455,14 +455,14 @@
 					autocomplete="new-password"
 					bind:value={encPassword}
 					placeholder="Password (min 8 characters)"
-					class="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+					class="w-full rounded-full border border-input bg-background px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
 				/>
 				<input
 					type="password"
 					autocomplete="new-password"
 					bind:value={encPasswordConfirm}
 					placeholder="Confirm password"
-					class="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+					class="w-full rounded-full border border-input bg-background px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
 				/>
 			</form>
 		{/if}

@@ -86,7 +86,7 @@
 						type="text"
 						bind:value={state.inputValue}
 						placeholder={state.inputPlaceholder}
-						class="w-full rounded-xl border border-input bg-background px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+						class="w-full rounded-full border border-input bg-background px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
 						autofocus
 					/>
 				</form>
