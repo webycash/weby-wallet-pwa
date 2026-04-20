@@ -293,9 +293,9 @@
 			{#if showMore}
 				<div class="px-5 pt-2 pb-4 space-y-3">
 					<div class="grid grid-cols-2 gap-2">
-						{#each moreActions as btn}
+						{#each moreActions as btn, i}
 							<Button variant="outline" size="sm"
-								class="w-full {activePanel === btn.id ? 'border-primary text-primary font-semibold' : ''}"
+								class="w-full {i === moreActions.length - 1 && moreActions.length % 2 === 1 ? 'col-span-2' : ''} {activePanel === btn.id ? 'border-primary text-primary font-semibold' : ''}"
 								onclick={() => btn.action ? btn.action() : (activePanel = activePanel === btn.id ? null : btn.id)}
 								disabled={loading}>
 								<btn.icon class="w-4 h-4 {activePanel === btn.id ? 'text-primary' : ''}" />
