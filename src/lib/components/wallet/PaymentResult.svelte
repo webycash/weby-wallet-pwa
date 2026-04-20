@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Copy, Check, Share2, X } from '@lucide/svelte';
+	import { Copy, Check, Share2, X, QrCode } from '@lucide/svelte';
 	import { getNetwork } from '$lib/stores/network.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
 
@@ -8,6 +8,8 @@
 	let copied = $state(false);
 	let copiedLink = $state(false);
 	let displayAmount = $state('');
+	let showQr = $state(false);
+	let qrDataUrl = $state('');
 
 	const network = getNetwork();
 
@@ -21,9 +23,6 @@
 	const walletUrl = $derived(
 		`https://weby.cash/wallet?webcash=${encodeURIComponent(webcash)}&network=${network}&amount=${encodeURIComponent(displayAmount)}${memo ? `&memo=${encodeURIComponent(memo)}` : ''}`
 	);
-	const shareText = $derived(
-		`You received ₩${displayAmount} webcash!${memo ? `\n\n"${memo}"` : ''}\n\nOpen to claim: ${walletUrl}`
-	);
 
 	const truncated = $derived(webcash.length > 32 ? webcash.slice(0, 16) + '...' + webcash.slice(-12) : webcash);
 
@@ -31,6 +30,24 @@
 	const copyLink = async () => { await navigator.clipboard.writeText(walletUrl); copiedLink = true; setTimeout(() => { copiedLink = false; }, 2000); };
 	const shareNative = async () => { if (navigator.share) await navigator.share({ url: walletUrl }); };
 	const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+
+	const openQr = async () => {
+		const QR = (await import('qrcode')).default;
+		qrDataUrl = await QR.toDataURL(walletUrl, { width: 512, margin: 2, color: { dark: '#000', light: '#fff' } });
+		showQr = true;
+	};
+
+	const shareQr = async () => {
+		if (!qrDataUrl) return;
+		try {
+			const res = await fetch(qrDataUrl);
+			const blob = await res.blob();
+			const file = new File([blob], 'webcash-qr.png', { type: 'image/png' });
+			await navigator.share({ files: [file], title: `₩${displayAmount} webcash` });
+		} catch {
+			await navigator.clipboard.writeText(walletUrl);
+		}
+	};
 </script>
 
 <div class="space-y-5">
@@ -72,13 +89,48 @@
 		</Button>
 	</div>
 
-	{#if canShare}
-		<Button class="w-full" onclick={shareNative}>
-			<Share2 class="w-4 h-4" /> Share via...
+	<div class="grid grid-cols-2 gap-2">
+		<Button variant="outline" onclick={openQr}>
+			<QrCode class="w-4 h-4" /> Show QR
 		</Button>
-	{/if}
+		{#if canShare}
+			<Button variant="outline" onclick={shareNative}>
+				<Share2 class="w-4 h-4" /> Share via...
+			</Button>
+		{/if}
+	</div>
 
 	<p class="text-xs text-muted-foreground text-center">
 		The recipient can open the link to instantly claim this webcash
 	</p>
 </div>
+
+{#if showQr}
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onclick={() => showQr = false}>
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div class="bg-card rounded-2xl p-6 mx-4 max-w-sm w-full space-y-4 fade-in" onclick={(e) => e.stopPropagation()}>
+			<div class="flex items-center justify-between">
+				<p class="text-sm font-semibold text-foreground">₩{displayAmount} webcash</p>
+				<button onclick={() => showQr = false} class="text-muted-foreground hover:text-foreground transition-all">
+					<X class="w-4 h-4" />
+				</button>
+			</div>
+			{#if qrDataUrl}
+				<img src={qrDataUrl} alt="QR Code" class="w-full rounded-xl" />
+			{/if}
+			<div class="grid grid-cols-2 gap-2">
+				<Button variant="outline" onclick={() => showQr = false}>
+					<X class="w-4 h-4" /> Close
+				</Button>
+				{#if canShare}
+					<Button onclick={shareQr}>
+						<Share2 class="w-4 h-4" /> Share QR
+					</Button>
+				{/if}
+			</div>
+		</div>
+	</div>
+{/if}
