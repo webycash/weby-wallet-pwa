@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ArrowDownToLine, ClipboardPaste, ScanLine } from '@lucide/svelte';
+	import { ArrowDownToLine, ClipboardPaste, ScanLine, X } from '@lucide/svelte';
 	let { onSubmit, disabled }: { onSubmit: (s: string) => void; disabled: boolean } = $props();
 	let input = $state('');
 	let scanning = $state(false);
@@ -18,6 +18,20 @@
 			const text = await navigator.clipboard.readText();
 			if (text.trim()) input = text.trim();
 		} catch {}
+	};
+
+	const extractWebcash = (raw: string): string | null => {
+		// Direct webcash string
+		if (raw.includes(':secret:')) return raw;
+		// Wallet URL with ?webcash= param
+		try {
+			const url = new URL(raw);
+			const wc = url.searchParams.get('webcash');
+			if (wc) return wc;
+		} catch {}
+		// Starts with 'e' (webcash format)
+		if (/^e\d/.test(raw)) return raw;
+		return null;
 	};
 
 	const startScan = async () => {
@@ -47,8 +61,9 @@
 				const code = jsQR(imageData.data, w, h, { inversionAttempts: 'dontInvert' });
 				if (code?.data) {
 					const value = code.data.trim();
-					if (value.includes(':secret:') || value.startsWith('e')) {
-						input = value;
+					const webcash = extractWebcash(value);
+					if (webcash) {
+						input = webcash;
 						stopScan();
 					}
 				}
@@ -74,38 +89,18 @@
 			id="insert-input"
 			bind:value={input}
 			placeholder="e0.001:secret:abc123..."
-			class="w-full rounded-xl border border-input bg-background px-4 py-3 pr-20 text-sm font-mono h-20 resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+			class="w-full rounded-xl border border-input bg-background px-4 py-3 pr-20 text-base font-mono h-20 resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
 			spellcheck="false"
 		></textarea>
-		<div class="absolute top-2 right-2 flex gap-1">
-			<button onclick={paste}
-				class="flex items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-all">
-				<ClipboardPaste class="w-3.5 h-3.5" /> Paste
-			</button>
-		</div>
-	</div>
-
-	{#if scanning}
-		<div class="mt-3 rounded-xl border border-border overflow-hidden bg-black aspect-square relative max-w-[280px] mx-auto">
-			<video bind:this={videoEl} autoplay playsinline muted class="w-full h-full object-cover"></video>
-			<canvas bind:this={canvasEl} class="hidden"></canvas>
-			<div class="absolute inset-0 pointer-events-none">
-				<div class="absolute inset-[12%] border border-primary rounded-2xl animate-pulse"></div>
-			</div>
-			<div class="absolute bottom-2 left-0 right-0 text-center">
-				<span class="text-xs text-white bg-black/70 px-3 py-1 rounded-full">{scanStatus}</span>
-			</div>
-		</div>
-		<button onclick={stopScan}
-			class="mt-2 w-full text-center text-xs text-muted-foreground hover:text-foreground transition-all">
-			Cancel scan
+		<button onclick={paste}
+			class="absolute top-2 right-2 flex items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-all">
+			<ClipboardPaste class="w-3.5 h-3.5" /> Paste
 		</button>
-	{/if}
+	</div>
 
 	<div class="grid grid-cols-2 gap-2 mt-3">
 		<button onclick={startScan}
-			class="flex items-center justify-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-all"
-			disabled={scanning}>
+			class="flex items-center justify-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-all">
 			<ScanLine class="w-4 h-4" /> Scan QR
 		</button>
 		<button onclick={submit}
@@ -117,3 +112,22 @@
 		</button>
 	</div>
 </div>
+
+{#if scanning}
+	<div class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black">
+		<div class="relative w-full max-w-[400px] aspect-square">
+			<video bind:this={videoEl} autoplay playsinline muted class="w-full h-full object-cover rounded-2xl"></video>
+			<canvas bind:this={canvasEl} class="hidden"></canvas>
+			<div class="absolute inset-0 pointer-events-none">
+				<div class="absolute inset-[12%] border-2 border-primary rounded-2xl animate-pulse"></div>
+			</div>
+			<div class="absolute bottom-4 left-0 right-0 text-center">
+				<span class="text-sm text-white bg-black/70 px-4 py-2 rounded-full">{scanStatus}</span>
+			</div>
+		</div>
+		<button onclick={stopScan}
+			class="mt-6 flex items-center gap-2 rounded-full bg-white/10 px-6 py-3 text-sm font-medium text-white hover:bg-white/20 transition-all">
+			<X class="w-4 h-4" /> Cancel
+		</button>
+	</div>
+{/if}

@@ -5,7 +5,7 @@
 	import { setNetwork, getNetwork } from '$lib/stores/network.svelte';
 	import { isWebAuthnAvailable, encryptWithPasskey, encryptWithPassword } from '$lib/core/encryption';
 	import type { WalletSnapshot } from '$lib/core/types';
-	import { Plus, KeyRound, Upload, Lock, Fingerprint, ShieldOff, ScanLine, LoaderCircle } from '@lucide/svelte';
+	import { Plus, KeyRound, Upload, Lock, Fingerprint, ShieldOff, ScanLine, LoaderCircle, ClipboardPaste } from '@lucide/svelte';
 	import SelectionButton from '$lib/components/ui/selection-button.svelte';
 
 	type Step = 'choose' | 'recover' | 'qrscan' | 'encrypt';
@@ -27,6 +27,13 @@
 		const chars = '0123456789abcdefghijklmnopqrstuvwxyz';
 		return Array.from(arr).map(b => chars[b % chars.length]).join('');
 	})();
+
+	const pasteRecover = async () => {
+		try {
+			const text = await navigator.clipboard.readText();
+			if (text.trim()) recoverInput = text.trim();
+		} catch {}
+	};
 
 	const webauthnAvailable = isWebAuthnAvailable();
 	let videoEl = $state<HTMLVideoElement>();
@@ -337,13 +344,19 @@
 	{:else if step === 'recover'}
 		<h2 class="text-xl font-bold text-foreground mb-2">Recover Wallet</h2>
 		<p class="text-sm text-muted-foreground mb-4">Enter your master secret. We'll scan the server for your webcash.</p>
-		<textarea
-			bind:value={recoverInput}
-			placeholder="24 words or 64-char hex..."
-			class="w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm font-mono h-24 resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
-			autocomplete="off"
-			spellcheck="false"
-		></textarea>
+		<div class="relative">
+			<textarea
+				bind:value={recoverInput}
+				placeholder="24 words or 64-char hex..."
+				class="w-full rounded-2xl border border-input bg-background px-4 py-3 pr-20 text-base font-mono h-24 resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+				autocomplete="off"
+				spellcheck="false"
+			></textarea>
+			<button onclick={pasteRecover}
+				class="absolute top-2 right-2 flex items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-all">
+				<ClipboardPaste class="w-3.5 h-3.5" /> Paste
+			</button>
+		</div>
 		<div class="flex gap-2 mt-4">
 			<button onclick={() => { step = 'choose'; error = '' }}
 				class="flex-1 rounded-full border border-border px-4 py-3 text-sm font-medium hover:bg-muted transition-all">
@@ -376,13 +389,19 @@
 		<p class="text-xs text-muted-foreground text-center mb-3">
 			Or paste the master secret manually:
 		</p>
-		<textarea
-			bind:value={recoverInput}
-			placeholder="24 words or 64-char hex..."
-			class="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm font-mono h-16 resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
-			autocomplete="off"
-			spellcheck="false"
-		></textarea>
+		<div class="relative">
+			<textarea
+				bind:value={recoverInput}
+				placeholder="24 words or 64-char hex..."
+				class="w-full rounded-xl border border-input bg-background px-4 py-3 pr-20 text-base font-mono h-16 resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+				autocomplete="off"
+				spellcheck="false"
+			></textarea>
+			<button onclick={pasteRecover}
+				class="absolute top-2 right-2 flex items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-all">
+				<ClipboardPaste class="w-3.5 h-3.5" /> Paste
+			</button>
+		</div>
 		<div class="flex gap-2 mt-4">
 			<button onclick={() => { stopCamera(); step = 'choose'; error = '' }}
 				class="flex-1 rounded-full border border-border px-4 py-3 text-sm font-medium hover:bg-muted transition-all">
