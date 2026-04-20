@@ -29,12 +29,14 @@
 	};
 
 	const usdPrice = estimateUsdPrice();
-	const trimAmount = (s: string): string => {
-		if (!s.includes('.')) return s;
-		const trimmed = s.replace(/0+$/, '').replace(/\.$/, '');
-		return trimmed || '0';
+	const fmtDisplay = (s: string): string => {
+		if (!s.includes('.')) return s + '.00';
+		const trimmed = s.replace(/0+$/, '');
+		if (trimmed.endsWith('.')) return trimmed + '00';
+		if (trimmed.split('.')[1].length === 1) return trimmed + '0';
+		return trimmed;
 	};
-	const display = $derived(trimAmount(formatAmount ? formatAmount(balanceWats) : (balanceWats / 1e8).toFixed(8)));
+	const display = $derived(fmtDisplay(formatAmount ? formatAmount(balanceWats) : (balanceWats / 1e8).toFixed(8)));
 	const usdValue = $derived((balanceWats / 1e8) * usdPrice);
 	const usdDisplay = $derived(usdValue === 0 ? '$0.00' : usdValue < 0.01 ? `$${usdValue.toFixed(6)}` : `$${usdValue.toFixed(2)}`);
 </script>
@@ -52,9 +54,9 @@
 			</button>
 		</div>
 
-		<p class="text-xs font-medium text-muted-foreground tracking-widest uppercase mb-3">
-			{network === 'testnet' ? 'Testnet Balance' : 'Balance'}
-		</p>
+		{#if network === 'testnet'}
+			<p class="text-xs font-medium text-muted-foreground tracking-widest uppercase mb-3">Testnet</p>
+		{/if}
 
 		{#if hidden}
 			<p class="text-4xl sm:text-5xl font-bold text-foreground tracking-tight">{WEBCASH_SYMBOL} ••••••</p>
