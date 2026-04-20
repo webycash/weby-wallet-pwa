@@ -124,8 +124,7 @@
 					<h2 class="text-lg font-bold text-foreground">Unlock Wallet</h2>
 					<p class="text-sm text-muted-foreground mt-1">Enter your password</p>
 				</div>
-				<form onsubmit={(e) => { e.preventDefault(); unlockWithPassword(); }} action="https://weby.cash/wallet" method="POST" class="space-y-4">
-					<input type="text" name="username" autocomplete="username" value="webycash-encrypt-password" class="hidden" tabindex="-1" aria-hidden="true" />
+				<form onsubmit={(e) => { e.preventDefault(); unlockWithPassword(); }} class="space-y-4">
 					<div>
 						<input
 							bind:this={passwordEl}

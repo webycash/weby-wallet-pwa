@@ -93,8 +93,7 @@
 	</div>
 
 	{#if showPasswordForm && current !== 'password'}
-		<form onsubmit={(e) => { e.preventDefault(); confirmPassword(); }} action="https://weby.cash/wallet" method="POST" class="mt-3 space-y-2">
-			<input type="text" name="username" autocomplete="username" value="webycash-encrypt-password" class="hidden" tabindex="-1" aria-hidden="true" />
+		<form onsubmit={(e) => { e.preventDefault(); confirmPassword(); }} class="mt-3 space-y-2">
 			<input type="password" name="password" autocomplete="new-password" bind:value={password} placeholder="Password (min 8 characters)"
 				class="w-full rounded-full border border-border bg-background px-5 py-3 text-sm focus:outline-none focus:border-primary transition-all" />
 			<input type="password" autocomplete="new-password" bind:value={passwordConfirm} placeholder="Confirm password"
