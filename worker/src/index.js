@@ -62,18 +62,25 @@ function giftCardSvg(amount, memo) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const ua = request.headers.get('user-agent') || '';
 
     // --- Serve OG images ---
     // /wallet/og-card.png?amount=X = dynamic per-payment card
-    // /wallet/og.png = generic fallback (static og.png was removed)
+    // /wallet/og.png = generic fallback
     if (url.pathname === '/wallet/og-card.png' || url.pathname === '/wallet/og.png') {
       const isGeneric = url.pathname === '/wallet/og.png';
       const amount = isGeneric ? 'webcash' : (url.searchParams.get('amount') || '?');
       const memo = isGeneric ? '' : (url.searchParams.get('memo') || '');
 
+      // Check edge cache first — avoids WASM cold start on repeated requests
+      const cacheKey = new Request(`https://og-cache.weby.cash/${amount}/${memo || '_'}`);
+      const cache = caches.default;
+      const cached = await cache.match(cacheKey);
+      if (cached) return cached;
+
+      // Generate PNG (cold start: ~2s for WASM init, warm: ~50ms)
       if (!wasmReady) {
         await initWasm(resvgWasm);
         wasmReady = true;
@@ -89,12 +96,16 @@ export default {
       });
       const png = resvg.render().asPng();
 
-      return new Response(png, {
+      const response = new Response(png, {
         headers: {
           'Content-Type': 'image/png',
           'Cache-Control': 'public, max-age=86400, s-maxage=604800',
         },
       });
+
+      // Store in edge cache for instant subsequent fetches
+      await cache.put(cacheKey, response.clone());
+      return response;
     }
 
     // --- Bot detection: return dynamic OG HTML ---
@@ -126,12 +137,18 @@ export default {
 <meta name="twitter:image" content="${esc(imgUrl)}"/>
 </head><body></body></html>`;
 
-      return new Response(html, {
+      const htmlResponse = new Response(html, {
         headers: {
           'Content-Type': 'text/html; charset=utf-8',
           'Cache-Control': 'public, max-age=3600',
         },
       });
+
+      // Pre-warm image cache in background — so when the crawler
+      // fetches og:image next, the PNG is already at the edge
+      ctx.waitUntil(fetch(imgUrl));
+
+      return htmlResponse;
     }
 
     // --- Pass through to origin for real users ---
