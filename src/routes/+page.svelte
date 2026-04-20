@@ -23,7 +23,7 @@
 	const dismissLoader = () => {
 		requestAnimationFrame(() => {
 			const root = document.getElementById('app-root');
-			if (root) root.style.visibility = 'visible';
+			if (root) root.style.opacity = '1';
 			const el = document.getElementById('app-loader');
 			if (el) { el.classList.add('fade-out'); setTimeout(() => el.remove(), 300); }
 		});

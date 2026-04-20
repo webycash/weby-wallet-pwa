@@ -138,7 +138,7 @@
 		await refresh();
 		initializing = false;
 		const appRoot = document.getElementById('app-root');
-		if (appRoot) appRoot.style.visibility = 'visible';
+		if (appRoot) appRoot.style.opacity = '1';
 		const appLoader = document.getElementById('app-loader');
 		if (appLoader) { appLoader.classList.add('fade-out'); setTimeout(() => appLoader.remove(), 300); }
 		if (pendingWebcash) { activePanel = 'insert'; setTimeout(() => handleInsert(pendingWebcash), 500); }
@@ -147,10 +147,14 @@
 	onDestroy(() => document.removeEventListener('visibilitychange', handleVisibility));
 
 	const canMineWallet = $derived(activeLabel === 'main' && !isRoamingWallet);
+	let showMore = $state(false);
 
-	const actions = $derived([
+	const mainActions = [
 		{ id: 'insert', label: 'Insert', icon: ArrowDownToLine },
 		{ id: 'pay', label: 'Pay', icon: ArrowUpFromLine },
+	];
+
+	const moreActions = $derived([
 		{ id: 'verify', label: 'Verify', icon: ShieldCheck },
 		{ id: 'merge', label: 'Merge', icon: Merge, action: handleMerge },
 		{ id: 'recover', label: 'Recover', icon: RotateCcw, action: handleRecover },
@@ -161,7 +165,7 @@
 {#if initializing}
 <div class="min-h-[60vh]"></div>
 {:else}
-<div class="container mx-auto px-4 sm:px-6 py-8 max-w-2xl space-y-6">
+<div class="container mx-auto px-5 sm:px-8 py-8 sm:py-12 max-w-xl space-y-7 sm:space-y-10 fade-in">
 	{#if showBackupWarning}
 		<div class="flex items-center gap-3 rounded-xl bg-muted px-4 py-3">
 			<div class="w-1.5 h-1.5 rounded-full bg-danger shrink-0"></div>
@@ -174,7 +178,7 @@
 	<!-- Logo + Network toggle + Settings -->
 	<div class="flex items-center justify-between">
 		<a href="https://weby.cash" class="block">
-			<img src="/wallet/logo.svg" alt="weby" class="h-10 dark:brightness-0 dark:invert" />
+			<img src="/wallet/logo.svg" alt="weby" class="h-12 dark:brightness-0 dark:invert" />
 		</a>
 		<div class="flex items-center gap-3">
 		<div class="flex rounded-full border border-border bg-muted p-0.5">
@@ -260,15 +264,15 @@
 		<SettingsPanel {activeFamily} {activeLabel} {isRoamingWallet} onRefresh={refresh} onMessage={showMessage} />
 	{/if}
 
-	<!-- Action Buttons -->
-	<div class="grid grid-cols-3 gap-2 max-w-md mx-auto w-full">
-		{#each actions as btn}
-			<Button variant="outline" size="sm"
-				class="w-full {activePanel === btn.id ? 'border-primary text-primary font-semibold' : ''}"
-				onclick={() => btn.action ? btn.action() : (activePanel = activePanel === btn.id ? null : btn.id)}
+	<!-- Main Actions -->
+	<div class="grid grid-cols-2 gap-3 max-w-sm mx-auto w-full">
+		{#each mainActions as btn}
+			<Button variant="outline"
+				class="w-full h-12 {activePanel === btn.id ? 'border-primary text-primary font-semibold' : ''}"
+				onclick={() => (activePanel = activePanel === btn.id ? null : btn.id)}
 				disabled={loading}>
-				<btn.icon class="w-4 h-4 {activePanel === btn.id ? 'text-primary' : ''}" />
-				<span class="truncate">{btn.label}</span>
+				<btn.icon class="w-5 h-5 {activePanel === btn.id ? 'text-primary' : ''}" />
+				{btn.label}
 			</Button>
 		{/each}
 	</div>
@@ -279,11 +283,36 @@
 		<PayForm onSubmit={handlePay} disabled={loading} formatAmount={fmt} {balanceWats} />
 	{:else if activePanel === 'payment-result'}
 		<PaymentResult webcash={paymentResult} memo={paymentMemo} onDone={() => { activePanel = null; paymentResult = ''; paymentMemo = ''; }} />
-	{:else if activePanel === 'verify'}
-		<VerifyForm />
-	{:else if activePanel === 'mine'}
-		<MinerPanel {network} onBalanceUpdate={refresh} />
 	{/if}
+
+	<!-- More -->
+	<div class="rounded-xl bg-card overflow-hidden">
+		<button onclick={() => showMore = !showMore}
+			class="w-full px-5 py-3 flex items-center justify-between hover:bg-muted transition-all">
+			<span class="text-xs font-semibold text-muted-foreground tracking-wider">More</span>
+			<ChevronDown class="w-4 h-4 text-muted-foreground transition-transform {showMore ? 'rotate-180' : ''}" />
+		</button>
+		{#if showMore}
+			<div class="px-5 pb-4 space-y-3">
+				<div class="grid grid-cols-2 gap-2">
+					{#each moreActions as btn}
+						<Button variant="outline" size="sm"
+							class="w-full {activePanel === btn.id ? 'border-primary text-primary font-semibold' : ''}"
+							onclick={() => btn.action ? btn.action() : (activePanel = activePanel === btn.id ? null : btn.id)}
+							disabled={loading}>
+							<btn.icon class="w-4 h-4 {activePanel === btn.id ? 'text-primary' : ''}" />
+							<span class="truncate">{btn.label}</span>
+						</Button>
+					{/each}
+				</div>
+				{#if activePanel === 'verify'}
+					<VerifyForm />
+				{:else if activePanel === 'mine'}
+					<MinerPanel {network} onBalanceUpdate={refresh} />
+				{/if}
+			</div>
+		{/if}
+	</div>
 
 	{#if walletStats}
 		<StatsPanel stats={walletStats} formatAmount={fmt} />
@@ -291,7 +320,7 @@
 
 	<WebcashList webcash={webcashList} formatAmount={fmt} />
 
-	<div class="text-center space-y-3 pt-2">
+	<div class="flex items-center justify-between pt-4 pb-2">
 		<p class="text-xs text-muted-foreground">All data stays on your device</p>
 		<button onclick={() => {
 			if ('standalone' in navigator && !(navigator as any).standalone && /iPhone|iPad/.test(navigator.userAgent)) {
@@ -301,8 +330,8 @@
 			} else {
 				alert('Open this page in Safari or Chrome, then use "Add to Home Screen" or "Install App"');
 			}
-		}} class="inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-all">
-			<img src="/wallet/favicon-96x96.png" alt="" class="w-5 h-5 rounded" />
+		}} class="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-all">
+			<img src="/wallet/favicon-96x96.png" alt="" class="w-7 h-7 rounded-lg" />
 			Install App
 		</button>
 	</div>
