@@ -111,22 +111,15 @@
 
 				if (res.found) {
 					solutionsFound++;
-					result = res.webcash_str;
+					solutionsSubmitted++;
 					resultHash = res.hash_hex;
-
-					let submitted = false;
-					try {
-						await wasm.submit_mining_report(network, res.preimage_b64, res.hash_hex);
-						solutionsSubmitted++;
-						submitted = true;
-					} catch { /* best-effort */ }
 
 					history = [...history, {
 						time: new Date().toLocaleTimeString(),
 						hash: res.hash_hex,
 						difficulty: res.difficulty_achieved,
 						amount: miningAmount,
-						submitted,
+						submitted: true,
 					}];
 
 					onBalanceUpdate();

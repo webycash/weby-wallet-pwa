@@ -58,5 +58,4 @@ declare module '$wasm/wallet_wasm' {
 
 	// Server operations (HTTP in Rust)
 	export function get_mining_target(network: string): Promise<string>;
-	export function submit_mining_report(network: string, preimage_b64: string, hash_hex: string): Promise<string>;
 }

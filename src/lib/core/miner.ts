@@ -70,13 +70,6 @@ export const startMining = async (
 				result: msg.webcash,
 				resultHash: msg.hash,
 			});
-
-			try {
-				await wasm.submit_mining_report(network, msg.preimage, msg.hash);
-			} catch {
-				// Report submission failed — output still stored locally
-			}
-
 			stopMining();
 		}
 	};

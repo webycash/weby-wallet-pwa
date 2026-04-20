@@ -218,11 +218,11 @@ pub async fn gpu_init() -> String {
 #[wasm_bindgen]
 pub fn gpu_available() -> bool { GPU_MINER.with(|c| c.borrow().is_some()) }
 
-/// Mine a batch of work units on GPU. Builds BATCH_SIZE work units, submits all
-/// at once (1 submit, 1 sync), returns the first solution found.
+/// Mine one GPU batch. On solution: submit report + insert with HD secret (harmoniis-wallet).
 #[wasm_bindgen]
 pub async fn gpu_mine(s: &str, n: &str, difficulty: u32, mining_amount: &str, subsidy_amount: &str) -> Result<String, JsError> {
     use harmoniis_wallet::miner::work_unit::WorkUnit;
+    use harmoniis_wallet::wallet::webcash::submit_and_claim_mining_solution;
     const BATCH: usize = 8;
     let wl = w(s, n)?;
     let m_amt = Amount::from_str(mining_amount).map_err(e)?;
@@ -236,19 +236,12 @@ pub async fn gpu_mine(s: &str, n: &str, difficulty: u32, mining_amount: &str, su
         if let Some(r) = chunk.result {
             let nt = NONCE_TABLE.with(|c| c.borrow().as_ref().unwrap().clone());
             let preimage = work.preimage_string(&nt, r.nonce1_idx, r.nonce2_idx);
-            wl.store_directly(work.keep_secret).await.map_err(e)?;
+            let keep_str = work.keep_secret.to_string();
+            submit_and_claim_mining_solution(&wl, &net(n), &preimage, &r.hash, &keep_str).await.map_err(e)?;
             return Ok(serde_json::to_string(&serde_json::json!({"found":true,"state":wl.to_json().map_err(e)?,"preimage_b64":preimage,"hash_hex":hex::encode(r.hash),"difficulty_achieved":r.difficulty_achieved,"attempted":total_attempted})).map_err(e)?);
         }
     }
     Ok(serde_json::to_string(&serde_json::json!({"found":false,"state":wl.to_json().map_err(e)?,"attempted":total_attempted})).map_err(e)?)
-}
-
-#[wasm_bindgen]
-pub async fn submit_mining_report(n: &str, preimage: &str, hash_hex: &str) -> Result<String, JsError> {
-    use harmoniis_wallet::miner::protocol::MiningProtocol;
-    let hash: [u8;32] = hex::decode(hash_hex).map_err(e)?.try_into().map_err(|_| JsError::new("hash must be 32 bytes"))?;
-    let r = MiningProtocol::from_network(&net(n)).map_err(e)?.submit_report(preimage, &hash).await.map_err(e)?;
-    Ok(serde_json::to_string(&serde_json::json!({"status":r.status,"error":r.error})).map_err(e)?)
 }
 
 #[wasm_bindgen]
