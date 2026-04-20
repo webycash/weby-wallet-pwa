@@ -178,7 +178,7 @@
 	<!-- Logo + Network toggle + Settings -->
 	<div class="flex items-center justify-between">
 		<a href="https://weby.cash" class="block">
-			<img src="/wallet/logo.svg" alt="weby" class="h-24 dark:brightness-0 dark:invert" />
+			<img src="/wallet/logo.svg" alt="weby" class="h-18 dark:brightness-0 dark:invert" />
 		</a>
 		<div class="flex items-center gap-3">
 		<div class="flex rounded-full border border-border bg-muted p-0.5">
@@ -291,7 +291,7 @@
 				<ChevronDown class="w-4 h-4 text-muted-foreground transition-transform {showMore ? 'rotate-180' : ''}" />
 			</button>
 			{#if showMore}
-				<div class="px-5 pb-4 space-y-3">
+				<div class="px-5 pt-2 pb-4 space-y-3">
 					<div class="grid grid-cols-2 gap-2">
 						{#each moreActions as btn}
 							<Button variant="outline" size="sm"

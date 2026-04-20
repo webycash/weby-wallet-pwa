@@ -14,7 +14,7 @@
 	</button>
 
 	{#if expanded}
-		<div class="px-5 pb-4 space-y-4">
+		<div class="px-5 pt-2 pb-4 space-y-4">
 			<div class="grid grid-cols-3 gap-3 sm:gap-6 text-center">
 				<div>
 					<p class="text-[11px] text-muted-foreground mb-0.5">Mined</p>
