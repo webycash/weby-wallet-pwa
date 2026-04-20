@@ -23,10 +23,13 @@ export interface PublicWebcash {
 }
 
 export interface WalletStats {
-	readonly totalWebcash: number;
-	readonly unspentWebcash: number;
-	readonly spentWebcash: number;
-	readonly totalBalance: number; // in wats
+	readonly total_webcash: number;
+	readonly unspent_webcash: number;
+	readonly spent_webcash: number;
+	readonly total_balance: number;
+	readonly mined_count: number;
+	readonly received_count: number;
+	readonly sent_count: number;
 }
 
 export interface CheckResult {
