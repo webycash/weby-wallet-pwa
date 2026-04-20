@@ -121,16 +121,11 @@
 						Got it
 					</button>
 				{:else}
-					<button onclick={install} disabled={installing || !deferredPrompt}
+					<button onclick={install} disabled={installing}
 						class="w-full rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-all
-							{installing ? 'opacity-60 animate-pulse' : !deferredPrompt ? 'opacity-50' : 'hover:opacity-90'}">
+							{installing ? 'opacity-60 animate-pulse' : 'hover:opacity-90'}">
 						{installing ? 'Installing\u2026' : 'Install'}
 					</button>
-					{#if !deferredPrompt}
-						<p class="text-xs text-center text-muted-foreground mt-2">
-							Waiting for browser install prompt\u2026
-						</p>
-					{/if}
 				{/if}
 			</div>
 		{/if}
