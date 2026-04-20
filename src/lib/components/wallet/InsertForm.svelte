@@ -16,7 +16,9 @@
 	const paste = async () => {
 		try {
 			const text = await navigator.clipboard.readText();
-			if (text.trim()) input = text.trim();
+			const webcash = extractWebcash(text.trim());
+			if (webcash) { onSubmit(webcash); input = ''; }
+			else if (text.trim()) input = text.trim();
 		} catch {}
 	};
 
@@ -63,8 +65,8 @@
 					const value = code.data.trim();
 					const webcash = extractWebcash(value);
 					if (webcash) {
-						input = webcash;
 						stopScan();
+						onSubmit(webcash);
 					}
 				}
 			}, 250);
