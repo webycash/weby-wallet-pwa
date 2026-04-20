@@ -32,15 +32,15 @@ function esc(s) {
 
 function giftCardSvg(amount, memo) {
   const memoLine = memo
-    ? `<text x="600" y="440" text-anchor="middle" font-size="48" font-weight="400"
-           font-family="Inter,sans-serif" fill="#001BA4" opacity="0.5">"${esc(memo.slice(0, 40))}"</text>`
+    ? `<text x="600" y="450" text-anchor="middle" font-size="56" font-weight="400"
+           font-family="Inter,sans-serif" fill="#001BA4" opacity="0.5">"${esc(memo.slice(0, 35))}"</text>`
     : '';
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
   <rect width="1200" height="630" fill="#ffffff"/>
 
   <!-- Webycash logo top-left -->
-  <g transform="translate(40,20) scale(0.16)">
+  <g transform="translate(40,16) scale(0.2)">
     ${LOGO_CIRCLE}
     ${LOGO_TEXT}
   </g>
