@@ -19,7 +19,7 @@
 
 ## v0.2.0 — Polish
 
-- [ ] QR code scanning for webcash insert (camera)
+- [x] QR code scanning for webcash insert (camera)
 - [ ] Transaction history with timestamps
 - [ ] Multi-wallet UI improvements (quick switch)
 - [ ] Service worker with full offline precaching

@@ -106,7 +106,7 @@ The Cloudflare Worker (`worker/`) generates OpenGraph images for shared payment 
 ## Roadmap
 
 ### v0.2.0 — Polish (in progress)
-- [ ] QR code scanning for webcash insert
+- [x] QR code scanning for webcash insert
 - [ ] Transaction history with timestamps
 - [ ] Multi-wallet UI (switch between labeled wallets)
 - [ ] Proper PNG icons (192, 512, maskable)
