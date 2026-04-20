@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { removeWallet, renameWallet, getMnemonic, exportMasterBackup,
+	import { removeWallet, renameWallet, setActive, getMnemonic, exportMasterBackup,
 		isRoaming, importRoamingFromFile, importRoamingFromSecret,
 		exportWebcasaFile } from '$lib/stores/wallet.svelte';
 	import { markBackedUp, encryptionType } from '$lib/stores/settings.svelte';
@@ -11,8 +11,9 @@
 	import Button from '$lib/components/ui/button/button.svelte';
 	import EncryptionSetup from './EncryptionSetup.svelte';
 
-	let { activeFamily, activeLabel, isRoamingWallet, onRefresh, onMessage }:
-		{ activeFamily: string; activeLabel: string; isRoamingWallet: boolean; onRefresh: () => Promise<void>; onMessage: (msg: string, type?: 'success' | 'error') => void } = $props();
+	import type AppDialog from './AppDialog.svelte';
+	let { activeFamily, activeLabel, isRoamingWallet, onRefresh, onMessage, appDialog }:
+		{ activeFamily: string; activeLabel: string; isRoamingWallet: boolean; onRefresh: () => Promise<void>; onMessage: (msg: string, type?: 'success' | 'error') => void; appDialog?: ReturnType<typeof AppDialog> } = $props();
 
 	let qrDataUrl = $state('');
 	let renameInput = $state('');
@@ -54,7 +55,12 @@
 	};
 
 	const handleDeleteMaster = async () => {
-		if (!confirm('DELETE MASTER WALLET?\n\nThis destroys ALL wallets derived from this master key.\nMake sure you have a backup of your mnemonic.')) return;
+		const ok = await appDialog?.confirm('Delete Master Wallet', {
+			description: 'This destroys ALL wallets derived from this master key. Make sure you have a backup of your mnemonic.',
+			confirmLabel: 'Delete Everything',
+			danger: true,
+		});
+		if (!ok) return;
 		try {
 			const { deleteEverything } = await import('$lib/core/persistence');
 			await deleteEverything();
@@ -67,10 +73,17 @@
 
 	const handleDeleteDerived = async () => {
 		if (activeLabel === 'main') { onMessage('Cannot delete the main wallet', 'error'); return; }
-		if (!confirm(`Delete wallet "${activeLabel}"?`)) return;
+		const ok = await appDialog?.confirm(`Delete "${activeLabel}"`, {
+			description: 'This wallet and its data will be removed.',
+			confirmLabel: 'Delete',
+			danger: true,
+		});
+		if (!ok) return;
 		try {
+			const deleted = activeLabel;
 			await removeWallet(activeFamily, activeLabel);
-			onMessage(`Wallet "${activeLabel}" deleted`);
+			await setActive(activeFamily, 'main');
+			onMessage(`Wallet "${deleted}" deleted`);
 			await onRefresh();
 		} catch (e) { onMessage(`${e}`, 'error'); }
 	};

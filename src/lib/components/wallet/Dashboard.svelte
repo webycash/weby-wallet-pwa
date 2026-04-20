@@ -26,6 +26,7 @@
 	import MinerPanel from './MinerPanel.svelte';
 	import PaymentResult from './PaymentResult.svelte';
 	import SettingsPanel from './SettingsPanel.svelte';
+	import AppDialog from './AppDialog.svelte';
 
 	let { pendingWebcash = '', onLock = () => {}, onInstall }: { pendingWebcash?: string; onLock?: () => void; onInstall?: () => void } = $props();
 
@@ -51,6 +52,7 @@
 	let walletList = $state<WalletInfo[]>([]);
 	let showWalletDropdown = $state(false);
 	let isRoamingWallet = $state(false);
+	let appDialog = $state<ReturnType<typeof AppDialog>>();
 
 	const FAMILIES = [
 		{ id: 'webcash', name: 'Webcash', enabled: true },
@@ -114,7 +116,7 @@
 
 	const handleNewWallet = async () => {
 		showWalletDropdown = false;
-		const label = prompt('Wallet label:');
+		const label = await appDialog?.prompt('New Wallet', { placeholder: 'e.g. savings', label: 'Wallet name' });
 		if (!label?.trim()) return;
 		try {
 			await addWallet(activeFamily, label.trim());
@@ -281,7 +283,7 @@
 
 	<!-- Settings Panel -->
 	{#if showSettings}
-		<SettingsPanel {activeFamily} {activeLabel} {isRoamingWallet} onRefresh={refresh} onMessage={showMessage} />
+		<SettingsPanel {activeFamily} {activeLabel} {isRoamingWallet} onRefresh={refresh} onMessage={showMessage} {appDialog} />
 	{/if}
 
 	<!-- Main Actions -->
@@ -354,4 +356,5 @@
 		<p class="text-xs text-muted-foreground">All data stays on your device</p>
 	</div>
 </div>
+<AppDialog bind:this={appDialog} />
 {/if}

@@ -8,8 +8,10 @@
 	import { Lock, Fingerprint, KeyRound } from '@lucide/svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import * as Card from '$lib/components/ui/card';
+	import AppDialog from './AppDialog.svelte';
 
 	let { onUnlock }: { onUnlock: () => void } = $props();
+	let appDialog = $state<ReturnType<typeof AppDialog>>();
 
 	const encType = encryptionType();
 	let password = $state('');
@@ -74,7 +76,12 @@
 	};
 
 	const handleReset = async () => {
-		if (!confirm('Delete wallet and start fresh? All data will be lost.')) return;
+		const ok = await appDialog?.confirm('Delete Wallet', {
+			description: 'Delete wallet and start fresh? All data will be lost.',
+			confirmLabel: 'Delete Everything',
+			danger: true,
+		});
+		if (!ok) return;
 		await resetWallet();
 		setTimeout(() => { window.location.href = window.location.pathname; }, 100);
 	};
@@ -158,3 +165,4 @@
 		Reset wallet
 	</button>
 </div>
+<AppDialog bind:this={appDialog} />
