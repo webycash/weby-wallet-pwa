@@ -272,6 +272,8 @@ export const listWallets = async (family: string): Promise<WalletInfo[]> => {
 	const seenLabels = new Set<string>();
 
 	for (const w of wallets) {
+		// Skip removed slots (empty descriptor)
+		if (w.descriptor === '') continue;
 		const label = w.label || `${family}-${w.slot_index}`;
 		seenLabels.add(label);
 		const key = Persistence.walletStateKey(family, label);
