@@ -36,11 +36,16 @@ function giftCardSvg(amount, memo) {
            font-family="Inter,sans-serif" fill="#001BA4" opacity="0.5">"${esc(memo.slice(0, 35))}"</text>`
     : '';
 
+  // Auto-scale amount font size based on character count
+  const amountText = `${amount}  \u20A9`;
+  const len = amountText.length;
+  const fontSize = len <= 6 ? 140 : len <= 9 ? 110 : len <= 12 ? 90 : 72;
+
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
   <rect width="1200" height="630" fill="#ffffff"/>
 
   <!-- Webycash logo top-left -->
-  <g transform="translate(40,16) scale(0.2)">
+  <g transform="translate(44,28) scale(0.17)">
     ${LOGO_CIRCLE}
     ${LOGO_TEXT}
   </g>
@@ -50,7 +55,7 @@ function giftCardSvg(amount, memo) {
         font-family="Inter,sans-serif" fill="#001BA4" opacity="0.35" letter-spacing="5">REDEEM</text>
 
   <!-- Amount then symbol -->
-  <text x="600" y="340" text-anchor="middle" font-size="140" font-weight="700"
+  <text x="600" y="340" text-anchor="middle" font-size="${fontSize}" font-weight="700"
         font-family="Inter,sans-serif" fill="#001BA4" letter-spacing="-3">${esc(amount)}  &#x20A9;</text>
 
   ${memoLine}
