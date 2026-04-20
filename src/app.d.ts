@@ -24,7 +24,7 @@ declare module '$wasm/wallet_wasm' {
 
 	// State queries
 	export function wallet_balance(state_json: string, network: string): bigint;
-	export function wallet_stats(state_json: string, network: string): any;
+	export function wallet_stats(state_json: string, network: string): string;
 	export function master_secret_hex(state_json: string, network: string): string;
 	export function export_snapshot(state_json: string, network: string): string;
 

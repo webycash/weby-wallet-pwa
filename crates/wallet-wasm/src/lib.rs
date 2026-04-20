@@ -52,12 +52,12 @@ pub async fn create_roaming_wallet(network: &str, master_secret_hex: &str, webca
 pub fn wallet_balance(s: &str, n: &str) -> Result<i64, JsError> { Ok(w(s,n)?.export_snapshot().map_err(e)?.unspent_outputs.iter().map(|o| o.amount).sum()) }
 
 #[wasm_bindgen]
-pub fn wallet_stats(s: &str, n: &str) -> Result<JsValue, JsError> {
+pub fn wallet_stats(s: &str, n: &str) -> Result<String, JsError> {
     let wl = w(s,n)?;
     let snap = wl.export_snapshot().map_err(e)?;
     let balance: i64 = snap.unspent_outputs.iter().map(|o| o.amount).sum();
     let depths = &snap.depths;
-    serde_wasm_bindgen::to_value(&serde_json::json!({
+    Ok(serde_json::to_string(&serde_json::json!({
         "total_webcash": snap.unspent_outputs.len() + snap.spent_hashes.len(),
         "unspent_webcash": snap.unspent_outputs.len(),
         "spent_webcash": snap.spent_hashes.len(),
@@ -65,7 +65,7 @@ pub fn wallet_stats(s: &str, n: &str) -> Result<JsValue, JsError> {
         "mined_count": depths.get("MINING").copied().unwrap_or(0),
         "received_count": depths.get("RECEIVE").copied().unwrap_or(0),
         "sent_count": depths.get("PAY").copied().unwrap_or(0),
-    })).map_err(e)
+    })).map_err(e)?)
 }
 
 #[wasm_bindgen]

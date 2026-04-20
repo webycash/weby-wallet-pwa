@@ -329,7 +329,7 @@ export const getBalance = async (): Promise<number> => {
 
 export const getStats = async () => {
 	const { wasm, state, network } = await ensureState();
-	return wasm.wallet_stats(state, network);
+	return JSON.parse(wasm.wallet_stats(state, network));
 };
 
 export const getWebcash = async () => {
