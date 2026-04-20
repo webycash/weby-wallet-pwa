@@ -122,9 +122,11 @@
 						Got it
 					</button>
 				{:else}
-					<Button variant="outline" size="sm" onclick={install} disabled={installing}>
-						{installing ? 'Installing\u2026' : 'Install'}
-					</Button>
+					<div class="flex justify-center">
+						<Button variant="outline" size="sm" onclick={install} disabled={installing}>
+							{installing ? 'Installing\u2026' : 'Install'}
+						</Button>
+					</div>
 				{/if}
 			</div>
 		{/if}
