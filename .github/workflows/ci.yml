@@ -16,13 +16,13 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # Rust + wasm-pack for wallet-wasm
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v3
         with:
           workspaces: crates/wallet-wasm
       - run: cargo install wasm-pack --locked
@@ -31,7 +31,7 @@ jobs:
       - run: wasm-opt --enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals -Oz -o crates/wallet-wasm/pkg/wallet_wasm_bg.wasm crates/wallet-wasm/pkg/wallet_wasm_bg.wasm
 
       # Node + SvelteKit
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: "24"
           cache: npm
@@ -50,13 +50,13 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # Rust + wasm-pack
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v3
         with:
           workspaces: crates/wallet-wasm
       - run: cargo install wasm-pack --locked
@@ -65,7 +65,7 @@ jobs:
       - run: wasm-opt --enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals -Oz -o crates/wallet-wasm/pkg/wallet_wasm_bg.wasm crates/wallet-wasm/pkg/wallet_wasm_bg.wasm
 
       # Node + build + deploy
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: "24"
           cache: npm
@@ -73,10 +73,10 @@ jobs:
       - run: npm run build
         env:
           BASE_PATH: "/wallet"
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v4
         with:
           path: build/
-      - uses: actions/deploy-pages@v4
+      - uses: actions/deploy-pages@v5
         id: deployment
 
       # Deploy OG worker to Cloudflare
