@@ -488,6 +488,11 @@
 			{/if}
 		</button>
 
+		<button onclick={() => { step = 'choose'; encError = ''; }}
+			class="w-full mt-3 text-sm text-muted-foreground hover:text-foreground transition-all">
+			Back
+		</button>
+
 	{/if}
 
 	{#if error}
