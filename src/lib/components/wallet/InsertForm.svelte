@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ScanLine, X } from '@lucide/svelte';
+	import { ClipboardPaste, ScanLine, X } from '@lucide/svelte';
 	let { onSubmit, disabled }: { onSubmit: (s: string) => void; disabled: boolean } = $props();
 	let input = $state('');
 	let scanning = $state(false);
@@ -18,6 +18,14 @@
 		} catch {}
 		if (/^e\d/.test(raw)) return raw;
 		return null;
+	};
+
+	const paste = async () => {
+		try {
+			const text = await navigator.clipboard.readText();
+			const webcash = extractWebcash(text.trim());
+			if (webcash) onSubmit(webcash);
+		} catch {}
 	};
 
 	const handleInput = () => {
@@ -78,17 +86,24 @@
 
 <div class="rounded-2xl border border-border bg-card p-5">
 	<p class="text-xs font-medium text-muted-foreground mb-3">Insert webcash</p>
-	<input
-		type="text"
-		bind:value={input}
-		oninput={handleInput}
-		onpaste={() => setTimeout(handleInput, 0)}
-		placeholder="Paste webcash here..."
-		class="w-full rounded-full border border-input bg-background px-4 py-3 text-base font-mono focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
-		spellcheck="false"
-		autocomplete="off"
-		disabled={disabled}
-	/>
+	<div class="relative">
+		<input
+			type="text"
+			bind:value={input}
+			oninput={handleInput}
+			onpaste={() => setTimeout(handleInput, 0)}
+			placeholder="Paste webcash here..."
+			class="w-full rounded-full border border-input bg-background pl-4 pr-20 py-3 text-base font-mono focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+			spellcheck="false"
+			autocomplete="off"
+			disabled={disabled}
+		/>
+		<button onclick={paste}
+			class="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-all"
+			disabled={disabled}>
+			<ClipboardPaste class="w-3.5 h-3.5" /> Paste
+		</button>
+	</div>
 	<button onclick={startScan}
 		class="mt-3 w-full flex items-center justify-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-all"
 		disabled={disabled || scanning}>
