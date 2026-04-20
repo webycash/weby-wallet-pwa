@@ -114,20 +114,29 @@
 </div>
 
 {#if scanning}
-	<div class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black">
-		<div class="relative w-full max-w-[400px] aspect-square">
-			<video bind:this={videoEl} autoplay playsinline muted class="w-full h-full object-cover rounded-2xl"></video>
-			<canvas bind:this={canvasEl} class="hidden"></canvas>
-			<div class="absolute inset-0 pointer-events-none">
-				<div class="absolute inset-[12%] border-2 border-primary rounded-2xl animate-pulse"></div>
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onclick={stopScan}>
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div class="bg-card rounded-2xl p-6 mx-4 max-w-sm w-full space-y-4 fade-in" onclick={(e) => e.stopPropagation()}>
+			<div class="flex items-center justify-between">
+				<h3 class="text-sm font-semibold text-foreground">Scan QR Code</h3>
+				<button onclick={stopScan} class="text-muted-foreground hover:text-foreground transition-all">
+					<X class="w-4 h-4" />
+				</button>
 			</div>
-			<div class="absolute bottom-4 left-0 right-0 text-center">
-				<span class="text-sm text-white bg-black/70 px-4 py-2 rounded-full">{scanStatus}</span>
+			<div class="rounded-2xl overflow-hidden bg-black aspect-square relative">
+				<video bind:this={videoEl} autoplay playsinline muted class="w-full h-full object-cover"></video>
+				<canvas bind:this={canvasEl} class="hidden"></canvas>
+				<div class="absolute inset-0 pointer-events-none">
+					<div class="absolute inset-[12%] border border-primary rounded-2xl"></div>
+					<div class="absolute inset-[12%] border border-primary rounded-2xl animate-pulse"></div>
+				</div>
+				<div class="absolute bottom-3 left-0 right-0 text-center">
+					<span class="text-xs text-white bg-black backdrop-blur-sm px-3 py-1.5 rounded-full">{scanStatus}</span>
+				</div>
 			</div>
 		</div>
-		<button onclick={stopScan}
-			class="mt-6 flex items-center gap-2 rounded-full bg-white/10 px-6 py-3 text-sm font-medium text-white hover:bg-white/20 transition-all">
-			<X class="w-4 h-4" /> Cancel
-		</button>
 	</div>
 {/if}
