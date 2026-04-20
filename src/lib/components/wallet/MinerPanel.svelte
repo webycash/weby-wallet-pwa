@@ -80,29 +80,21 @@
 
 		try {
 			const wasm = await getWasm();
-			const targetJson = await wasm.get_mining_target(network);
-			const target = JSON.parse(targetJson);
 			const stateJson = await getRawState();
 			if (!stateJson) { error = 'No wallet'; running = false; return; }
 
-			difficulty = target.difficulty_target_bits;
-			miningAmount = target.mining_amount;
 			const startTime = Date.now();
 
 			while (running) {
 				const freshState = await getRawState();
 				if (!freshState) break;
 
-				const resultJson = await wasm.gpu_mine(
-					freshState, network,
-					target.difficulty_target_bits,
-					target.mining_amount,
-					target.mining_subsidy_amount || '0'
-				);
+				const resultJson = await wasm.gpu_mine(freshState, network);
 				const res = JSON.parse(resultJson);
 
-				// Update wallet state (depth incremented even without solution)
 				if (res.state) await setRawState(res.state);
+				if (res.difficulty) difficulty = res.difficulty;
+				if (res.mining_amount) miningAmount = res.mining_amount;
 
 				totalAttempts += res.attempted ?? 1_000_000;
 				const elapsed = (Date.now() - startTime) / 1000;

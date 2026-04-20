@@ -54,8 +54,5 @@ declare module '$wasm/wallet_wasm' {
 	// GPU mining
 	export function gpu_init(): Promise<string>;
 	export function gpu_available(): boolean;
-	export function gpu_mine(state_json: string, network: string, difficulty: number, mining_amount: string, subsidy_amount: string): Promise<string>;
-
-	// Server operations (HTTP in Rust)
-	export function get_mining_target(network: string): Promise<string>;
+	export function gpu_mine(state_json: string, network: string): Promise<string>;
 }

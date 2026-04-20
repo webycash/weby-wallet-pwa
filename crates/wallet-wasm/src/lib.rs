@@ -218,23 +218,11 @@ pub async fn gpu_init() -> String {
 #[wasm_bindgen]
 pub fn gpu_available() -> bool { GPU_MINER.with(|c| c.borrow().is_some()) }
 
-/// Mine one GPU batch — delegates entirely to GpuMiner::mine_and_claim in harmoniis-wallet.
+/// Mine one GPU batch — delegates entirely to harmoniis-wallet.
 #[wasm_bindgen]
-pub async fn gpu_mine(s: &str, n: &str, difficulty: u32, mining_amount: &str, subsidy_amount: &str) -> Result<String, JsError> {
+pub async fn gpu_mine(s: &str, n: &str) -> Result<String, JsError> {
     let wl = w(s, n)?;
     let miner = GPU_MINER.with(|c| { let b = c.borrow(); Ok::<_,JsError>((b.as_ref().ok_or_else(|| JsError::new("GPU not initialized"))? as *const GpuMiner,)) })?;
-    let result = unsafe { &*miner.0 }.mine_and_claim(
-        &wl, net(n), difficulty,
-        Amount::from_str(mining_amount).map_err(e)?,
-        Amount::from_str(subsidy_amount).map_err(e)?,
-        8,
-    ).await.map_err(e)?;
+    let result = unsafe { &*miner.0 }.mine_and_claim(&wl, net(n), 8).await.map_err(e)?;
     serde_json::to_string(&result).map_err(e)
-}
-
-#[wasm_bindgen]
-pub async fn get_mining_target(n: &str) -> Result<String, JsError> {
-    use harmoniis_wallet::miner::protocol::MiningProtocol;
-    let t = MiningProtocol::from_network(&net(n)).map_err(e)?.get_target().await.map_err(e)?;
-    Ok(serde_json::to_string(&serde_json::json!({"difficulty_target_bits":t.difficulty,"mining_amount":t.mining_amount.to_string(),"mining_subsidy_amount":t.subsidy_amount.to_string()})).map_err(e)?)
 }
