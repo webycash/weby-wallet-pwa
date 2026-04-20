@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { ClipboardPaste, ScanLine, X } from '@lucide/svelte';
+	import { ScanLine, X } from '@lucide/svelte';
 	let { onSubmit, disabled }: { onSubmit: (s: string) => void; disabled: boolean } = $props();
+	let input = $state('');
 	let scanning = $state(false);
 	let scanStatus = $state('');
 	let videoEl = $state<HTMLVideoElement>();
@@ -8,26 +9,20 @@
 	let cameraStream: MediaStream | null = null;
 	let scanTimer: ReturnType<typeof setInterval> | null = null;
 
-	const paste = async () => {
-		try {
-			const text = await navigator.clipboard.readText();
-			const webcash = extractWebcash(text.trim());
-			if (webcash) onSubmit(webcash);
-		} catch {}
-	};
-
 	const extractWebcash = (raw: string): string | null => {
-		// Direct webcash string
 		if (raw.includes(':secret:')) return raw;
-		// Wallet URL with ?webcash= param
 		try {
 			const url = new URL(raw);
 			const wc = url.searchParams.get('webcash');
 			if (wc) return wc;
 		} catch {}
-		// Starts with 'e' (webcash format)
 		if (/^e\d/.test(raw)) return raw;
 		return null;
+	};
+
+	const handleInput = () => {
+		const webcash = extractWebcash(input.trim());
+		if (webcash) { onSubmit(webcash); input = ''; }
 	};
 
 	const startScan = async () => {
@@ -83,19 +78,22 @@
 
 <div class="rounded-2xl border border-border bg-card p-5">
 	<p class="text-xs font-medium text-muted-foreground mb-3">Insert webcash</p>
-	<div class="grid grid-cols-2 gap-2">
-		<button onclick={paste}
-			class="flex items-center justify-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-all
-				{disabled ? 'opacity-50 pointer-events-none animate-pulse' : ''}"
-			disabled={disabled}>
-			<ClipboardPaste class="w-4 h-4" /> {disabled ? 'Inserting...' : 'Paste'}
-		</button>
-		<button onclick={startScan}
-			class="flex items-center justify-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-all"
-			disabled={disabled || scanning}>
-			<ScanLine class="w-4 h-4" /> Scan QR
-		</button>
-	</div>
+	<input
+		type="text"
+		bind:value={input}
+		oninput={handleInput}
+		onpaste={() => setTimeout(handleInput, 0)}
+		placeholder="Paste webcash here..."
+		class="w-full rounded-full border border-input bg-background px-4 py-3 text-base font-mono focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+		spellcheck="false"
+		autocomplete="off"
+		disabled={disabled}
+	/>
+	<button onclick={startScan}
+		class="mt-3 w-full flex items-center justify-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-all"
+		disabled={disabled || scanning}>
+		<ScanLine class="w-4 h-4" /> Scan QR
+	</button>
 </div>
 
 {#if scanning}
