@@ -99,7 +99,6 @@
 		onContinue={continueToWallet}
 	/>
 {:else if !licenseAccepted()}
-	<InstallPrompt autoShow />
 	<LicenseDialog onAccepted={onLicenseAccepted} hasGift={!!pendingWebcash} giftAmount={pendingAmount} giftMemo={pendingMemo} />
 {:else if !walletExists()}
 	<SetupWizard />
