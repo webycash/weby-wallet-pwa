@@ -6,6 +6,7 @@
 	import Dashboard from '$lib/components/wallet/Dashboard.svelte';
 	import LockScreen from '$lib/components/wallet/LockScreen.svelte';
 	import ReceiveGift from '$lib/components/wallet/ReceiveGift.svelte';
+	import InstallPrompt from '$lib/components/wallet/InstallPrompt.svelte';
 	import { licenseAccepted, walletExists, encryptionType, acceptLicense, markWalletCreated } from '$lib/stores/settings.svelte';
 	import { setNetwork } from '$lib/stores/network.svelte';
 	import { setupWallet, insertWebcash, resetDb } from '$lib/stores/wallet.svelte';
@@ -104,4 +105,5 @@
 	<LockScreen onUnlock={() => { unlocked = true; }} />
 {:else}
 	<Dashboard {pendingWebcash} onLock={() => { unlocked = false; }} />
+	<InstallPrompt />
 {/if}
