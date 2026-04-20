@@ -4,6 +4,7 @@
 	import { browser } from '$app/environment';
 	import { Share, Plus } from '@lucide/svelte';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
+	import Button from '$lib/components/ui/button/button.svelte';
 
 	const INSTALLED_KEY = 'weby_install_done';
 
@@ -121,11 +122,9 @@
 						Got it
 					</button>
 				{:else}
-					<button onclick={install} disabled={installing}
-						class="mx-auto flex rounded-full border border-border px-5 py-2 text-sm font-medium text-foreground transition-all
-							{installing ? 'opacity-60 animate-pulse' : 'hover:border-primary hover:text-primary'}">
+					<Button variant="outline" size="sm" onclick={install} disabled={installing}>
 						{installing ? 'Installing\u2026' : 'Install'}
-					</button>
+					</Button>
 				{/if}
 			</div>
 		{/if}
