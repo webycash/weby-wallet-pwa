@@ -66,10 +66,13 @@ export default {
     const url = new URL(request.url);
     const ua = request.headers.get('user-agent') || '';
 
-    // --- Serve dynamic OG image ---
-    if (url.pathname === '/wallet/og-card.png') {
-      const amount = url.searchParams.get('amount') || '?';
-      const memo = url.searchParams.get('memo') || '';
+    // --- Serve OG images ---
+    // /wallet/og-card.png?amount=X = dynamic per-payment card
+    // /wallet/og.png = generic fallback (static og.png was removed)
+    if (url.pathname === '/wallet/og-card.png' || url.pathname === '/wallet/og.png') {
+      const isGeneric = url.pathname === '/wallet/og.png';
+      const amount = isGeneric ? 'webcash' : (url.searchParams.get('amount') || '?');
+      const memo = isGeneric ? '' : (url.searchParams.get('memo') || '');
 
       if (!wasmReady) {
         await initWasm(resvgWasm);
