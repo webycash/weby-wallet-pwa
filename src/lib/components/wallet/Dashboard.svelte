@@ -58,9 +58,16 @@
 		{ id: 'rgb', name: 'RGB', enabled: false },
 	];
 
+	let copiedError = $state(false);
 	const showMessage = (msg: string, type: 'success' | 'error' = 'success') => {
-		message = msg; messageType = type;
-		setTimeout(() => { message = ''; }, 5000);
+		message = msg; messageType = type; copiedError = false;
+		if (type !== 'error') setTimeout(() => { message = ''; }, 5000);
+	};
+	const dismissMessage = () => { message = ''; };
+	const copyError = async () => {
+		await navigator.clipboard.writeText(message);
+		copiedError = true;
+		setTimeout(() => { copiedError = false; }, 2000);
 	};
 
 	const saveEncryptedState = async () => {
@@ -252,9 +259,28 @@
 	<BalanceCard {balanceWats} formatAmount={fmt} {network} />
 
 	{#if message}
-		<div class="rounded-xl px-4 py-3 text-sm font-medium {messageType === 'error' ? 'bg-danger/10 text-danger' : 'bg-success/10 text-success'}">
-			{message}
-		</div>
+		{#if messageType === 'error'}
+			<div class="rounded-xl bg-danger/10 p-4 space-y-3">
+				<div class="flex items-start justify-between gap-3">
+					<p class="text-sm font-medium text-danger flex-1 break-words">{message}</p>
+					<button onclick={dismissMessage} class="text-danger/60 hover:text-danger transition-all shrink-0 mt-0.5">
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+					</button>
+				</div>
+				<button onclick={copyError}
+					class="flex items-center gap-1.5 text-xs font-medium text-danger/70 hover:text-danger transition-all">
+					{#if copiedError}
+						Copied
+					{:else}
+						Copy error
+					{/if}
+				</button>
+			</div>
+		{:else}
+			<div class="rounded-xl px-4 py-3 text-sm font-medium bg-success/10 text-success">
+				{message}
+			</div>
+		{/if}
 	{/if}
 
 	<!-- Settings Panel -->
