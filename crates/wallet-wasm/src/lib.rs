@@ -218,30 +218,18 @@ pub async fn gpu_init() -> String {
 #[wasm_bindgen]
 pub fn gpu_available() -> bool { GPU_MINER.with(|c| c.borrow().is_some()) }
 
-/// Mine one GPU batch. On solution: submit report + insert with HD secret (harmoniis-wallet).
+/// Mine one GPU batch — delegates entirely to GpuMiner::mine_and_claim in harmoniis-wallet.
 #[wasm_bindgen]
 pub async fn gpu_mine(s: &str, n: &str, difficulty: u32, mining_amount: &str, subsidy_amount: &str) -> Result<String, JsError> {
-    use harmoniis_wallet::miner::work_unit::WorkUnit;
-    use harmoniis_wallet::wallet::webcash::submit_and_claim_mining_solution;
-    const BATCH: usize = 8;
     let wl = w(s, n)?;
-    let m_amt = Amount::from_str(mining_amount).map_err(e)?;
-    let s_amt = Amount::from_str(subsidy_amount).map_err(e)?;
-    let works: Vec<WorkUnit> = (0..BATCH).map(|_| WorkUnit::new(difficulty, m_amt, s_amt)).collect();
-    let midstates: Vec<_> = works.iter().map(|w| w.midstate.clone()).collect();
     let miner = GPU_MINER.with(|c| { let b = c.borrow(); Ok::<_,JsError>((b.as_ref().ok_or_else(|| JsError::new("GPU not initialized"))? as *const GpuMiner,)) })?;
-    let chunks = unsafe { &*miner.0 }.mine_batch(&midstates, difficulty).await.map_err(e)?;
-    let total_attempted: u64 = chunks.iter().map(|c| c.attempted).sum();
-    for (chunk, work) in chunks.into_iter().zip(works.into_iter()) {
-        if let Some(r) = chunk.result {
-            let nt = NONCE_TABLE.with(|c| c.borrow().as_ref().unwrap().clone());
-            let preimage = work.preimage_string(&nt, r.nonce1_idx, r.nonce2_idx);
-            let keep_str = work.keep_secret.to_string();
-            submit_and_claim_mining_solution(&wl, &net(n), &preimage, &r.hash, &keep_str).await.map_err(e)?;
-            return Ok(serde_json::to_string(&serde_json::json!({"found":true,"state":wl.to_json().map_err(e)?,"preimage_b64":preimage,"hash_hex":hex::encode(r.hash),"difficulty_achieved":r.difficulty_achieved,"attempted":total_attempted})).map_err(e)?);
-        }
-    }
-    Ok(serde_json::to_string(&serde_json::json!({"found":false,"state":wl.to_json().map_err(e)?,"attempted":total_attempted})).map_err(e)?)
+    let result = unsafe { &*miner.0 }.mine_and_claim(
+        &wl, net(n), difficulty,
+        Amount::from_str(mining_amount).map_err(e)?,
+        Amount::from_str(subsidy_amount).map_err(e)?,
+        8,
+    ).await.map_err(e)?;
+    serde_json::to_string(&result).map_err(e)
 }
 
 #[wasm_bindgen]
