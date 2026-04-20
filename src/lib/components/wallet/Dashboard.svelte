@@ -178,7 +178,7 @@
 	<!-- Logo + Network toggle + Settings -->
 	<div class="flex items-center justify-between">
 		<a href="https://weby.cash" class="block">
-			<img src="/wallet/logo.svg" alt="weby" class="h-18 dark:brightness-0 dark:invert" />
+			<img src="/wallet/logo.svg" alt="weby" class="h-10 dark:brightness-0 dark:invert" />
 		</a>
 		<div class="flex items-center gap-3">
 		<div class="flex rounded-full border border-border bg-muted p-0.5">
