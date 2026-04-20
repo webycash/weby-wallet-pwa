@@ -125,7 +125,7 @@
 	};
 
 	// Action handlers
-	const handleInsert = async (s: string) => { loading = true; const r = await insertWebcash(s); if (r.ok) { showMessage('Webcash inserted'); activePanel = null; await refresh(); } else showMessage(r.error, 'error'); loading = false; };
+	const handleInsert = async (s: string) => { loading = true; const r = await insertWebcash(s); if (r.ok) { showMessage('Webcash inserted'); await refresh(); } else showMessage(r.error, 'error'); activePanel = null; loading = false; };
 	const handlePay = async (a: number, memo: string = '') => { loading = true; const r = await payWebcash(a); if (r.ok) { paymentResult = r.value; paymentMemo = memo; activePanel = 'payment-result'; await refresh(); } else showMessage(r.error, 'error'); loading = false; };
 	const handleCheck = async () => { loading = true; const r = await checkWallet(); if (r.ok) showMessage(`${r.value.validCount} valid, ${r.value.spentCount} spent`); else showMessage(r.error, 'error'); loading = false; };
 	const handleMerge = async () => { loading = true; const r = await mergeOutputs(50); if (r.ok) { showMessage(r.value); await refresh(); } else showMessage(r.error, 'error'); loading = false; };
@@ -260,20 +260,16 @@
 
 	{#if message}
 		{#if messageType === 'error'}
-			<div class="rounded-xl bg-danger/10 p-4 space-y-3">
+			<div class="rounded-xl border border-border p-4 space-y-3">
 				<div class="flex items-start justify-between gap-3">
-					<p class="text-sm font-medium text-danger flex-1 break-words">{message}</p>
-					<button onclick={dismissMessage} class="text-danger/60 hover:text-danger transition-all shrink-0 mt-0.5">
+					<p class="text-sm text-danger flex-1 break-words">{message}</p>
+					<button onclick={dismissMessage} class="text-muted-foreground hover:text-foreground transition-all shrink-0 mt-0.5">
 						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
 					</button>
 				</div>
 				<button onclick={copyError}
-					class="flex items-center gap-1.5 text-xs font-medium text-danger/70 hover:text-danger transition-all">
-					{#if copiedError}
-						Copied
-					{:else}
-						Copy error
-					{/if}
+					class="text-xs text-muted-foreground hover:text-foreground transition-all">
+					{copiedError ? 'Copied' : 'Copy error'}
 				</button>
 			</div>
 		{:else}
