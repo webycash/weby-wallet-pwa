@@ -124,7 +124,6 @@ export default {
 <meta name="twitter:title" content="${esc(title)}"/>
 <meta name="twitter:description" content="${esc(desc)}"/>
 <meta name="twitter:image" content="${esc(imgUrl)}"/>
-<meta http-equiv="refresh" content="0;url=${esc(pageUrl)}"/>
 </head><body></body></html>`;
 
       return new Response(html, {
