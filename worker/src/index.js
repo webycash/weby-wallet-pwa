@@ -108,16 +108,22 @@ export default {
       return response;
     }
 
-    // --- Bot detection: return dynamic OG HTML ---
-    if (BOTS.test(ua) && url.searchParams.has('amount')) {
+    // --- Pre-warm OG image cache for any link with amount ---
+    if (url.searchParams.has('amount')) {
       const amount = url.searchParams.get('amount') || '?';
       const memo = url.searchParams.get('memo') || '';
-      const pageUrl = `https://weby.cash${url.pathname}${url.search}`;
       const imgUrl = `https://weby.cash/wallet/og-card.png?amount=${encodeURIComponent(amount)}${memo ? '&memo=' + encodeURIComponent(memo) : ''}`;
-      const title = `You received ${amount} webcash`;
-      const desc = memo ? `"${memo}" — Open to redeem` : 'Open to redeem';
 
-      const html = `<!DOCTYPE html>
+      // Always pre-warm — whether bot or real user clicking the link
+      ctx.waitUntil(fetch(imgUrl));
+
+      // Bots get dynamic OG HTML
+      if (BOTS.test(ua)) {
+        const pageUrl = `https://weby.cash${url.pathname}${url.search}`;
+        const title = `You received ${amount} webcash`;
+        const desc = memo ? `"${memo}" — Open to redeem` : 'Open to redeem';
+
+        return new Response(`<!DOCTYPE html>
 <html><head>
 <meta charset="utf-8"/>
 <title>${esc(title)}</title>
@@ -135,20 +141,11 @@ export default {
 <meta name="twitter:title" content="${esc(title)}"/>
 <meta name="twitter:description" content="${esc(desc)}"/>
 <meta name="twitter:image" content="${esc(imgUrl)}"/>
-</head><body></body></html>`;
-
-      const htmlResponse = new Response(html, {
-        headers: {
-          'Content-Type': 'text/html; charset=utf-8',
-          'Cache-Control': 'public, max-age=3600',
-        },
-      });
-
-      // Pre-warm image cache in background — so when the crawler
-      // fetches og:image next, the PNG is already at the edge
-      ctx.waitUntil(fetch(imgUrl));
-
-      return htmlResponse;
+</head><body></body></html>`, {
+          headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=3600' },
+        });
+      }
+      // Real users fall through to origin below
     }
 
     // --- Pass through to origin for real users ---
