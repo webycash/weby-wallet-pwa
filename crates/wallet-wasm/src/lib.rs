@@ -53,9 +53,19 @@ pub fn wallet_balance(s: &str, n: &str) -> Result<i64, JsError> { Ok(w(s,n)?.exp
 
 #[wasm_bindgen]
 pub fn wallet_stats(s: &str, n: &str) -> Result<JsValue, JsError> {
-    let snap = w(s,n)?.export_snapshot().map_err(e)?;
+    let wl = w(s,n)?;
+    let snap = wl.export_snapshot().map_err(e)?;
     let balance: i64 = snap.unspent_outputs.iter().map(|o| o.amount).sum();
-    serde_wasm_bindgen::to_value(&serde_json::json!({"total_webcash": snap.unspent_outputs.len() + snap.spent_hashes.len(), "unspent_webcash": snap.unspent_outputs.len(), "spent_webcash": snap.spent_hashes.len(), "total_balance": balance})).map_err(e)
+    let depths = &snap.depths;
+    serde_wasm_bindgen::to_value(&serde_json::json!({
+        "total_webcash": snap.unspent_outputs.len() + snap.spent_hashes.len(),
+        "unspent_webcash": snap.unspent_outputs.len(),
+        "spent_webcash": snap.spent_hashes.len(),
+        "total_balance": balance,
+        "mined_count": depths.get("MINING").copied().unwrap_or(0),
+        "received_count": depths.get("RECEIVE").copied().unwrap_or(0),
+        "sent_count": depths.get("PAY").copied().unwrap_or(0),
+    })).map_err(e)
 }
 
 #[wasm_bindgen]
