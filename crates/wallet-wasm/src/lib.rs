@@ -233,6 +233,6 @@ pub fn gpu_available() -> bool { GPU_MINER.with(|c| c.borrow().is_some()) }
 pub async fn gpu_mine(s: &str, n: &str) -> Result<String, JsError> {
     let wl = w(s, n)?;
     let miner = GPU_MINER.with(|c| { let b = c.borrow(); Ok::<_,JsError>((b.as_ref().ok_or_else(|| JsError::new("GPU not initialized"))? as *const GpuMiner,)) })?;
-    let result = unsafe { &*miner.0 }.mine_and_claim(&wl, net(n), 64).await.map_err(e)?;
+    let result = unsafe { &*miner.0 }.mine_and_claim(&wl, net(n), 8).await.map_err(e)?;
     serde_json::to_string(&result).map_err(e)
 }
