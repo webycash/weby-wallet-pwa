@@ -27,7 +27,7 @@
 	import PaymentResult from './PaymentResult.svelte';
 	import SettingsPanel from './SettingsPanel.svelte';
 
-	let { pendingWebcash = '', onLock = () => {} }: { pendingWebcash?: string; onLock?: () => void } = $props();
+	let { pendingWebcash = '', onLock = () => {}, onInstall }: { pendingWebcash?: string; onLock?: () => void; onInstall?: () => void } = $props();
 
 	let balanceWats = $state(0);
 	let walletStats = $state<WalletStats | null>(null);
@@ -320,15 +320,8 @@
 	</div>
 
 	<div class="flex flex-col items-center gap-3 pt-4 pb-2">
-		<button onclick={() => {
-			if ('standalone' in navigator && !(navigator as any).standalone && /iPhone|iPad/.test(navigator.userAgent)) {
-				alert('Tap the Share button in Safari, then "Add to Home Screen"');
-			} else if ('getInstalledRelatedApps' in navigator || window.matchMedia('(display-mode: standalone)').matches) {
-				alert('App is already installed');
-			} else {
-				alert('Open this page in Safari or Chrome, then use "Add to Home Screen" or "Install App"');
-			}
-		}} class="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-all">
+		<button onclick={() => onInstall?.()}
+			class="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-all">
 			<img src="/wallet/favicon-96x96.png" alt="" class="w-7 h-7 rounded-lg" />
 			Install App
 		</button>

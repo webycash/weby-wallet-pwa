@@ -13,6 +13,7 @@
 	import type { NetworkMode } from '$lib/core/types';
 
 	let unlocked = $state(encryptionType() === 'none');
+	let installPrompt = $state<ReturnType<typeof InstallPrompt>>();
 	let pendingWebcash = $state('');
 	let pendingNetwork = $state<NetworkMode>('production');
 	let pendingAmount = $state('');
@@ -98,12 +99,13 @@
 		onContinue={continueToWallet}
 	/>
 {:else if !licenseAccepted()}
+	<InstallPrompt autoShow />
 	<LicenseDialog onAccepted={onLicenseAccepted} hasGift={!!pendingWebcash} giftAmount={pendingAmount} giftMemo={pendingMemo} />
 {:else if !walletExists()}
 	<SetupWizard />
 {:else if !unlocked}
 	<LockScreen onUnlock={() => { unlocked = true; }} />
 {:else}
-	<Dashboard {pendingWebcash} onLock={() => { unlocked = false; }} />
-	<InstallPrompt />
+	<Dashboard {pendingWebcash} onLock={() => { unlocked = false; }} onInstall={() => installPrompt?.show()} />
+	<InstallPrompt bind:this={installPrompt} />
 {/if}
