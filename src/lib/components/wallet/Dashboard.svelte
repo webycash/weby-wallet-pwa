@@ -140,7 +140,7 @@
 		const appRoot = document.getElementById('app-root');
 		if (appRoot) appRoot.style.opacity = '1';
 		const appLoader = document.getElementById('app-loader');
-		if (appLoader) { appLoader.classList.add('fade-out'); setTimeout(() => appLoader.remove(), 300); }
+		if (appLoader) appLoader.remove();
 		if (pendingWebcash) { activePanel = 'insert'; setTimeout(() => handleInsert(pendingWebcash), 500); }
 		document.addEventListener('visibilitychange', handleVisibility);
 	});
@@ -178,7 +178,7 @@
 	<!-- Logo + Network toggle + Settings -->
 	<div class="flex items-center justify-between">
 		<a href="https://weby.cash" class="block">
-			<img src="/wallet/logo.svg" alt="weby" class="h-12 dark:brightness-0 dark:invert" />
+			<img src="/wallet/logo.svg" alt="weby" class="h-24 dark:brightness-0 dark:invert" />
 		</a>
 		<div class="flex items-center gap-3">
 		<div class="flex rounded-full border border-border bg-muted p-0.5">
@@ -213,39 +213,35 @@
 	</div>
 
 	<!-- Wallet Selector Dropdown -->
-	<div class="relative">
+	<div class="relative flex justify-center">
 		<button onclick={() => showWalletDropdown = !showWalletDropdown}
-			class="flex items-center gap-2 mx-auto px-4 py-1.5 rounded-full bg-muted hover:bg-muted/80 text-sm font-medium transition-all">
+			class="flex items-center gap-2 px-4 py-1.5 rounded-full bg-muted hover:bg-muted/80 text-sm font-medium transition-all">
 			<span class="capitalize">{activeLabel}</span>
 			{#if isRoamingWallet}
 				<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-warning/20 text-warning font-semibold">Roaming</span>
 			{/if}
-			<ChevronDown class="w-3.5 h-3.5 text-muted-foreground transition-transform {showWalletDropdown ? 'rotate-180' : ''}" />
+			<ChevronDown class="w-3.5 h-3.5 opacity-60 transition-transform {showWalletDropdown ? 'rotate-180' : ''}" />
 		</button>
 		{#if showWalletDropdown}
 			<!-- svelte-ignore a11y_click_events_have_key_events -->
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<div class="fixed inset-0 z-40" onclick={() => showWalletDropdown = false}></div>
-			<div class="absolute top-full left-1/2 -translate-x-1/2 mt-1 z-50 w-48 rounded-xl bg-card border border-border shadow-lg overflow-hidden">
+			<div class="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 min-w-[10rem] rounded-2xl bg-muted shadow-lg overflow-hidden">
 				{#each walletList as w}
 					<button onclick={() => switchWallet(w.label)}
-						class="w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors flex items-center justify-between
-							{w.label === activeLabel ? 'font-semibold text-primary' : 'text-foreground'}">
-						<span class="flex items-center gap-1.5">
-							<span class="capitalize">{w.label}</span>
-							{#if w.roaming}
-								<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-warning/20 text-warning font-semibold">Roaming</span>
-							{/if}
-						</span>
-						{#if fmt && w.balance > 0}<span class="text-xs text-muted-foreground">{fmt(w.balance)}</span>{/if}
+						class="w-full px-4 py-2.5 text-sm text-center hover:bg-background/50 transition-colors
+							{w.label === activeLabel ? 'font-semibold' : 'opacity-70'}">
+						<span class="capitalize">{w.label}</span>
+						{#if w.roaming}
+							<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-warning/20 text-warning font-semibold ml-1">Roaming</span>
+						{/if}
+						{#if fmt && w.balance > 0}<span class="text-xs opacity-50 ml-1.5">{fmt(w.balance)}</span>{/if}
 					</button>
 				{/each}
-				<div class="border-t border-border">
-					<button onclick={handleNewWallet}
-						class="w-full text-left px-4 py-2.5 text-sm text-primary hover:bg-muted transition-colors font-medium">
-						+ New wallet
-					</button>
-				</div>
+				<button onclick={handleNewWallet}
+					class="w-full px-4 py-2.5 text-sm text-center font-medium opacity-70 hover:opacity-100 hover:bg-background/50 transition-all">
+					+ New wallet
+				</button>
 			</div>
 		{/if}
 	</div>
@@ -285,40 +281,43 @@
 		<PaymentResult webcash={paymentResult} memo={paymentMemo} onDone={() => { activePanel = null; paymentResult = ''; paymentMemo = ''; }} />
 	{/if}
 
-	<!-- More -->
-	<div class="rounded-xl bg-card overflow-hidden">
-		<button onclick={() => showMore = !showMore}
-			class="w-full px-5 py-3 flex items-center justify-between hover:bg-muted transition-all">
-			<span class="text-xs font-semibold text-muted-foreground tracking-wider">More</span>
-			<ChevronDown class="w-4 h-4 text-muted-foreground transition-transform {showMore ? 'rotate-180' : ''}" />
-		</button>
-		{#if showMore}
-			<div class="px-5 pb-4 space-y-3">
-				<div class="grid grid-cols-2 gap-2">
-					{#each moreActions as btn}
-						<Button variant="outline" size="sm"
-							class="w-full {activePanel === btn.id ? 'border-primary text-primary font-semibold' : ''}"
-							onclick={() => btn.action ? btn.action() : (activePanel = activePanel === btn.id ? null : btn.id)}
-							disabled={loading}>
-							<btn.icon class="w-4 h-4 {activePanel === btn.id ? 'text-primary' : ''}" />
-							<span class="truncate">{btn.label}</span>
-						</Button>
-					{/each}
+	<!-- Accordions -->
+	<div class="space-y-2">
+		<!-- More -->
+		<div class="rounded-xl bg-card overflow-hidden">
+			<button onclick={() => showMore = !showMore}
+				class="w-full px-5 py-3 flex items-center justify-between hover:bg-muted transition-all">
+				<span class="text-xs font-semibold text-muted-foreground tracking-wider">More</span>
+				<ChevronDown class="w-4 h-4 text-muted-foreground transition-transform {showMore ? 'rotate-180' : ''}" />
+			</button>
+			{#if showMore}
+				<div class="px-5 pb-4 space-y-3">
+					<div class="grid grid-cols-2 gap-2">
+						{#each moreActions as btn}
+							<Button variant="outline" size="sm"
+								class="w-full {activePanel === btn.id ? 'border-primary text-primary font-semibold' : ''}"
+								onclick={() => btn.action ? btn.action() : (activePanel = activePanel === btn.id ? null : btn.id)}
+								disabled={loading}>
+								<btn.icon class="w-4 h-4 {activePanel === btn.id ? 'text-primary' : ''}" />
+								<span class="truncate">{btn.label}</span>
+							</Button>
+						{/each}
+					</div>
+					{#if activePanel === 'verify'}
+						<VerifyForm />
+					{:else if activePanel === 'mine'}
+						<MinerPanel {network} onBalanceUpdate={refresh} />
+					{/if}
 				</div>
-				{#if activePanel === 'verify'}
-					<VerifyForm />
-				{:else if activePanel === 'mine'}
-					<MinerPanel {network} onBalanceUpdate={refresh} />
-				{/if}
-			</div>
+			{/if}
+		</div>
+
+		{#if walletStats}
+			<StatsPanel stats={walletStats} formatAmount={fmt} />
 		{/if}
+
+		<WebcashList webcash={webcashList} formatAmount={fmt} />
 	</div>
-
-	{#if walletStats}
-		<StatsPanel stats={walletStats} formatAmount={fmt} />
-	{/if}
-
-	<WebcashList webcash={webcashList} formatAmount={fmt} />
 
 	<div class="flex items-center justify-between pt-4 pb-2">
 		<p class="text-xs text-muted-foreground">All data stays on your device</p>
