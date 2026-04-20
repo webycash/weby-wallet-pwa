@@ -12,9 +12,13 @@
 				if(dark)d.classList.add('dark');
 				var bg=dark?'#0e0f15':'#fff';
 				d.style.background=bg;
-				// Pre-set loader background so it covers pre-rendered content
 				var l=document.getElementById('app-loader');
 				if(l)l.style.background=bg;
+				// Capture install prompt globally — fires before Svelte mounts
+				window.addEventListener('beforeinstallprompt',function(e){
+					e.preventDefault();
+					window.__installPrompt=e;
+				});
 			})()
 		</script>
 

@@ -30,15 +30,23 @@
 	onMount(() => {
 		if (!browser || isStandalone) return;
 
+		// Pick up globally captured event (fires before Svelte mounts)
+		if ((window as any).__installPrompt) {
+			deferredPrompt = (window as any).__installPrompt;
+		}
+
+		// Also listen for late fires
 		const handler = (e: Event) => {
 			e.preventDefault();
 			deferredPrompt = e as BeforeInstallPromptEvent;
+			(window as any).__installPrompt = e;
 		};
 		window.addEventListener('beforeinstallprompt', handler);
 
 		window.addEventListener('appinstalled', () => {
 			installed = true;
 			deferredPrompt = null;
+			(window as any).__installPrompt = null;
 			localStorage.setItem(INSTALLED_KEY, 'true');
 			setTimeout(() => { open = false; }, 1500);
 		});
@@ -51,7 +59,7 @@
 		return () => window.removeEventListener('beforeinstallprompt', handler);
 	});
 
-	const installAndroid = async () => {
+	const install = async () => {
 		if (!deferredPrompt) return;
 		installing = true;
 		await deferredPrompt.prompt();
@@ -61,6 +69,7 @@
 			localStorage.setItem(INSTALLED_KEY, 'true');
 		}
 		deferredPrompt = null;
+		(window as any).__installPrompt = null;
 		installing = false;
 	};
 </script>
@@ -112,15 +121,14 @@
 						Got it
 					</button>
 				{:else}
-					{#if deferredPrompt}
-						<button onclick={installAndroid} disabled={installing}
-							class="w-full rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-all
-								{installing ? 'opacity-60 animate-pulse' : 'hover:opacity-90'}">
-							{installing ? 'Installing\u2026' : 'Install'}
-						</button>
-					{:else}
-						<p class="text-xs text-center text-muted-foreground">
-							Use your browser menu to install this app
+					<button onclick={install} disabled={installing || !deferredPrompt}
+						class="w-full rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-all
+							{installing ? 'opacity-60 animate-pulse' : !deferredPrompt ? 'opacity-50' : 'hover:opacity-90'}">
+						{installing ? 'Installing\u2026' : 'Install'}
+					</button>
+					{#if !deferredPrompt}
+						<p class="text-xs text-center text-muted-foreground mt-2">
+							Waiting for browser install prompt\u2026
 						</p>
 					{/if}
 				{/if}
