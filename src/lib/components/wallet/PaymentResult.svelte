@@ -26,6 +26,10 @@
 
 	const truncated = $derived(webcash.length > 32 ? webcash.slice(0, 16) + '...' + webcash.slice(-12) : webcash);
 
+	// Pre-warm OG image at edge cache so it's instant when recipient's app fetches it
+	const ogUrl = $derived(`https://weby.cash/wallet/og-card.png?amount=${encodeURIComponent(displayAmount)}${memo ? '&memo=' + encodeURIComponent(memo) : ''}`);
+	$effect(() => { if (displayAmount) fetch(ogUrl, { mode: 'no-cors' }).catch(() => {}); });
+
 	const copyWebcash = async () => { await navigator.clipboard.writeText(webcash); copied = true; setTimeout(() => { copied = false; }, 2000); };
 	const copyLink = async () => { await navigator.clipboard.writeText(walletUrl); copiedLink = true; setTimeout(() => { copiedLink = false; }, 2000); };
 	const shareNative = async () => { if (navigator.share) await navigator.share({ url: walletUrl }); };
