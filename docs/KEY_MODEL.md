@@ -10,7 +10,7 @@ Level 2: SLOT FAMILIES    Each slot = independent 32-byte secret for one purpose
 Level 3: WEBCASH CHAINS   Each webcash slot → 4 independent SHA256 chains
 ```
 
-These levels are completely distinct. The master wallet is NOT a webcash wallet — it is a keychain that *contains* webcash wallets (and bitcoin wallets, PGP keys, vault keys, etc.) as derived slots.
+The master wallet is NOT a webcash wallet. It is a keychain that *contains* webcash wallets, bitcoin wallets, RGB identities, voucher wallets, and PGP signing keys as derived slots. Each slot family serves a different purpose and has its own database.
 
 ---
 
@@ -48,7 +48,7 @@ The master database (`master.db` on native, IndexedDB on WASM) contains:
 - Payment audit trail
 - RGB contracts and certificates
 
-The master wallet does **not** store webcash balances, bitcoin UTXOs, or any funds. Those live in per-slot databases.
+The master wallet does **not** store webcash balances, bitcoin UTXOs, voucher credits, or any funds. Those live in per-slot databases.
 
 ---
 
@@ -56,27 +56,39 @@ The master wallet does **not** store webcash balances, bitcoin UTXOs, or any fun
 
 Each family has a unique code and derives independent 32-byte secrets:
 
-| Family | Code | Max Slots | Output | Purpose |
-|--------|------|-----------|--------|---------|
-| **root** | 0 | 1 | 32-byte key | Master root reference |
-| **rgb** | 1 | 256 | 32-byte key | RGB contract identity |
-| **webcash** | 2 | 256 | 32-byte secret → webylib HDWallet | Webcash bearer e-cash |
-| **bitcoin** | 3 | 256 | 32-byte seed → BIP86/BIP84 wallet | On-chain Bitcoin |
-| **pgp** | 4 | 1000 | 32-byte key → Ed25519 signing | PGP-style identities |
-| **vault** | 5 | 1000 | 32-byte key → HKDF sub-keys | App-scoped encryption/signing |
-| **voucher** | 6 | 256 | 32-byte secret | Voucher bearer credits |
+| Family | Code | Max Slots | Purpose |
+|--------|------|-----------|---------|
+| **webcash** | 2 | 256 | Webcash bearer e-cash (→ webylib 4-chain HD) |
+| **bitcoin** | 3 | 256 | On-chain Bitcoin (→ BIP86 Taproot / BIP84 SegWit) |
+| **rgb** | 1 | 256 | RGB smart contract identity |
+| **voucher** | 6 | 256 | Voucher bearer credits |
+| **pgp** | 4 | 1000 | Ed25519 signing identities |
 
-### Labeled Wallets (Multi-Wallet)
+### Webcash Slots
 
-Within each family, multiple **labeled wallets** can exist at different slot indices:
+Each webcash slot produces a 32-byte master secret that initializes a webylib HDWallet with 4 independent SHA256 chains (see Level 3 below). This is where webcash funds live — insert, pay, check, merge, mine, recover all happen within a webcash slot.
 
-```
-webcash[0] → "main" webcash wallet    (main_webcash.db)
-webcash[1] → "savings" webcash wallet (savings_webcash.db)
-webcash[2] → "cloudminer" wallet      (cloudminer_webcash.db)
-```
+### Bitcoin Slots
 
-Each labeled wallet is a completely independent BIP32 derivation. The label is human-friendly metadata; the slot index determines the cryptographic path. The same mnemonic always produces the same wallet at each index.
+Each bitcoin slot derives a 32-byte seed that initializes a BDK wallet with:
+- **BIP86** (Taproot) as the primary receive path
+- **BIP84** (SegWit) as compatibility fallback
+
+ARK protocol support (off-chain VTXOs via Arkade ASP) extends the bitcoin wallet with off-chain deposits, settlements, and VTXO proof verification.
+
+### RGB Slots
+
+Each RGB slot derives an identity key for client-side validated smart contracts. RGB contracts are state owned by the holder and validated locally — the blockchain (or other witness service) only anchors commitments.
+
+Weby supports multiple witness backends for RGB:
+- **Bitcoin blockchain** — standard RGB anchoring via Bitcoin transactions
+- **Webcash Witness** — witness service using webcash replace semantics
+- **Harmoniis Witness** — marketplace witness for contract arbitration
+- **Any provider** implementing `webycash-witness-server`
+
+### Voucher Slots
+
+Each voucher slot derives a master secret for bearer credit management. Vouchers are issued by voucher service providers running `webycash-voucher-server`. Voucher outputs are bearer secrets — the holder owns the credits.
 
 ### PGP Keys
 
@@ -94,18 +106,19 @@ pgp[999] → last available slot
 
 PGP identities are stored in the master database. Switching the active PGP label changes which key signs operations, but does **not** change which webcash/bitcoin/RGB wallet is used.
 
-### Vault Keys
+### Labeled Wallets (Multi-Wallet)
 
-The vault slot provides **HKDF-SHA256** derived sub-keys for application use:
+Within each family, multiple **labeled wallets** can exist at different slot indices:
 
 ```
-vault[0] → 32-byte root
-         → HKDF-Expand("vault/aead/myapp")     → AES-256 encryption key
-         → HKDF-Expand("vault/mqtt-tls/node1")  → MQTT TLS seed
-         → HKDF-Expand("vault/ed25519/signing") → Ed25519 signing key
+webcash[0] → "main" webcash wallet       (main_webcash.db)
+webcash[1] → "savings" webcash wallet    (savings_webcash.db)
+webcash[2] → "cloudminer" wallet         (cloudminer_webcash.db)
+bitcoin[0] → "main" bitcoin wallet       (main_bitcoin.db)
+voucher[0] → "main" voucher wallet       (main_voucher.db)
 ```
 
-This allows any application to derive purpose-specific keys from the wallet's master mnemonic without touching the payment or identity slots.
+Each labeled wallet is a completely independent BIP32 derivation. The label is human-friendly metadata; the slot index determines the cryptographic path. The same mnemonic always produces the same wallet at each index.
 
 ---
 
@@ -157,21 +170,6 @@ Each chain maintains its own depth counter. After a successful server operation,
 
 ---
 
-## Bitcoin Wallet (Level 2, family 3)
-
-The bitcoin slot derives a 32-byte seed that initializes a BDK wallet with:
-- **BIP86** (Taproot) as the primary receive path
-- **BIP84** (SegWit) as compatibility fallback
-
-Bitcoin operates at the slot level only — there is no "4-chain" equivalent for bitcoin. Standard BIP32 key derivation is used internally by BDK.
-
-ARK protocol support (off-chain VTXOs via Arkade ASP) extends the bitcoin wallet with:
-- Off-chain deposits and settlements
-- VTXO proof verification
-- Offchain send/receive
-
----
-
 ## Recovery
 
 ### From Mnemonic (Full Recovery)
@@ -181,12 +179,13 @@ With just the 24-word mnemonic, the wallet can reconstruct everything:
 1. Derive master BIP32 key from mnemonic
 2. Derive all slot families at their known indices
 3. For each webcash slot: scan all 4 chains up to the gap limit (default: 20)
-4. For PGP slots: scan indices 0..999 and match against marketplace
-5. For bitcoin: sync via Esplora/Electrum
+4. For each voucher slot: re-insert exported voucher secrets
+5. For PGP slots: scan indices 0..999 and match against marketplace
+6. For bitcoin: sync via Esplora/Electrum
 
 ### From Webcash Master Secret (Webcash Only)
 
-If you have a webcash slot's 64-char hex secret (not the mnemonic), you can recover only that webcash wallet's funds by scanning the 4 chains. Other families (bitcoin, PGP, etc.) are not recoverable from a webcash secret alone.
+If you have a webcash slot's 64-char hex secret (not the mnemonic), you can recover only that webcash wallet's funds by scanning the 4 chains. Other families (bitcoin, RGB, vouchers, PGP) are not recoverable from a webcash secret alone.
 
 ### Gap Limit
 
@@ -203,14 +202,12 @@ BIP39 Mnemonic (24 words)
    │
    └─ m/83696968'/0'/ (Harmoniis purpose)
       │
-      ├─ /0'/0' ─── root[0]     → master root key
       ├─ /1'/0' ─── rgb[0]      → RGB contract identity
       ├─ /2'/0' ─── webcash[0]  → 32-byte webcash master ──┐
       ├─ /2'/1' ─── webcash[1]  → 32-byte (labeled wallet) │
       ├─ /3'/0' ─── bitcoin[0]  → BIP86/BIP84 seed         │
       ├─ /4'/0' ─── pgp[0]      → Ed25519 signing key      │
       ├─ /4'/1' ─── pgp[1]      → Ed25519 (labeled)        │
-      ├─ /5'/0' ─── vault[0]    → HKDF root                │
       └─ /6'/0' ─── voucher[0]  → voucher master            │
                                                              │
          ┌───────────────────────────────────────────────────┘

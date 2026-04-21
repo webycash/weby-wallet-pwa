@@ -19,7 +19,7 @@ Webcash is a centralized bearer e-cash system where value exists as cryptographi
 
 ## Features
 
-- **Master Wallet** — BIP39 mnemonic → BIP32 hardened slot derivation for webcash, bitcoin, RGB, vault, and PGP keys
+- **Master Wallet** — BIP39 mnemonic → BIP32 hardened slot derivation for webcash, bitcoin, RGB, vouchers, and PGP keys
 - **Webcash Wallet** — Each webcash slot has its own 4-chain SHA256 derivation (Receive, Pay, Change, Mining)
 - **Multi-wallet** — Multiple labeled sub-wallets per family (main, savings, cloudminer), each a separate BIP32 slot
 - **GPU Mining** — WebGPU-accelerated proof-of-work mining directly in the browser
@@ -68,7 +68,7 @@ All cryptographic operations (wallet state, mining, server communication) are de
 
 The wallet engine is powered by [`harmoniis-wallet`](https://github.com/harmoniis/harmoniis-wallet) compiled to WebAssembly. This provides:
 
-- **Master keychain**: BIP39 mnemonic → BIP32 hardened slot derivation (webcash, bitcoin, RGB, vault, PGP families)
+- **Master keychain**: BIP39 mnemonic → BIP32 hardened slot derivation (webcash, bitcoin, RGB, vouchers, PGP families)
 - **Webcash operations**: insert, pay, check, merge, recover (via [`webylib`](https://github.com/webycash/webylib))
 - **GPU mining**: wgpu SHA256 proof-of-work on WebGPU backend
 - **State management**: in-memory HarmoniiStore, serializable to JSON for IndexedDB persistence
@@ -112,17 +112,24 @@ The Cloudflare Worker (`worker/`) generates OpenGraph images for shared payment 
 - [ ] Multi-wallet UI (switch between labeled wallets)
 - [ ] Proper PNG icons (192, 512, maskable)
 
-### v0.3.0 — Bitcoin Integration
+### v0.3.0 — Bitcoin and Vouchers
 - [ ] Bitcoin ARK protocol (off-chain VTXOs via Arkade ASP)
 - [ ] On-chain Bitcoin receive/send (BIP86 Taproot)
-- [ ] RGB smart contracts (client-side validated state)
+- [ ] Voucher wallet (bearer credits from voucher service providers)
 - [ ] Unified balance view across payment rails
 
-### v0.4.0 — Advanced
+### v0.4.0 — RGB Smart Contracts (Client-Side Validated)
+- [ ] RGB contract state management (client-side validation)
+- [ ] Multiple witness backends: Bitcoin blockchain, Webcash Witness, Harmoniis Witness
+- [ ] Support for any witness service implementing `webycash-witness-server`
+- [ ] Contract issuance, transfer, and atomic swap UI
+- [ ] Certificate viewing and verification
+
+### v0.5.0 — Advanced
 - [ ] Multi-device sync via encrypted backup
 - [ ] Payment request deep links
 - [ ] Push notifications for mining results
-- [ ] RGB asset issuance and transfer UI
+- [ ] RGB asset portfolio dashboard
 
 ## Tech Stack
 
