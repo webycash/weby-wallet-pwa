@@ -19,11 +19,12 @@ Webcash is a centralized bearer e-cash system where value exists as cryptographi
 
 ## Features
 
-- **HD Wallet** — BIP32-style 4-chain deterministic key derivation (Receive, Pay, Change, Mining)
-- **Multi-wallet** — Multiple labeled wallets derived from a single master secret
+- **Master Wallet** — BIP39 mnemonic → BIP32 hardened slot derivation for webcash, bitcoin, RGB, vault, and PGP keys
+- **Webcash Wallet** — Each webcash slot has its own 4-chain SHA256 derivation (Receive, Pay, Change, Mining)
+- **Multi-wallet** — Multiple labeled sub-wallets per family (main, savings, cloudminer), each a separate BIP32 slot
 - **GPU Mining** — WebGPU-accelerated proof-of-work mining directly in the browser
 - **Encryption** — Password (PBKDF2 + AES-256-GCM) or WebAuthn passkey (biometric)
-- **Backup/Restore** — Full backup export, JSON snapshots, master secret recovery
+- **Backup/Restore** — Full master backup, per-wallet JSON snapshots, mnemonic recovery
 - **Share Payments** — Generate payment webcash strings + QR codes for recipients
 - **Roaming Wallets** — Import external wallet files (`.webcash` format, encrypted or plaintext)
 - **PWA** — Installable, offline balance viewing, service worker caching
@@ -67,10 +68,10 @@ All cryptographic operations (wallet state, mining, server communication) are de
 
 The wallet engine is powered by [`harmoniis-wallet`](https://github.com/harmoniis/harmoniis-wallet) compiled to WebAssembly. This provides:
 
-- Deterministic HD key derivation
-- Webcash protocol operations (insert, pay, check, merge, recover)
-- GPU mining via wgpu (WebGPU backend)
-- Full wallet state management (in-memory store, serializable to JSON)
+- **Master keychain**: BIP39 mnemonic → BIP32 hardened slot derivation (webcash, bitcoin, RGB, vault, PGP families)
+- **Webcash operations**: insert, pay, check, merge, recover (via [`webylib`](https://github.com/webycash/webylib))
+- **GPU mining**: wgpu SHA256 proof-of-work on WebGPU backend
+- **State management**: in-memory HarmoniiStore, serializable to JSON for IndexedDB persistence
 
 The WASM module is loaded on first interaction and cached by the service worker.
 
@@ -79,7 +80,7 @@ The WASM module is loaded on first interaction and cached by the service worker.
 | Document | Description |
 |----------|-------------|
 | [Protocol](docs/PROTOCOL.md) | Webcash protocol specification |
-| [HD Wallet](docs/HD_WALLET.md) | Master key derivation and chain codes |
+| [Key Model](docs/KEY_MODEL.md) | Master wallet, slot families, webcash 4-chain derivation |
 | [Mining](docs/MINING.md) | GPU/CPU mining implementation |
 | [Security](docs/SECURITY.md) | Encryption, recovery, threat model |
 | [Payments](docs/PAYMENTS.md) | Share payments and roaming wallets |
