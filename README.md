@@ -106,30 +106,23 @@ The Cloudflare Worker (`worker/`) generates OpenGraph images for shared payment 
 
 ## Roadmap
 
-### v0.2.0 — Polish (in progress)
+### v0.2.0 — Polish (complete)
 - [x] QR code scanning for webcash insert
-- [ ] Transaction history with timestamps
-- [ ] Multi-wallet UI (switch between labeled wallets)
-- [ ] Proper PNG icons (192, 512, maskable)
+- [x] Multi-wallet UI (switch between labeled wallets)
+- [x] Proper PNG icons (192, 512, maskable)
 
-### v0.3.0 — Bitcoin and Vouchers
+### v0.3.0 — Bitcoin, RGB, and Vouchers
+- [ ] Transaction history with timestamps
 - [ ] Bitcoin ARK protocol (off-chain VTXOs via Arkade ASP)
 - [ ] On-chain Bitcoin receive/send (BIP86 Taproot)
-- [ ] Voucher wallet (bearer credits from voucher service providers)
+- [ ] RGB smart contracts (client-side validated, multiple witness backends)
+- [ ] Voucher wallet (bearer credits via `webycash-voucher-server`)
 - [ ] Unified balance view across payment rails
 
-### v0.4.0 — RGB Smart Contracts (Client-Side Validated)
-- [ ] RGB contract state management (client-side validation)
-- [ ] Multiple witness backends: Bitcoin blockchain, Webcash Witness, Harmoniis Witness
-- [ ] Support for any witness service implementing `webycash-witness-server`
-- [ ] Contract issuance, transfer, and atomic swap UI
-- [ ] Certificate viewing and verification
-
-### v0.5.0 — Advanced
-- [ ] Multi-device sync via encrypted backup
-- [ ] Payment request deep links
-- [ ] Push notifications for mining results
+### v0.4.0 — Advanced
+- [ ] P2P exchange with RGB contracts and zero-knowledge proofs (ZKP)
 - [ ] RGB asset portfolio dashboard
+- [ ] Hardware wallet integration (WebUSB/WebHID)
 
 ## Tech Stack
 
