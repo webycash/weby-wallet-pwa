@@ -9,7 +9,7 @@
 <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
 </p>
 
-**Live app:** [https://webycash.github.io/weby-wallet-pwa/wallet](https://webycash.github.io/weby-wallet-pwa/wallet)
+**Live app:** [https://weby.cash/wallet/](https://weby.cash/wallet/)
 
 ---
 
