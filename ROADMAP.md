@@ -45,7 +45,6 @@
 ## v0.4.0 — Advanced
 
 - [ ] P2P exchange with RGB contracts and zero-knowledge proofs (ZKP)
-- [ ] Contract marketplace integration (Harmoniis)
 - [ ] Multi-device sync via encrypted backup
 - [ ] Payment request deep links
 - [ ] Push notifications for mining results
