@@ -13,7 +13,11 @@
 		appDialog?: ReturnType<typeof AppDialog>;
 	} = $props();
 
-	const section = $derived(getMobileSettingsSection());
+	const rawSection = $derived(getMobileSettingsSection());
+	const section = $derived(
+		rawSection === 'wallet' || rawSection === 'master' || rawSection === 'webcash'
+			? rawSection : null
+	);
 	const sectionTitle = $derived(
 		section === 'wallet' ? 'Selected Wallet'
 		: section === 'master' ? 'Master Key'

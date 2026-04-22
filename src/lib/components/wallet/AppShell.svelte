@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount } from 'svelte';
 	import { getBalance, getStats, getWebcash, exportWalletSnapshot, exportMasterBackup,
 		insertWebcash, payWebcash, checkWallet, mergeOutputs, recoverWallet, resetDb,
 		setActive, addWallet, listWallets, getActiveFamily, getActiveLabel,
@@ -135,29 +135,31 @@
 	const canMineWallet = $derived(activeLabel === 'main' && !isRoamingWallet);
 	const activeView = $derived(nav.activeView);
 
-	onMount(async () => {
+	onMount(() => {
 		const mq = window.matchMedia('(min-width: 768px)');
 		isDesktop = mq.matches;
 		const listener = (e: MediaQueryListEvent) => { isDesktop = e.matches; };
 		mq.addEventListener('change', listener);
 
-		const wasm = await getWasm();
-		fmt = (wats: number) => wasm.format_amount(BigInt(wats));
-		await refresh();
-		initializing = false;
-		await document.fonts.ready;
-		const appLoader = document.getElementById('app-loader');
-		if (appLoader) appLoader.remove();
-		const appRoot = document.getElementById('app-root');
-		if (appRoot) appRoot.style.opacity = '1';
-		if (pendingWebcash) { navigateTo('dashboard'); setTimeout(() => handleInsert(pendingWebcash), 500); }
+		(async () => {
+			const wasm = await getWasm();
+			fmt = (wats: number) => wasm.format_amount(BigInt(wats));
+			await refresh();
+			initializing = false;
+			await document.fonts.ready;
+			const appLoader = document.getElementById('app-loader');
+			if (appLoader) appLoader.remove();
+			const appRoot = document.getElementById('app-root');
+			if (appRoot) appRoot.style.opacity = '1';
+			if (pendingWebcash) { navigateTo('dashboard'); setTimeout(() => handleInsert(pendingWebcash), 500); }
+		})();
 		document.addEventListener('visibilitychange', handleVisibility);
 
 		return () => {
 			mq.removeEventListener('change', listener);
+			document.removeEventListener('visibilitychange', handleVisibility);
 		};
 	});
-	onDestroy(() => document.removeEventListener('visibilitychange', handleVisibility));
 </script>
 
 {#if initializing}

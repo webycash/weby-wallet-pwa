@@ -27,3 +27,8 @@ export const pushSettingsDetail = (tab: SettingsTab) => { nav.activeSettingsTab 
 export const popSettingsDetail = () => { nav.mobileScreen = 'settings'; };
 
 export const setSettingsTab = (tab: SettingsTab) => { nav.activeSettingsTab = tab; };
+
+export const getMobileSettingsSection = (): SettingsTab | null =>
+	nav.mobileScreen === 'settings-detail' ? nav.activeSettingsTab : null;
+
+export const closeSettingsSection = () => { nav.mobileScreen = 'settings'; };

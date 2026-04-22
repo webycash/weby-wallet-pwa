@@ -93,8 +93,8 @@
 				let res: any;
 				if (typeof rawResult === 'string') {
 					res = JSON.parse(rawResult);
-				} else if (rawResult instanceof Map) {
-					res = Object.fromEntries(rawResult);
+				} else if ((rawResult as any) instanceof Map) {
+					res = Object.fromEntries(rawResult as any);
 				} else {
 					res = rawResult;
 				}

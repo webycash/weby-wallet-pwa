@@ -333,7 +333,7 @@ export const getStats = async () => {
 	const { wasm, state, network } = await ensureState();
 	const result = wasm.wallet_stats(state, network);
 	if (typeof result === 'string') return JSON.parse(result);
-	if (result instanceof Map) return Object.fromEntries(result);
+	if ((result as any) instanceof Map) return Object.fromEntries(result as any);
 	return result;
 };
 
