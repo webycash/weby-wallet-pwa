@@ -137,99 +137,96 @@
 	};
 </script>
 
-<div class="rounded-2xl bg-card overflow-hidden">
-	<!-- Mining cost -->
-	<div class="px-5 pt-4 pb-2">
-		<p class="text-xs text-muted-foreground">Mining cost: ~ ${(0.24 / Math.min(3600 / (Math.pow(2, 28) / (14.5e9)), 600) / 195.3125).toFixed(6)}/₩</p>
-	</div>
-	<!-- Header -->
-	<div class="flex items-center justify-between px-5 py-4 border-b border-muted/30">
-		<div class="flex items-center gap-2">
-			<Pickaxe class="w-4 h-4 text-primary" />
-			<span class="text-sm font-semibold text-foreground">Miner</span>
+<div class="space-y-5">
+	<!-- Header + Start/Stop -->
+	<div class="flex items-center justify-between">
+		<div class="flex items-center gap-3">
+			<Pickaxe class="w-[18px] h-[18px] text-primary opacity-60" />
+			<span class="text-[15px] font-medium text-foreground">Miner</span>
 			{#if gpuInitializing}
-				<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium animate-pulse">Detecting GPU...</span>
+				<span class="text-[10px] px-2 py-0.5 rounded-full bg-muted/60 text-muted-foreground font-medium animate-pulse">Detecting GPU...</span>
 			{:else if useGpu}
-				<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-success text-white font-medium">{gpuName}</span>
+				<span class="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">{gpuName}</span>
 			{:else}
-				<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">GPU</span>
+				<span class="text-[10px] px-2 py-0.5 rounded-full bg-muted/60 text-muted-foreground font-medium">GPU</span>
 			{/if}
 		</div>
-		<div class="flex items-center gap-2">
-			<button onclick={toggle} disabled={gpuInitializing || !gpuAvailable}
-				class="flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold transition-all disabled:opacity-50
-					{running ? 'bg-danger text-danger-foreground hover:bg-danger' : 'bg-primary text-primary-foreground hover:bg-primary'}">
-				{#if gpuInitializing}
-					<Zap class="w-3.5 h-3.5 animate-pulse" /> Init...
-				{:else if running}
-					<Square class="w-3.5 h-3.5" /> Stop
-				{:else}
-					<Zap class="w-3.5 h-3.5" /> Start
-				{/if}
-			</button>
-		</div>
+		<button onclick={toggle} disabled={gpuInitializing || !gpuAvailable}
+			class="flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium transition-all duration-200 active:scale-[0.97] disabled:opacity-30
+				{running ? 'bg-muted/60 text-foreground hover:bg-muted/80' : 'bg-primary text-primary-foreground hover:opacity-90'}">
+			{#if gpuInitializing}
+				<Zap class="w-3.5 h-3.5 animate-pulse" /> Init...
+			{:else if running}
+				<Square class="w-3.5 h-3.5" /> Stop
+			{:else}
+				<Zap class="w-3.5 h-3.5" /> Start
+			{/if}
+		</button>
 	</div>
+
+	<!-- Mining cost -->
+	<p class="text-[11px] text-muted-foreground/60">Mining cost: ~ ${(0.24 / Math.min(3600 / (Math.pow(2, 28) / (14.5e9)), 600) / 195.3125).toFixed(6)}/₩</p>
 
 	<!-- Live stats -->
 	{#if running || totalAttempts > 0}
-		<div class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border">
-			<div class="bg-card px-4 py-3">
-				<p class="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Speed</p>
-				<p class="text-lg font-bold text-foreground tabular-nums">{fmtRate(hashRate)}</p>
+		<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+			<div class="rounded-2xl bg-card p-3.5">
+				<p class="text-[10px] text-muted-foreground mb-1 tracking-wide">Speed</p>
+				<p class="text-[17px] font-light text-foreground tabular-nums">{fmtRate(hashRate)}</p>
 			</div>
-			<div class="bg-card px-4 py-3">
-				<p class="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">ETA</p>
-				<p class="text-lg font-bold text-foreground tabular-nums">{fmtEta(hashRate, difficulty)}</p>
+			<div class="rounded-2xl bg-card p-3.5">
+				<p class="text-[10px] text-muted-foreground mb-1 tracking-wide">ETA</p>
+				<p class="text-[17px] font-light text-foreground tabular-nums">{fmtEta(hashRate, difficulty)}</p>
 			</div>
-			<div class="bg-card px-4 py-3">
-				<p class="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Solutions</p>
-				<p class="text-lg font-bold text-foreground tabular-nums">{solutionsSubmitted}/{solutionsFound}</p>
+			<div class="rounded-2xl bg-card p-3.5">
+				<p class="text-[10px] text-muted-foreground mb-1 tracking-wide">Solutions</p>
+				<p class="text-[17px] font-light text-foreground tabular-nums">{solutionsSubmitted}/{solutionsFound}</p>
 			</div>
-			<div class="bg-card px-4 py-3">
-				<p class="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Reward</p>
-				<p class="text-lg font-bold text-foreground tabular-nums">{miningAmount || '\u2014'} W</p>
+			<div class="rounded-2xl bg-card p-3.5">
+				<p class="text-[10px] text-muted-foreground mb-1 tracking-wide">Reward</p>
+				<p class="text-[17px] font-light text-foreground tabular-nums">{miningAmount || '\u2014'} W</p>
 			</div>
 		</div>
-		<div class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border border-t border-muted/30">
-			<div class="bg-card px-4 py-3">
-				<p class="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Difficulty</p>
-				<p class="text-sm font-semibold text-foreground tabular-nums">{difficulty}</p>
+		<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+			<div class="rounded-2xl bg-card p-3.5">
+				<p class="text-[10px] text-muted-foreground mb-1 tracking-wide">Difficulty</p>
+				<p class="text-[14px] font-medium text-foreground tabular-nums">{difficulty}</p>
 			</div>
-			<div class="bg-card px-4 py-3">
-				<p class="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Attempts</p>
-				<p class="text-sm font-semibold text-foreground tabular-nums">{fmt(totalAttempts)}</p>
+			<div class="rounded-2xl bg-card p-3.5">
+				<p class="text-[10px] text-muted-foreground mb-1 tracking-wide">Attempts</p>
+				<p class="text-[14px] font-medium text-foreground tabular-nums">{fmt(totalAttempts)}</p>
 			</div>
-			<div class="bg-card px-4 py-3">
-				<p class="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Backend</p>
-				<p class="text-sm font-semibold text-foreground">WebGPU</p>
+			<div class="rounded-2xl bg-card p-3.5">
+				<p class="text-[10px] text-muted-foreground mb-1 tracking-wide">Backend</p>
+				<p class="text-[14px] font-medium text-foreground">WebGPU</p>
 			</div>
-			<div class="bg-card px-4 py-3">
-				<p class="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Uptime</p>
-				<p class="text-sm font-semibold text-foreground tabular-nums">{Math.floor(uptimeSecs / 60)}m {Math.floor(uptimeSecs % 60)}s</p>
+			<div class="rounded-2xl bg-card p-3.5">
+				<p class="text-[10px] text-muted-foreground mb-1 tracking-wide">Uptime</p>
+				<p class="text-[14px] font-medium text-foreground tabular-nums">{Math.floor(uptimeSecs / 60)}m {Math.floor(uptimeSecs % 60)}s</p>
 			</div>
 		</div>
 	{/if}
 
 	<!-- Network stats -->
 	{#if netStats}
-		<div class="px-4 py-3 border-t border-muted/30">
-			<p class="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Network</p>
-			<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-				<div>
-					<p class="text-muted-foreground">Circulation</p>
-					<p class="font-semibold text-foreground">{netStats.circulation_formatted}</p>
+		<div>
+			<p class="text-[10px] text-muted-foreground/60 tracking-wide mb-3">Network</p>
+			<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+				<div class="rounded-2xl bg-card p-3.5">
+					<p class="text-[10px] text-muted-foreground mb-1 tracking-wide">Circulation</p>
+					<p class="text-[13px] font-medium text-foreground tabular-nums">{netStats.circulation_formatted}</p>
 				</div>
-				<div>
-					<p class="text-muted-foreground">Epoch</p>
-					<p class="font-semibold text-foreground">{netStats.epoch}</p>
+				<div class="rounded-2xl bg-card p-3.5">
+					<p class="text-[10px] text-muted-foreground mb-1 tracking-wide">Epoch</p>
+					<p class="text-[13px] font-medium text-foreground tabular-nums">{netStats.epoch}</p>
 				</div>
-				<div>
-					<p class="text-muted-foreground">Mining Reports</p>
-					<p class="font-semibold text-foreground">{netStats.mining_reports?.toLocaleString()}</p>
+				<div class="rounded-2xl bg-card p-3.5">
+					<p class="text-[10px] text-muted-foreground mb-1 tracking-wide">Mining Reports</p>
+					<p class="text-[13px] font-medium text-foreground tabular-nums">{netStats.mining_reports?.toLocaleString()}</p>
 				</div>
-				<div>
-					<p class="text-muted-foreground">Subsidy</p>
-					<p class="font-semibold text-foreground">{netStats.mining_subsidy_amount} W</p>
+				<div class="rounded-2xl bg-card p-3.5">
+					<p class="text-[10px] text-muted-foreground mb-1 tracking-wide">Subsidy</p>
+					<p class="text-[13px] font-medium text-foreground tabular-nums">{netStats.mining_subsidy_amount} W</p>
 				</div>
 			</div>
 		</div>
@@ -237,50 +234,50 @@
 
 	<!-- Solution found -->
 	{#if result}
-		<div class="px-5 py-4 bg-success border-t border-success text-success-foreground">
-			<div class="flex items-center gap-2 mb-2">
-				<Trophy class="w-4 h-4" />
-				<span class="text-sm font-semibold">Solution Found!</span>
+		<div class="rounded-2xl bg-primary/10 p-5">
+			<div class="flex items-center gap-2 mb-3">
+				<Trophy class="w-4 h-4 text-primary" />
+				<span class="text-[14px] font-medium text-primary">Solution Found</span>
 			</div>
-			<div class="space-y-1">
-				<p class="text-[10px] uppercase tracking-wider opacity-80">Hash</p>
-				<code class="text-xs font-mono break-all block opacity-90">{resultHash}</code>
+			<div class="space-y-2">
+				<p class="text-[10px] text-muted-foreground tracking-wide">Hash</p>
+				<code class="text-[11px] font-mono break-all block text-foreground/70">{resultHash}</code>
 			</div>
-			<div class="mt-2 space-y-1">
-				<p class="text-[10px] uppercase tracking-wider opacity-80">Webcash</p>
-				<code class="text-xs font-mono break-all block">{result}</code>
+			<div class="mt-3 space-y-2">
+				<p class="text-[10px] text-muted-foreground tracking-wide">Webcash</p>
+				<code class="text-[11px] font-mono break-all block text-foreground">{result}</code>
 			</div>
 		</div>
 	{/if}
 
 	<!-- Mining history -->
 	{#if history.length > 0}
-		<div class="border-t border-muted/30">
+		<div>
 			<button onclick={() => showHistory = !showHistory}
-				class="w-full flex items-center justify-between px-4 py-2.5 text-xs font-semibold text-muted-foreground hover:bg-muted transition-colors">
+				class="w-full flex items-center justify-between py-2 text-[12px] font-medium text-muted-foreground hover:text-foreground transition-all duration-200">
 				<span>Solutions ({history.length})</span>
 				<span class="text-[10px]">{showHistory ? 'Hide' : 'Show'}</span>
 			</button>
 			{#if showHistory}
-				<div class="px-4 pb-3">
-					<table class="w-full text-xs">
+				<div class="rounded-2xl bg-card p-4 mt-1">
+					<table class="w-full text-[11px]">
 						<thead>
 							<tr class="text-muted-foreground text-left">
-								<th class="pb-1.5 font-medium">Time</th>
-								<th class="pb-1.5 font-medium">Hash</th>
-								<th class="pb-1.5 font-medium text-right">Zeros</th>
-								<th class="pb-1.5 font-medium text-right">Amount</th>
-								<th class="pb-1.5 font-medium text-right">Status</th>
+								<th class="pb-2 font-medium">Time</th>
+								<th class="pb-2 font-medium">Hash</th>
+								<th class="pb-2 font-medium text-right">Zeros</th>
+								<th class="pb-2 font-medium text-right">Amount</th>
+								<th class="pb-2 font-medium text-right">Status</th>
 							</tr>
 						</thead>
 						<tbody>
 							{#each history.toReversed() as s}
-								<tr class="border-t border-muted/30/50">
+								<tr>
 									<td class="py-1.5 tabular-nums">{s.time}</td>
-									<td class="py-1.5 font-mono text-[10px] opacity-70">{s.hash.slice(0, 16)}...</td>
+									<td class="py-1.5 font-mono text-[10px] opacity-50">{s.hash.slice(0, 16)}...</td>
 									<td class="py-1.5 tabular-nums text-right">{s.difficulty}</td>
 									<td class="py-1.5 tabular-nums text-right">{s.amount}</td>
-									<td class="py-1.5 text-right">{s.submitted ? 'OK' : 'Failed'}</td>
+									<td class="py-1.5 text-right text-primary">{s.submitted ? 'OK' : '—'}</td>
 								</tr>
 							{/each}
 						</tbody>
@@ -291,8 +288,8 @@
 	{/if}
 
 	{#if error}
-		<div class="px-5 py-3 bg-danger border-t border-danger text-danger-foreground">
-			<p class="text-sm">{error}</p>
+		<div class="rounded-2xl bg-muted/50 px-4 py-3 text-[13px] text-foreground">
+			{error}
 		</div>
 	{/if}
 </div>
