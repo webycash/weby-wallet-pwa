@@ -474,8 +474,9 @@ export const importWalletSnapshot = async (snapshot: WalletSnapshot): Promise<Re
 		const result = await setupFromMnemonic(mnemonic);
 		if (!result.ok) return err(result.error);
 		// Re-import the snapshot's outputs into the main webcash wallet
+		const paddedSecret = snapshot.master_secret.padStart(64, '0');
 		const state = await wasm.create_roaming_wallet(
-			network, snapshot.master_secret,
+			network, paddedSecret,
 			JSON.stringify(snapshot.unspent_outputs.map((o: { secret: string; amount: number }) =>
 				wasm.format_webcash(o.secret, BigInt(o.amount))
 			)),
@@ -570,8 +571,9 @@ export const importRoamingFromFile = async (file: File, label: string, password?
 		const wallet = password && isEncrypted(raw)
 			? await decryptWebcasa(raw, password)
 			: parseWebcasa(raw);
+		const paddedSecret = wallet.master_secret.padStart(64, '0');
 		const state = await wasm.create_roaming_wallet(
-			network, wallet.master_secret,
+			network, paddedSecret,
 			JSON.stringify(wallet.webcash),
 			JSON.stringify(wallet.walletdepths),
 		);
@@ -587,11 +589,12 @@ export const importRoamingFromFile = async (file: File, label: string, password?
 
 export const importRoamingFromSecret = async (masterSecretHex: string, label: string): Promise<Result<void>> => {
 	try {
-		if (!/^[0-9a-fA-F]{64}$/.test(masterSecretHex))
-			return err('Master secret must be 64 hex characters');
+		if (!/^[0-9a-fA-F]{32}([0-9a-fA-F]{32})?$/.test(masterSecretHex))
+			return err('Master secret must be 32 or 64 hex characters');
+		const paddedHex = masterSecretHex.padStart(64, '0');
 		const wasm = await getWasm();
 		const network = getNetwork();
-		const state = await wasm.create_roaming_wallet(network, masterSecretHex, '[]', '{}');
+		const state = await wasm.create_roaming_wallet(network, paddedHex, '[]', '{}');
 		const key = Persistence.walletStateKey('webcash', label);
 		await Persistence.saveState(network, state, key);
 		const registry = Persistence.getRegistry(network);

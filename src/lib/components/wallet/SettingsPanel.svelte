@@ -271,7 +271,7 @@
 			</Button>
 
 			{#if showSecretImport}
-				<input bind:value={importSecretHex} placeholder="64-character hex"
+				<input bind:value={importSecretHex} placeholder="32 or 64-character hex"
 					class="w-full rounded-2xl bg-muted/50 px-3 py-1.5 text-sm font-mono" />
 				<input bind:value={importSecretLabel} placeholder="Label"
 					class="w-full rounded-2xl bg-muted/50 px-3 py-1.5 text-sm" />
