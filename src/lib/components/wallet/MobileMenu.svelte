@@ -81,7 +81,7 @@
 					<button
 						onclick={() => onNetworkChange('testnet')}
 						class="rounded-full px-5 py-2 text-[13px] font-medium tracking-wide transition-all duration-200
-							{network === 'testnet' ? 'bg-danger text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}">
+							{network === 'testnet' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}">
 						Testnet
 					</button>
 				</div>
