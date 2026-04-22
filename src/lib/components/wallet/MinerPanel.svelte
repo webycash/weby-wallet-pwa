@@ -89,10 +89,20 @@
 				const freshState = await getRawState();
 				if (!freshState) break;
 
-				const resultJson = await wasm.gpu_mine(freshState, network);
-				const res = JSON.parse(resultJson);
+				const rawResult = await wasm.gpu_mine(freshState, network);
+				let res: any;
+				if (typeof rawResult === 'string') {
+					res = JSON.parse(rawResult);
+				} else if (rawResult instanceof Map) {
+					res = Object.fromEntries(rawResult);
+				} else {
+					res = rawResult;
+				}
 
-				if (res.state) await setRawState(res.state);
+				if (res.state) {
+					const stateVal = typeof res.state === 'string' ? res.state : JSON.stringify(res.state);
+					await setRawState(stateVal);
+				}
 				if (res.difficulty) difficulty = res.difficulty;
 				if (res.mining_amount) miningAmount = res.mining_amount;
 
@@ -127,13 +137,13 @@
 	};
 </script>
 
-<div class="rounded-xl bg-card border border-border overflow-hidden">
+<div class="rounded-2xl bg-card overflow-hidden">
 	<!-- Mining cost -->
 	<div class="px-5 pt-4 pb-2">
 		<p class="text-xs text-muted-foreground">Mining cost: ~ ${(0.24 / Math.min(3600 / (Math.pow(2, 28) / (14.5e9)), 600) / 195.3125).toFixed(6)}/₩</p>
 	</div>
 	<!-- Header -->
-	<div class="flex items-center justify-between px-5 py-4 border-b border-border">
+	<div class="flex items-center justify-between px-5 py-4 border-b border-muted/30">
 		<div class="flex items-center gap-2">
 			<Pickaxe class="w-4 h-4 text-primary" />
 			<span class="text-sm font-semibold text-foreground">Miner</span>
@@ -180,7 +190,7 @@
 				<p class="text-lg font-bold text-foreground tabular-nums">{miningAmount || '\u2014'} W</p>
 			</div>
 		</div>
-		<div class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border border-t border-border">
+		<div class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border border-t border-muted/30">
 			<div class="bg-card px-4 py-3">
 				<p class="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Difficulty</p>
 				<p class="text-sm font-semibold text-foreground tabular-nums">{difficulty}</p>
@@ -202,7 +212,7 @@
 
 	<!-- Network stats -->
 	{#if netStats}
-		<div class="px-4 py-3 border-t border-border">
+		<div class="px-4 py-3 border-t border-muted/30">
 			<p class="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Network</p>
 			<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
 				<div>
@@ -245,7 +255,7 @@
 
 	<!-- Mining history -->
 	{#if history.length > 0}
-		<div class="border-t border-border">
+		<div class="border-t border-muted/30">
 			<button onclick={() => showHistory = !showHistory}
 				class="w-full flex items-center justify-between px-4 py-2.5 text-xs font-semibold text-muted-foreground hover:bg-muted transition-colors">
 				<span>Solutions ({history.length})</span>
@@ -265,7 +275,7 @@
 						</thead>
 						<tbody>
 							{#each history.toReversed() as s}
-								<tr class="border-t border-border/50">
+								<tr class="border-t border-muted/30/50">
 									<td class="py-1.5 tabular-nums">{s.time}</td>
 									<td class="py-1.5 font-mono text-[10px] opacity-70">{s.hash.slice(0, 16)}...</td>
 									<td class="py-1.5 tabular-nums text-right">{s.difficulty}</td>

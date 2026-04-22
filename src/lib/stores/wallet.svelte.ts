@@ -331,7 +331,10 @@ export const getBalance = async (): Promise<number> => {
 
 export const getStats = async () => {
 	const { wasm, state, network } = await ensureState();
-	return JSON.parse(wasm.wallet_stats(state, network));
+	const result = wasm.wallet_stats(state, network);
+	if (typeof result === 'string') return JSON.parse(result);
+	if (result instanceof Map) return Object.fromEntries(result);
+	return result;
 };
 
 export const getWebcash = async () => {

@@ -3,7 +3,7 @@
 	import { browser } from '$app/environment';
 	import LicenseDialog from '$lib/components/wallet/LicenseDialog.svelte';
 	import SetupWizard from '$lib/components/wallet/SetupWizard.svelte';
-	import Dashboard from '$lib/components/wallet/Dashboard.svelte';
+	import AppShell from '$lib/components/wallet/AppShell.svelte';
 	import LockScreen from '$lib/components/wallet/LockScreen.svelte';
 	import ReceiveGift from '$lib/components/wallet/ReceiveGift.svelte';
 	import InstallPrompt from '$lib/components/wallet/InstallPrompt.svelte';
@@ -106,6 +106,6 @@
 {:else if !unlocked}
 	<LockScreen onUnlock={() => { unlocked = true; }} />
 {:else}
-	<Dashboard {pendingWebcash} onLock={() => { unlocked = false; }} onInstall={() => installPrompt?.show()} />
+	<AppShell {pendingWebcash} onLock={() => { unlocked = false; }} onInstall={() => installPrompt?.show()} />
 	<InstallPrompt bind:this={installPrompt} />
 {/if}

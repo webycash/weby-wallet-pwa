@@ -1,6 +1,5 @@
 <script lang="ts">
 	import type { NetworkMode } from '$lib/core/types';
-	import * as Card from '$lib/components/ui/card';
 	import { Eye, EyeOff } from '@lucide/svelte';
 
 	let { balanceWats, formatAmount, network }: {
@@ -41,29 +40,27 @@
 	const usdDisplay = $derived(usdValue === 0 ? '$0.00' : usdValue < 0.01 ? `$${usdValue.toFixed(6)}` : `$${usdValue.toFixed(2)}`);
 </script>
 
-<Card.Root class="border-0 shadow-none">
-	<Card.Content class="p-8 text-center relative">
-		<div class="absolute top-4 right-4 flex gap-1">
-			<button onclick={() => showUsd = !showUsd}
-				class="rounded-full px-2.5 py-1 text-xs font-semibold transition-all {showUsd ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}">
-				USD
-			</button>
-			<button onclick={() => hidden = !hidden}
-				class="rounded-full p-1.5 text-muted-foreground hover:text-foreground transition-all">
-				{#if hidden}<EyeOff class="w-3.5 h-3.5" />{:else}<Eye class="w-3.5 h-3.5" />{/if}
-			</button>
-		</div>
+<div class="py-10 text-center relative">
+	<div class="flex justify-center gap-2 mb-6">
+		<button onclick={() => showUsd = !showUsd}
+			class="rounded-full px-3 py-1 text-[11px] font-medium transition-all duration-200 {showUsd ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'}">
+			USD
+		</button>
+		<button onclick={() => hidden = !hidden}
+			class="rounded-full p-1.5 text-muted-foreground hover:text-foreground transition-all duration-200">
+			{#if hidden}<EyeOff class="w-3.5 h-3.5" />{:else}<Eye class="w-3.5 h-3.5" />{/if}
+		</button>
+	</div>
 
-		{#if network === 'testnet'}
-			<p class="text-xs font-medium text-muted-foreground tracking-widest uppercase mb-3">Testnet</p>
-		{/if}
+	{#if network === 'testnet'}
+		<p class="text-[10px] font-medium text-muted-foreground tracking-[0.2em] uppercase mb-3">Testnet</p>
+	{/if}
 
-		{#if hidden}
-			<p class="text-4xl sm:text-5xl font-bold text-foreground tracking-tight">{WEBCASH_SYMBOL} ••••••</p>
-		{:else if showUsd}
-			<p class="text-4xl sm:text-5xl font-bold text-foreground tracking-tight tabular-nums">{usdDisplay}</p>
-		{:else}
-			<p class="text-4xl sm:text-5xl font-bold text-foreground tracking-tight tabular-nums">{WEBCASH_SYMBOL} {display}</p>
-		{/if}
-	</Card.Content>
-</Card.Root>
+	{#if hidden}
+		<p class="text-5xl md:text-6xl font-light text-foreground tracking-tight">{WEBCASH_SYMBOL} ••••••</p>
+	{:else if showUsd}
+		<p class="text-5xl md:text-6xl font-light text-foreground tracking-tight tabular-nums">{usdDisplay}</p>
+	{:else}
+		<p class="text-5xl md:text-6xl font-light text-foreground tracking-tight tabular-nums">{WEBCASH_SYMBOL} {display}</p>
+	{/if}
+</div>

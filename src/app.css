@@ -4,82 +4,80 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 250 100% 23%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 250 100% 23%;
-    --card: 0 0% 100%;
-    --card-foreground: 250 100% 23%;
-    --border: 220 10% 88%;
-    --input: 220 10% 88%;
-    --primary: 223 100% 32%;
+    /* Amethyst purple — single hue 268° at varying lightness */
+    --background: 268 20% 98%;
+    --foreground: 268 25% 12%;
+    --muted: 268 12% 93%;
+    --muted-foreground: 268 10% 45%;
+    --popover: 268 15% 97%;
+    --popover-foreground: 268 25% 12%;
+    --card: 268 12% 95%;
+    --card-foreground: 268 25% 12%;
+    --border: 268 8% 91%;
+    --input: 268 8% 91%;
+    --primary: 268 55% 52%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 212 100% 65%;
-    --secondary-foreground: 250 100% 23%;
-    --accent: 210 40% 96%;
-    --accent-foreground: 250 100% 23%;
-    --destructive: 0 72% 51%;
+    --secondary: 268 12% 93%;
+    --secondary-foreground: 268 25% 12%;
+    --accent: 268 20% 94%;
+    --accent-foreground: 268 55% 42%;
+    --destructive: 0 65% 51%;
     --destructive-foreground: 0 0% 100%;
-    --ring: 223 100% 32%;
-    --radius: 0.5rem;
+    --ring: 268 55% 52%;
+    --radius: 1.25rem;
 
-    /* Semantic states — light theme */
-    --success: 152 69% 22%;
+    --success: 152 55% 30%;
     --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
+    --warning: 38 85% 50%;
     --warning-foreground: 0 0% 100%;
-    --danger: 0 72% 51%;
+    --danger: 0 65% 51%;
     --danger-foreground: 0 0% 100%;
   }
 
   .dark {
-    --background: 230 20% 7%;
-    --foreground: 210 40% 96%;
-    --muted: 225 12% 11%;
-    --muted-foreground: 215 15% 55%;
-    --popover: 230 18% 10%;
-    --popover-foreground: 210 40% 96%;
-    --card: 230 20% 7%;
-    --card-foreground: 210 40% 96%;
-    --border: 220 10% 15%;
-    --input: 220 10% 15%;
-    --primary: 217 90% 58%;
+    --background: 268 22% 6%;
+    --foreground: 268 12% 90%;
+    --muted: 268 18% 11%;
+    --muted-foreground: 268 8% 52%;
+    --popover: 268 20% 8%;
+    --popover-foreground: 268 12% 90%;
+    --card: 268 18% 9%;
+    --card-foreground: 268 12% 90%;
+    --border: 268 14% 14%;
+    --input: 268 14% 14%;
+    --primary: 268 65% 65%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 225 12% 13%;
-    --secondary-foreground: 210 40% 96%;
-    --accent: 225 12% 11%;
-    --accent-foreground: 210 40% 96%;
-    --destructive: 0 63% 45%;
+    --secondary: 268 18% 11%;
+    --secondary-foreground: 268 12% 90%;
+    --accent: 268 22% 13%;
+    --accent-foreground: 268 65% 75%;
+    --destructive: 0 55% 45%;
     --destructive-foreground: 0 0% 100%;
-    --ring: 217 90% 58%;
+    --ring: 268 65% 65%;
 
-    /* Semantic states — dark theme */
-    --success: 152 69% 25%;
+    --success: 152 55% 30%;
     --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
+    --warning: 38 85% 50%;
     --warning-foreground: 0 0% 100%;
-    --danger: 0 72% 51%;
+    --danger: 0 65% 51%;
     --danger-foreground: 0 0% 100%;
   }
 }
 
 @layer base {
   * {
-    @apply border-border;
-    font-family: 'Raleway', sans-serif;
+    border-color: transparent;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
   }
 
   body {
     @apply bg-background text-foreground;
     padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Semantic bg → foreground inheritance.
-     Any element with a semantic bg automatically gets its foreground color.
-     Prevents gray-on-orange / gray-on-green / gray-on-red contrast bugs. */
   .bg-success { color: hsl(var(--success-foreground)); }
   .bg-warning { color: hsl(var(--warning-foreground)); }
   .bg-danger { color: hsl(var(--danger-foreground)); }
@@ -88,11 +86,24 @@
 }
 
 @layer utilities {
-  .fade-in {
-    animation: fadeIn 0.5s cubic-bezier(0, 0, 0.2, 1) both;
+  .logo-tint {
+    filter: brightness(0) saturate(100%) invert(28%) sepia(50%) saturate(1400%) hue-rotate(235deg) brightness(92%);
   }
+
+  .fade-in {
+    animation: fadeIn 0.4s cubic-bezier(0, 0, 0.2, 1) both;
+  }
+
   @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(8px); }
+    from { opacity: 0; transform: translateY(6px); }
     to { opacity: 1; transform: translateY(0); }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

@@ -10,7 +10,7 @@
 			(function(){
 				var d=document.documentElement,dark=window.matchMedia('(prefers-color-scheme:dark)').matches;
 				if(dark)d.classList.add('dark');
-				var bg=dark?'#0e0f15':'#fff';
+				var bg=dark?'#0f0c14':'#faf9fc';
 				d.style.background=bg;
 				var l=document.getElementById('app-loader');
 				if(l)l.style.background=bg;
@@ -45,8 +45,8 @@
 		<meta name="twitter:image" content="https://weby.cash/wallet/og.png" />
 
 		<!-- Theme -->
-		<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
-		<meta name="theme-color" content="#0A0A0F" media="(prefers-color-scheme: dark)" />
+		<meta name="theme-color" content="#faf9fc" media="(prefers-color-scheme: light)" />
+		<meta name="theme-color" content="#0f0c14" media="(prefers-color-scheme: dark)" />
 
 		<!-- PWA -->
 		<meta name="mobile-web-app-capable" content="yes" />
@@ -58,7 +58,7 @@
 		<!-- Fonts — preconnect + render-blocking link to prevent FOUC -->
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-		<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700&display=swap" />
+		<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&display=swap" />
 
 		<!-- Icons -->
 		<link rel="icon" type="image/png" href="%sveltekit.assets%/favicon-96x96.png" sizes="96x96" />
@@ -68,17 +68,25 @@
 
 		<style>
 			@keyframes loader-spin{to{transform:rotate(360deg)}}
-			#app-loader .ring{width:48px;height:48px;border-radius:50%;border:4px solid transparent;animation:loader-spin .8s linear infinite}
-			#app-loader.fade-out{opacity:0;pointer-events:none;transition:none}
-			@media(prefers-color-scheme:light){#app-loader{background:#fff}#app-loader .ring{border-top-color:#003DA5;border-right-color:rgba(0,61,165,0.3)}}
-			@media(prefers-color-scheme:dark){#app-loader{background:#0e0f15}#app-loader .ring{border-top-color:#8bb4ff;border-right-color:rgba(139,180,255,0.3)}}
+			#app-loader{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center}
+			#app-loader svg{width:72px;height:72px;animation:loader-spin 1.2s linear infinite}
+			@media(prefers-color-scheme:light){#app-loader{background:#faf9fc}#app-loader svg circle{color:#7c4dbd}}
+			@media(prefers-color-scheme:dark){#app-loader{background:#0f0c14}#app-loader svg circle{color:#a07de0}}
 		</style>
 
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">
-		<div id="app-loader" style="position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center">
-			<div class="ring"></div>
+		<div id="app-loader">
+			<svg viewBox="0 0 50 50" fill="none">
+				<defs>
+					<linearGradient id="lg1" gradientUnits="userSpaceOnUse" x1="4" y1="25" x2="46" y2="25">
+						<stop offset="0%" stop-color="currentColor" stop-opacity="0"/>
+						<stop offset="100%" stop-color="currentColor" stop-opacity="1"/>
+					</linearGradient>
+				</defs>
+				<path d="M4 25 A21 21 0 0 1 46 25" stroke="url(#lg1)" stroke-width="3.5" stroke-linecap="round"/>
+			</svg>
 		</div>
 		<div id="app-root" style="opacity:0;transition:opacity .5s cubic-bezier(0,0,0.2,1)">%sveltekit.body%</div>
 	</body>
