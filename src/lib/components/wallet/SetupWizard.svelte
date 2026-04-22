@@ -276,228 +276,239 @@
 	};
 </script>
 
-<div class="container mx-auto px-4 py-8 max-w-lg fade-in">
+<div class="min-h-[100dvh] flex items-center justify-center px-6 fade-in">
+	<div class="w-full max-w-sm">
 	{#if loading}
-		<div class="min-h-[50vh] flex flex-col items-center justify-center gap-4">
-			<LoaderCircle class="w-10 h-10 text-primary animate-spin" />
+		<div class="flex flex-col items-center justify-center gap-5 py-20">
+			<LoaderCircle class="w-8 h-8 text-primary animate-spin opacity-60" />
 			{#if scanProgress}
-				<p class="text-sm text-muted-foreground">{scanProgress}</p>
+				<p class="text-[13px] text-muted-foreground">{scanProgress}</p>
 			{/if}
 		</div>
 	{:else if step === 'choose'}
-		<div class="text-center mb-8">
-			<h1 class="text-2xl font-bold text-foreground mb-2">Create Your Wallet</h1>
-			<p class="text-sm text-muted-foreground">All data stays on your device. Private by default.</p>
+		<div class="text-center mb-10">
+			<h1 class="text-3xl font-light text-foreground tracking-tight mb-3">Create Your Wallet</h1>
+			<p class="text-[13px] text-muted-foreground leading-relaxed">All data stays on your device. Private by default.</p>
 			<a href="https://github.com/webycash/weby-wallet-pwa" target="_blank" rel="noopener noreferrer"
-				class="inline-flex items-center gap-1 mt-2 text-xs text-muted-foreground hover:text-foreground transition-all">
+				class="inline-flex items-center gap-1 mt-2 text-[11px] text-muted-foreground/50 hover:text-muted-foreground transition-all">
 				Open source
 			</a>
 		</div>
 
 		<div class="space-y-3">
 			<button onclick={createNew}
-				class="w-full flex items-center gap-4 rounded-full border border-border bg-card p-5 text-left hover:border-primary hover:bg-muted transition-all"
+				class="w-full flex items-center gap-4 rounded-2xl bg-card p-5 text-left hover:bg-muted/50 transition-all duration-200 active:scale-[0.98]"
 				disabled={loading}>
-				<div class="rounded-full bg-primary p-2.5" class:animate-pulse={loading}>
+				<div class="rounded-full bg-primary p-2.5 shrink-0">
 					<Plus class="w-5 h-5 text-primary-foreground" />
 				</div>
 				<div>
-					<span class="font-semibold text-foreground text-sm">{loading ? 'Creating...' : 'Create New Wallet'}</span>
-					<span class="block text-xs text-muted-foreground mt-0.5">Generate a fresh master secret</span>
+					<span class="font-medium text-foreground text-[14px]">{loading ? 'Creating...' : 'Create New Wallet'}</span>
+					<span class="block text-[11px] text-muted-foreground mt-0.5">Generate a fresh master secret</span>
 				</div>
 			</button>
 
 			<button onclick={() => { step = 'recover' }}
-				class="w-full flex items-center gap-4 rounded-full border border-border bg-card p-5 text-left hover:border-primary hover:bg-muted transition-all">
-				<div class="rounded-full bg-primary p-2.5">
+				class="w-full flex items-center gap-4 rounded-2xl bg-card p-5 text-left hover:bg-muted/50 transition-all duration-200 active:scale-[0.98]">
+				<div class="rounded-full bg-primary p-2.5 shrink-0">
 					<KeyRound class="w-5 h-5 text-primary-foreground" />
 				</div>
 				<div>
-					<span class="font-semibold text-foreground text-sm">Recover</span>
-					<span class="block text-xs text-muted-foreground mt-0.5">From mnemonic or hex secret</span>
+					<span class="font-medium text-foreground text-[14px]">Recover</span>
+					<span class="block text-[11px] text-muted-foreground mt-0.5">From mnemonic or hex secret</span>
 				</div>
 			</button>
 
-			<label class="w-full flex items-center gap-4 rounded-full border border-border bg-card p-5 text-left hover:border-primary hover:bg-muted transition-all cursor-pointer">
-				<div class="rounded-full bg-primary p-2.5">
+			<label class="w-full flex items-center gap-4 rounded-2xl bg-card p-5 text-left hover:bg-muted/50 transition-all duration-200 active:scale-[0.98] cursor-pointer">
+				<div class="rounded-full bg-primary p-2.5 shrink-0">
 					<Upload class="w-5 h-5 text-primary-foreground" />
 				</div>
 				<div>
-					<span class="font-semibold text-foreground text-sm">Import</span>
-					<span class="block text-xs text-muted-foreground mt-0.5">From JSON backup file</span>
+					<span class="font-medium text-foreground text-[14px]">Import</span>
+					<span class="block text-[11px] text-muted-foreground mt-0.5">From JSON backup file</span>
 				</div>
 				<input type="file" accept=".json" class="hidden" onchange={importFile} />
 			</label>
 
 			<button onclick={() => { step = 'qrscan' }}
-				class="w-full flex items-center gap-4 rounded-full border border-border bg-card p-5 text-left hover:border-primary hover:bg-muted transition-all">
-				<div class="rounded-full bg-primary p-2.5">
+				class="w-full flex items-center gap-4 rounded-2xl bg-card p-5 text-left hover:bg-muted/50 transition-all duration-200 active:scale-[0.98]">
+				<div class="rounded-full bg-primary p-2.5 shrink-0">
 					<ScanLine class="w-5 h-5 text-primary-foreground" />
 				</div>
 				<div>
-					<span class="font-semibold text-foreground text-sm">Scan QR</span>
-					<span class="block text-xs text-muted-foreground mt-0.5">Import from another device</span>
+					<span class="font-medium text-foreground text-[14px]">Scan QR</span>
+					<span class="block text-[11px] text-muted-foreground mt-0.5">Import from another device</span>
 				</div>
 			</button>
 		</div>
 
 	{:else if step === 'recover'}
-		<h2 class="text-xl font-bold text-foreground mb-2">Recover Wallet</h2>
-		<p class="text-sm text-muted-foreground mb-4">Enter your master secret. We'll scan the server for your webcash.</p>
-		<div class="relative">
-			<textarea
-				bind:value={recoverInput}
-				placeholder="24 words or 64-char hex..."
-				class="w-full rounded-2xl border border-input bg-background px-4 py-3 pr-20 text-base font-mono h-24 resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
-				autocomplete="off"
-				spellcheck="false"
-			></textarea>
-			<button onclick={pasteRecover}
-				class="absolute top-2 right-2 flex items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-all">
-				<ClipboardPaste class="w-3.5 h-3.5" /> Paste
-			</button>
-		</div>
-		<div class="flex gap-2 mt-4">
-			<button onclick={() => { step = 'choose'; error = '' }}
-				class="flex-1 rounded-full border border-border px-4 py-3 text-sm font-medium hover:bg-muted transition-all">
-				Back
-			</button>
-			<button onclick={recoverFromSecret}
-				class="flex-1 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary transition-all disabled:opacity-40"
-				class:animate-pulse={loading}
-			disabled={loading || (recoverInput.trim().length < 10)}>
-				{loading ? (scanProgress || 'Scanning...') : 'Recover'}
-			</button>
+		<div class="space-y-6">
+			<div class="text-center">
+				<h2 class="text-2xl font-light text-foreground tracking-tight mb-2">Recover Wallet</h2>
+				<p class="text-[13px] text-muted-foreground leading-relaxed">Enter your master secret. We'll scan the server for your webcash.</p>
+			</div>
+			<div class="relative">
+				<textarea
+					bind:value={recoverInput}
+					placeholder="24 words or 64-char hex..."
+					class="w-full rounded-2xl bg-muted/50 px-4 py-3 pr-20 text-[14px] font-mono h-24 resize-none focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+					autocomplete="off"
+					spellcheck="false"
+				></textarea>
+				<button onclick={pasteRecover}
+					class="absolute top-2.5 right-2.5 flex items-center gap-1.5 rounded-full bg-muted/80 px-3 py-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-all">
+					<ClipboardPaste class="w-3 h-3" /> Paste
+				</button>
+			</div>
+			<div class="flex gap-3">
+				<button onclick={() => { step = 'choose'; error = '' }}
+					class="flex-1 rounded-full bg-muted/50 px-4 py-3.5 text-[14px] font-medium hover:bg-muted/80 transition-all duration-200 active:scale-[0.97]">
+					Back
+				</button>
+				<button onclick={recoverFromSecret}
+					class="flex-1 rounded-full bg-primary px-4 py-3.5 text-[14px] font-medium text-primary-foreground transition-all duration-200 active:scale-[0.97] disabled:opacity-30"
+					disabled={loading || (recoverInput.trim().length < 10)}>
+					{loading ? (scanProgress || 'Scanning...') : 'Recover'}
+				</button>
+			</div>
 		</div>
 
 	{:else if step === 'qrscan'}
-		<h2 class="text-xl font-bold text-foreground mb-2">Scan QR Code</h2>
-		<p class="text-sm text-muted-foreground mb-4">
-			Open your wallet on the other device, go to Settings > QR Export, and scan the code with your camera.
-		</p>
-		<div class="rounded-2xl border border-border overflow-hidden bg-black aspect-square relative mb-4 max-w-[320px] mx-auto">
-			<video bind:this={videoEl} autoplay playsinline muted class="w-full h-full object-cover"></video>
-			<canvas bind:this={canvasEl} class="hidden"></canvas>
-			<div class="absolute inset-0 pointer-events-none">
-				<div class="absolute inset-[12%] border border-primary rounded-2xl"></div>
-				<div class="absolute inset-[12%] border border-primary rounded-2xl animate-pulse"></div>
+		<div class="space-y-5">
+			<div class="text-center">
+				<h2 class="text-2xl font-light text-foreground tracking-tight mb-2">Scan QR Code</h2>
+				<p class="text-[13px] text-muted-foreground leading-relaxed">
+					Open your wallet on the other device, go to Settings > QR Export, and scan the code.
+				</p>
 			</div>
-			<div class="absolute bottom-3 left-0 right-0 text-center">
-				<span class="text-xs text-white bg-black backdrop-blur-sm px-3 py-1.5 rounded-full">{scanStatus}</span>
+			<div class="rounded-3xl overflow-hidden bg-black aspect-square relative max-w-[280px] mx-auto">
+				<video bind:this={videoEl} autoplay playsinline muted class="w-full h-full object-cover"></video>
+				<canvas bind:this={canvasEl} class="hidden"></canvas>
+				<div class="absolute inset-0 pointer-events-none">
+					<div class="absolute inset-[12%] border-2 border-primary/40 rounded-2xl"></div>
+				</div>
+				<div class="absolute bottom-3 left-0 right-0 text-center">
+					<span class="text-[11px] text-white/80 bg-black/60 backdrop-blur-sm px-3 py-1.5 rounded-full">{scanStatus}</span>
+				</div>
 			</div>
-		</div>
-		<p class="text-xs text-muted-foreground text-center mb-3">
-			Or paste the master secret manually:
-		</p>
-		<div class="relative">
-			<textarea
-				bind:value={recoverInput}
-				placeholder="24 words or 64-char hex..."
-				class="w-full rounded-xl border border-input bg-background px-4 py-3 pr-20 text-base font-mono h-16 resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
-				autocomplete="off"
-				spellcheck="false"
-			></textarea>
-			<button onclick={pasteRecover}
-				class="absolute top-2 right-2 flex items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-all">
-				<ClipboardPaste class="w-3.5 h-3.5" /> Paste
-			</button>
-		</div>
-		<div class="flex gap-2 mt-4">
-			<button onclick={() => { stopCamera(); step = 'choose'; error = '' }}
-				class="flex-1 rounded-full border border-border px-4 py-3 text-sm font-medium hover:bg-muted transition-all">
-				Back
-			</button>
-			<button onclick={recoverFromSecret}
-				class="flex-1 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary transition-all disabled:opacity-40"
-				disabled={loading || (recoverInput.trim().length < 10)}>
-				{loading ? (scanProgress || 'Importing...') : 'Import'}
-			</button>
+			<p class="text-[11px] text-muted-foreground/60 text-center">
+				Or paste the master secret manually:
+			</p>
+			<div class="relative">
+				<textarea
+					bind:value={recoverInput}
+					placeholder="24 words or 64-char hex..."
+					class="w-full rounded-2xl bg-muted/50 px-4 py-3 pr-20 text-[14px] font-mono h-16 resize-none focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+					autocomplete="off"
+					spellcheck="false"
+				></textarea>
+				<button onclick={pasteRecover}
+					class="absolute top-2.5 right-2.5 flex items-center gap-1.5 rounded-full bg-muted/80 px-3 py-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-all">
+					<ClipboardPaste class="w-3 h-3" /> Paste
+				</button>
+			</div>
+			<div class="flex gap-3">
+				<button onclick={() => { stopCamera(); step = 'choose'; error = '' }}
+					class="flex-1 rounded-full bg-muted/50 px-4 py-3.5 text-[14px] font-medium hover:bg-muted/80 transition-all duration-200 active:scale-[0.97]">
+					Back
+				</button>
+				<button onclick={recoverFromSecret}
+					class="flex-1 rounded-full bg-primary px-4 py-3.5 text-[14px] font-medium text-primary-foreground transition-all duration-200 active:scale-[0.97] disabled:opacity-30"
+					disabled={loading || (recoverInput.trim().length < 10)}>
+					{loading ? (scanProgress || 'Importing...') : 'Import'}
+				</button>
+			</div>
 		</div>
 
 	{:else if step === 'encrypt'}
-		<h2 class="text-xl font-bold text-foreground mb-2">Protect Your Wallet</h2>
-		<p class="text-sm text-muted-foreground mb-5">Choose how to encrypt your wallet data.</p>
+		<div class="space-y-6">
+			<div class="text-center">
+				<h2 class="text-2xl font-light text-foreground tracking-tight mb-2">Protect Your Wallet</h2>
+				<p class="text-[13px] text-muted-foreground leading-relaxed">Choose how to encrypt your wallet data.</p>
+			</div>
 
-		<div class="space-y-2 mb-5">
-			<SelectionButton selected={selectedEncryption === 'none'} onclick={() => selectedEncryption = 'none'}>
-				<ShieldOff class="w-5 h-5 shrink-0" />
-				<div class="flex-1">
-					<p class="text-sm font-medium">No encryption</p>
-					<p class="text-[11px] {selectedEncryption === 'none' ? 'opacity-80' : 'text-muted-foreground'}">Quick access, less secure</p>
-				</div>
-			</SelectionButton>
-
-			<SelectionButton selected={selectedEncryption === 'password'} onclick={() => selectedEncryption = 'password'}>
-				<Lock class="w-5 h-5 shrink-0" />
-				<div class="flex-1">
-					<p class="text-sm font-medium">Password</p>
-					<p class="text-[11px] {selectedEncryption === 'password' ? 'opacity-80' : 'text-muted-foreground'}">Argon2 + AES-256-GCM — enter password each time</p>
-				</div>
-			</SelectionButton>
-
-			{#if webauthnAvailable}
-				<SelectionButton selected={selectedEncryption === 'passkey'} onclick={() => selectedEncryption = 'passkey'}>
-					<Fingerprint class="w-5 h-5 shrink-0" />
+			<div class="space-y-2">
+				<SelectionButton selected={selectedEncryption === 'none'} onclick={() => selectedEncryption = 'none'}>
+					<ShieldOff class="w-5 h-5 shrink-0" />
 					<div class="flex-1">
-						<p class="text-sm font-medium">Passkey</p>
-						<p class="text-[11px] {selectedEncryption === 'passkey' ? 'opacity-80' : 'text-muted-foreground'}">Face ID / Touch ID / fingerprint — biometric unlock</p>
+						<p class="text-[14px] font-medium">No encryption</p>
+						<p class="text-[11px] {selectedEncryption === 'none' ? 'opacity-70' : 'text-muted-foreground'}">Wallet data stored unencrypted</p>
 					</div>
 				</SelectionButton>
-			{/if}
-		</div>
 
-		{#if selectedEncryption === 'password'}
-			<form onsubmit={(e) => { e.preventDefault(); confirmEncryption(); }} class="space-y-2 mb-4" action="https://weby.cash/wallet" method="POST">
-				<input type="text" name="username" autocomplete="username" value={`webycash-encrypt-password-${credentialSuffix}`} class="hidden" tabindex="-1" aria-hidden="true" />
-				<input
-					type="password"
-					name="password"
-					autocomplete="new-password"
-					bind:value={encPassword}
-					placeholder="Password (min 8 characters)"
-					class="w-full rounded-full border border-input bg-background px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
-				/>
-				<input
-					type="password"
-					autocomplete="new-password"
-					bind:value={encPasswordConfirm}
-					placeholder="Confirm password"
-					class="w-full rounded-full border border-input bg-background px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
-				/>
-			</form>
-		{/if}
+				<SelectionButton selected={selectedEncryption === 'password'} onclick={() => selectedEncryption = 'password'}>
+					<Lock class="w-5 h-5 shrink-0" />
+					<div class="flex-1">
+						<p class="text-[14px] font-medium">Password</p>
+						<p class="text-[11px] {selectedEncryption === 'password' ? 'opacity-70' : 'text-muted-foreground'}">Argon2 + AES-256-GCM encryption</p>
+					</div>
+				</SelectionButton>
 
-		{#if encError}
-			<div class="mb-4 rounded-2xl bg-danger border border-danger px-4 py-3 text-sm text-danger-foreground dark:text-danger-foreground">
-				{encError}
+				{#if webauthnAvailable}
+					<SelectionButton selected={selectedEncryption === 'passkey'} onclick={() => selectedEncryption = 'passkey'}>
+						<Fingerprint class="w-5 h-5 shrink-0" />
+						<div class="flex-1">
+							<p class="text-[14px] font-medium">Passkey</p>
+							<p class="text-[11px] {selectedEncryption === 'passkey' ? 'opacity-70' : 'text-muted-foreground'}">Face ID / Touch ID / fingerprint</p>
+						</div>
+					</SelectionButton>
+				{/if}
 			</div>
-		{/if}
 
-		<button onclick={confirmEncryption}
-			class="w-full flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-all
-				{encLoading ? 'opacity-50 animate-pulse' : 'hover:opacity-90'}"
-			disabled={encLoading || (selectedEncryption === 'password' && (!encPassword || encPassword.length < 8))}>
-			{#if encLoading}
-				{selectedEncryption === 'passkey' ? 'Authenticating...' : 'Encrypting...'}
-			{:else if selectedEncryption === 'passkey'}
-				Encrypt with Passkey
-			{:else if selectedEncryption === 'password'}
-				Encrypt
-			{:else}
-				Skip Encryption
+			{#if selectedEncryption === 'password'}
+				<form onsubmit={(e) => { e.preventDefault(); confirmEncryption(); }} class="space-y-2" action="https://weby.cash/wallet" method="POST">
+					<input type="text" name="username" autocomplete="username" value={`webycash-encrypt-password-${credentialSuffix}`} class="hidden" tabindex="-1" aria-hidden="true" />
+					<input
+						type="password"
+						name="password"
+						autocomplete="new-password"
+						bind:value={encPassword}
+						placeholder="Password (min 8 characters)"
+						class="w-full rounded-full bg-muted/50 px-4 py-3.5 text-[14px] focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+					/>
+					<input
+						type="password"
+						autocomplete="new-password"
+						bind:value={encPasswordConfirm}
+						placeholder="Confirm password"
+						class="w-full rounded-full bg-muted/50 px-4 py-3.5 text-[14px] focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+					/>
+				</form>
 			{/if}
-		</button>
 
-		<button onclick={() => { step = 'choose'; encError = ''; }}
-			class="w-full mt-3 text-sm text-muted-foreground hover:text-foreground transition-all">
-			Back
-		</button>
+			{#if encError}
+				<div class="rounded-2xl bg-muted/50 px-4 py-3 text-[13px] text-foreground">
+					{encError}
+				</div>
+			{/if}
 
+			<button onclick={confirmEncryption}
+				class="w-full rounded-full bg-primary px-4 py-3.5 text-[14px] font-medium text-primary-foreground transition-all duration-200 active:scale-[0.97]
+					{encLoading ? 'opacity-40' : 'hover:opacity-90'}"
+				disabled={encLoading || (selectedEncryption === 'password' && (!encPassword || encPassword.length < 8))}>
+				{#if encLoading}
+					{selectedEncryption === 'passkey' ? 'Authenticating...' : 'Encrypting...'}
+				{:else if selectedEncryption === 'passkey'}
+					Encrypt with Passkey
+				{:else if selectedEncryption === 'password'}
+					Encrypt
+				{:else}
+					Skip Encryption
+				{/if}
+			</button>
+
+			<button onclick={() => { step = 'choose'; encError = ''; }}
+				class="w-full text-[13px] text-muted-foreground hover:text-foreground transition-all">
+				Back
+			</button>
+		</div>
 	{/if}
 
 	{#if error}
-		<div class="mt-4 rounded-2xl bg-danger border border-danger px-4 py-3 text-sm text-danger-foreground dark:text-danger-foreground">
+		<div class="mt-6 rounded-2xl bg-muted/50 px-4 py-3 text-[13px] text-foreground">
 			{error}
 		</div>
 	{/if}
+	</div>
 </div>

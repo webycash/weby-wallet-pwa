@@ -22,35 +22,35 @@
 	};
 </script>
 
-<div class="min-h-[100dvh] flex items-center justify-center px-4">
-	<div class="w-full max-w-xs space-y-6">
+<div class="min-h-[100dvh] flex items-center justify-center px-6">
+	<div class="w-full max-w-sm space-y-8">
 		{#if hasGift}
-			<div class="text-center mb-2">
-				<Gift class="w-8 h-8 text-primary mx-auto mb-3" />
-				<p class="text-sm text-muted-foreground mb-1">Someone sent you</p>
-				<p class="text-3xl font-bold text-foreground">₩{giftAmount || '?'}</p>
-				{#if giftMemo}<p class="text-sm text-muted-foreground mt-2 italic">"{giftMemo}"</p>{/if}
+			<div class="text-center">
+				<Gift class="w-10 h-10 text-primary mx-auto mb-4 opacity-60" />
+				<p class="text-[13px] text-muted-foreground mb-2">Someone sent you</p>
+				<p class="text-4xl font-light text-foreground tracking-tight">₩{giftAmount || '?'}</p>
+				{#if giftMemo}<p class="text-[13px] text-muted-foreground mt-3 italic">"{giftMemo}"</p>{/if}
 			</div>
 		{/if}
 
-		<div>
-			<h2 class="text-lg font-bold text-foreground">Terms of Service</h2>
-			<p class="text-sm text-muted-foreground mt-1">
+		<div class="text-center">
+			<h2 class="text-2xl font-light text-foreground tracking-tight mb-3">Terms of Service</h2>
+			<p class="text-[13px] text-muted-foreground leading-relaxed">
 				By using this wallet you agree to the
-				<a href="https://webcash.org/terms" target="_blank" rel="noopener noreferrer" class="text-primary underline">Webcash Terms of Service</a>.
+				<a href="https://webcash.org/terms" target="_blank" rel="noopener noreferrer" class="text-primary hover:opacity-80 transition-opacity">Webcash Terms of Service</a>.
 			</p>
 		</div>
 
-		<label class="flex items-center gap-3 cursor-pointer">
-			<input type="checkbox" bind:checked={tosChecked} class="h-4 w-4 rounded border-border accent-primary" />
-			<span class="text-sm text-foreground">I accept the terms</span>
+		<label class="flex items-center justify-center gap-3 cursor-pointer">
+			<input type="checkbox" bind:checked={tosChecked} class="h-4 w-4 rounded accent-primary" />
+			<span class="text-[13px] text-foreground">I accept the terms</span>
 		</label>
 
 		<button
 			onclick={accept}
 			disabled={!tosChecked}
-			class="w-full rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-all
-				{tosChecked ? 'hover:opacity-90' : 'opacity-50 cursor-not-allowed'}"
+			class="w-full rounded-full bg-primary px-4 py-3.5 text-[14px] font-medium text-primary-foreground transition-all duration-200 active:scale-[0.97]
+				{tosChecked ? 'hover:opacity-90' : 'opacity-30 cursor-not-allowed'}"
 		>
 			{hasGift ? 'Accept & Claim' : 'Continue'}
 		</button>
