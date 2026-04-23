@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import { setMining, stopMining, type MinerStats } from '$lib/core/miner';
+	import { isMining, setMining, stopMining, type MinerStats } from '$lib/core/miner';
 	import { getMasterSecret, getRawState, setRawState } from '$lib/stores/wallet.svelte';
 	import { getWasm } from '$lib/core/wasm';
 	import type { NetworkMode } from '$lib/core/types';
@@ -116,7 +116,8 @@
 
 		// Auto-resume from saved snapshot (page reload / iOS tab kill)
 		const snap = loadSnapshot();
-		if (snap?.active && useGpu) {
+		if (snap?.active && useGpu && !isMining()) {
+			clearSnapshot();
 			mineGpu(snap);
 		}
 	});
@@ -124,6 +125,7 @@
 	onDestroy(() => {
 		document.removeEventListener('visibilitychange', handleMinerVisibility);
 		if (running) {
+			running = false;
 			saveSnapshot();
 			setMining(false);
 			stopKeepAlive();
@@ -131,6 +133,7 @@
 	});
 
 	const mineGpu = async (resume?: any) => {
+		if (isMining()) return; // guard against concurrent GPU access
 		error = ''; result = ''; resultHash = '';
 		running = true;
 		setMining(true);
