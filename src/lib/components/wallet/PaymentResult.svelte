@@ -64,26 +64,21 @@
 	};
 </script>
 
-<div class="space-y-5">
-	<div class="flex items-center justify-between">
-		<div class="flex items-center gap-2">
-			<div class="w-6 h-6 rounded-full bg-success flex items-center justify-center">
-				<Check class="w-3 h-3" />
-			</div>
-			<p class="text-sm text-muted-foreground">Sent <span class="font-semibold text-foreground">₩{displayAmount}</span></p>
+<div class="max-w-sm mx-auto space-y-5 text-center">
+	<div class="flex items-center justify-center gap-2.5">
+		<div class="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center">
+			<Check class="w-4 h-4 text-primary" />
 		</div>
-		<button onclick={onDone} class="text-muted-foreground hover:text-foreground transition-all">
-			<X class="w-5 h-5" />
-		</button>
+		<p class="text-[15px] text-muted-foreground">Sent <span class="font-semibold text-foreground">₩{displayAmount}</span></p>
 	</div>
 
 	{#if memo}
-		<p class="text-sm text-muted-foreground italic">"{memo}"</p>
+		<p class="text-[14px] text-muted-foreground italic">"{memo}"</p>
 	{/if}
 
 	<div>
-		<p class="text-xs text-muted-foreground mb-2">Send this to the recipient</p>
-		<button class="text-lg font-mono font-semibold text-foreground tracking-tight select-all cursor-pointer text-left" onclick={copyWebcash}>{truncated}</button>
+		<p class="text-[13px] text-muted-foreground mb-2">Send this to the recipient</p>
+		<button class="text-[15px] font-mono font-semibold text-foreground tracking-tight select-all cursor-pointer" onclick={copyWebcash}>{truncated}</button>
 	</div>
 
 	<div class="grid grid-cols-2 gap-2">
@@ -114,9 +109,14 @@
 		{/if}
 	</div>
 
-	<p class="text-xs text-muted-foreground text-center">
+	<p class="text-[12px] text-muted-foreground">
 		The recipient can open the link to instantly claim this webcash
 	</p>
+
+	<button onclick={onDone}
+		class="text-[13px] text-muted-foreground hover:text-foreground transition-all duration-200">
+		Done
+	</button>
 </div>
 
 {#if showQr}
