@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Copy, Check, Share2, X, QrCode } from '@lucide/svelte';
 	import { getNetwork } from '$lib/stores/network.svelte';
+	import { secretToPublic, parseAmount, formatPublicWebcash } from '$lib/stores/wallet.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
 
 	let { webcash, memo = '', onDone }: { webcash: string; memo?: string; onDone: () => void } = $props();
@@ -8,6 +9,7 @@
 	let copied = $state(false);
 	let copiedLink = $state(false);
 	let displayAmount = $state('');
+	let publicWc = $state('');
 	let showQr = $state(false);
 	let qrDataUrl = $state('');
 
@@ -15,13 +17,20 @@
 
 	$effect(() => {
 		try {
-			const match = webcash.match(/^e([^:]+):secret:/);
-			if (match) displayAmount = match[1];
+			const match = webcash.match(/^e([^:]+):secret:([0-9a-fA-F]{64})$/);
+			if (match) {
+				displayAmount = match[1];
+				(async () => {
+					const hash = await secretToPublic(match[2]);
+					const wats = await parseAmount(match[1]);
+					publicWc = await formatPublicWebcash(hash, wats);
+				})().catch(() => {});
+			}
 		} catch {}
 	});
 
 	const walletUrl = $derived(
-		`https://weby.cash/wallet?webcash=${encodeURIComponent(webcash)}&network=${network}&amount=${encodeURIComponent(displayAmount)}${memo ? `&memo=${encodeURIComponent(memo)}` : ''}`
+		`https://weby.cash/wallet?webcash=${encodeURIComponent(webcash)}&network=${network}&amount=${encodeURIComponent(displayAmount)}${memo ? `&memo=${encodeURIComponent(memo)}` : ''}${publicWc ? `&pub=${encodeURIComponent(publicWc)}` : ''}`
 	);
 
 	const truncated = $derived(webcash.length > 32 ? webcash.slice(0, 16) + '...' + webcash.slice(-12) : webcash);

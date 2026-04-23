@@ -35,17 +35,9 @@ function esc(s) {
 }
 
 // --- Webcash verification helpers ---
-
-async function sha256hex(str) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-function parseWebcash(str) {
-  const m = str.match(/^e([^:]+):secret:([0-9a-fA-F]{64})$/);
-  if (!m) return null;
-  return { amount: m[1], secret: m[2] };
-}
+// The worker never handles secrets — it receives the pre-computed public
+// webcash string (e.g. "e1.00000000:public:hash...") from the client and
+// passes it directly to the read-only health_check endpoint.
 
 function apiUrl(network) {
   return network === 'testnet'
@@ -53,12 +45,8 @@ function apiUrl(network) {
     : 'https://webcash.org/api/v1';
 }
 
-async function checkSpent(network, webcashStr) {
-  const parsed = parseWebcash(webcashStr);
-  if (!parsed) return null;
-
-  const hash = await sha256hex(parsed.secret);
-  const publicWc = `e${parsed.amount}:public:${hash}`;
+async function checkSpent(network, publicWc) {
+  if (!publicWc) return null;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 4000);
@@ -204,11 +192,11 @@ export default {
 
       // Bots get dynamic OG HTML with webcash verification
       if (BOTS.test(ua)) {
-        const webcash = url.searchParams.get('webcash') || '';
+        const pub = url.searchParams.get('pub') || '';
         const network = url.searchParams.get('network') || 'production';
 
-        // Verify webcash if present — defaults to valid on any error
-        const spent = webcash ? await checkSpent(network, webcash) : null;
+        // Verify public webcash if present — defaults to valid on any error
+        const spent = pub ? await checkSpent(network, pub) : null;
         const spentParam = spent === true ? '1' : '0';
 
         const imgUrl = `https://weby.cash/wallet/og-card.png?amount=${encodeURIComponent(amount)}${memo ? '&memo=' + encodeURIComponent(memo) : ''}&spent=${spentParam}`;
