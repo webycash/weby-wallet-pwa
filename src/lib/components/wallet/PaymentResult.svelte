@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Copy, Check, Share2, X, QrCode } from '@lucide/svelte';
+	import { Copy, Check, Share2, X, QrCode, Mail } from '@lucide/svelte';
 	import { getNetwork } from '$lib/stores/network.svelte';
 	import { secretToPublic, parseAmount, formatPublicWebcash } from '$lib/stores/wallet.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
@@ -43,6 +43,18 @@
 	const copyLink = async () => { await navigator.clipboard.writeText(walletUrl); copiedLink = true; setTimeout(() => { copiedLink = false; }, 2000); };
 	const shareNative = async () => { if (navigator.share) await navigator.share({ url: walletUrl }); };
 	const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+
+	const shareEmail = () => {
+		const subject = encodeURIComponent(memo ? `You received ₩${displayAmount} webcash — "${memo}"` : `You received ₩${displayAmount} webcash`);
+		const body = encodeURIComponent(
+			(memo ? `"${memo}"\n\n` : '') +
+			`You received ₩${displayAmount} webcash.\n` +
+			`Open this link to claim it:\n\n` +
+			`${walletUrl}\n\n` +
+			`— Sent via weby.cash`
+		);
+		window.open(`mailto:?subject=${subject}&body=${body}`, '_self');
+	};
 
 	const openQr = async () => {
 		const QR = (await import('qrcode')).default;
@@ -102,13 +114,16 @@
 		</Button>
 	</div>
 
-	<div class="grid grid-cols-2 gap-2">
+	<div class="grid grid-cols-3 gap-2">
 		<Button variant="outline" onclick={openQr}>
-			<QrCode class="w-4 h-4" /> Show QR
+			<QrCode class="w-4 h-4" /> QR
+		</Button>
+		<Button variant="outline" onclick={shareEmail}>
+			<Mail class="w-4 h-4" /> Email
 		</Button>
 		{#if canShare}
 			<Button variant="outline" onclick={shareNative}>
-				<Share2 class="w-4 h-4" /> Share via...
+				<Share2 class="w-4 h-4" /> Share
 			</Button>
 		{/if}
 	</div>
