@@ -281,7 +281,7 @@
 	<div class="w-full max-w-sm">
 	{#if loading}
 		<div class="flex flex-col items-center justify-center gap-5 py-20">
-			<Loader size="sm" />
+			<Loader />
 			{#if scanProgress}
 				<p class="text-[14px] text-muted-foreground">{scanProgress}</p>
 			{/if}
