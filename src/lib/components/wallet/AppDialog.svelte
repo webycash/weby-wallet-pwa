@@ -80,13 +80,15 @@
 				<form onsubmit={(e) => { e.preventDefault(); if (state.inputValue.trim()) close(state.inputValue.trim()); }}
 					class="mt-2">
 					{#if state.inputLabel}
-						<label class="text-xs font-medium text-muted-foreground mb-1.5 block">{state.inputLabel}</label>
+						<label for="app-dialog-input" class="text-xs font-medium text-muted-foreground mb-1.5 block">{state.inputLabel}</label>
 					{/if}
+					<!-- svelte-ignore a11y_autofocus -->
 					<input
+						id="app-dialog-input"
 						type="text"
 						bind:value={state.inputValue}
 						placeholder={state.inputPlaceholder}
-						class="w-full rounded-full border border-input bg-background px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+						class="w-full rounded-full bg-muted/50 px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-primary transition-all"
 						autofocus
 					/>
 				</form>

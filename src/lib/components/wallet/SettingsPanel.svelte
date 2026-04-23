@@ -152,7 +152,7 @@
 		} catch (e) { onMessage(`Export failed: ${e}`, 'error'); }
 	};
 
-	const isDetail = !!section;
+	const isDetail = $derived(!!section);
 	const sectionClass = 'rounded-2xl bg-card overflow-hidden';
 	const summaryClass = 'flex items-center gap-3 px-4 py-3.5 cursor-pointer select-none hover:bg-muted/40 transition-all duration-200 text-[13px] font-semibold';
 	const contentClass = isDetail ? 'space-y-3' : 'px-4 pb-4 space-y-3';

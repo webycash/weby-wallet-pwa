@@ -73,7 +73,7 @@
 
 	<div>
 		<p class="text-xs text-muted-foreground mb-2">Send this to the recipient</p>
-		<code class="text-lg font-mono font-semibold text-foreground tracking-tight select-all cursor-pointer" onclick={copyWebcash}>{truncated}</code>
+		<button class="text-lg font-mono font-semibold text-foreground tracking-tight select-all cursor-pointer text-left" onclick={copyWebcash}>{truncated}</button>
 	</div>
 
 	<div class="grid grid-cols-2 gap-2">
