@@ -121,7 +121,7 @@
 			<div class="flex items-center justify-between">
 				<h3 class="text-sm font-semibold text-foreground">Scan QR Code</h3>
 				<button onclick={stopScan} class="text-muted-foreground hover:text-foreground transition-all">
-					<X class="w-4 h-4" />
+					<X class="w-5 h-5" />
 				</button>
 			</div>
 			<div class="rounded-2xl overflow-hidden bg-black aspect-square relative">

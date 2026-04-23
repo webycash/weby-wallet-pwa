@@ -72,7 +72,7 @@
 			<p class="text-sm text-muted-foreground">Sent <span class="font-semibold text-foreground">₩{displayAmount}</span></p>
 		</div>
 		<button onclick={onDone} class="text-muted-foreground hover:text-foreground transition-all">
-			<X class="w-4 h-4" />
+			<X class="w-5 h-5" />
 		</button>
 	</div>
 
@@ -128,7 +128,7 @@
 			<div class="flex items-center justify-between">
 				<p class="text-sm font-semibold text-foreground">₩{displayAmount} webcash</p>
 				<button onclick={() => showQr = false} class="text-muted-foreground hover:text-foreground transition-all">
-					<X class="w-4 h-4" />
+					<X class="w-5 h-5" />
 				</button>
 			</div>
 			{#if qrDataUrl}
@@ -136,7 +136,7 @@
 			{/if}
 			<div class="grid grid-cols-2 gap-2">
 				<Button variant="outline" onclick={() => showQr = false}>
-					<X class="w-4 h-4" /> Close
+					<X class="w-5 h-5" /> Close
 				</Button>
 				{#if canShare}
 					<Button onclick={shareQr}>

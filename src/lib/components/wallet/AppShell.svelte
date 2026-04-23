@@ -267,12 +267,12 @@
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div class="fixed inset-0 z-50 bg-background/60 backdrop-blur-md" onclick={dismissMessage}></div>
-		<div class="fixed inset-4 md:inset-x-auto md:inset-y-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-md z-50 bg-background rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-scale-in"
+		<div class="fixed top-14 left-4 right-4 bottom-4 md:inset-x-auto md:inset-y-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-md z-50 bg-background rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-scale-in"
 			role="dialog" aria-modal="true" aria-label="Error">
-			<div class="flex items-center justify-between px-5 py-4">
+			<div class="flex items-center justify-between px-6 py-5">
 				<h2 class="text-[17px] font-semibold">Something went wrong</h2>
 				<button onclick={dismissMessage}
-					class="flex items-center justify-center w-8 h-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all duration-200"
+					class="flex items-center justify-center w-11 h-11 rounded-full bg-muted/40 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
 					aria-label="Close">
 					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
 				</button>
