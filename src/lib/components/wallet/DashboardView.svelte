@@ -3,6 +3,7 @@
 	import InsertForm from './InsertForm.svelte';
 	import PayForm from './PayForm.svelte';
 	import PaymentResult from './PaymentResult.svelte';
+	import Loader from '$lib/components/ui/Loader.svelte';
 	import type { NetworkMode } from '$lib/core/types';
 
 	let { balanceWats, formatAmount, network, loading, message, messageType, copiedError,
@@ -110,6 +111,12 @@
 	</div>
 
 	<!-- Install App -->
+	{#if loading && !activePanel}
+		<div class="flex justify-center py-10 animate-fade-in">
+			<Loader />
+		</div>
+	{/if}
+
 	{#if paymentResult}
 		<div class="animate-fade-in">
 			<PaymentResult webcash={paymentResult} memo={paymentMemo} onDone={onClearPayment} />
