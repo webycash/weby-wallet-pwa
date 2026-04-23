@@ -74,6 +74,14 @@
 		if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`;
 		return `${n}`;
 	};
+	const fmtCompact = (v: string | number): string => {
+		const n = typeof v === 'string' ? parseFloat(v.replace(/,/g, '')) : v;
+		if (isNaN(n)) return `${v}`;
+		if (n >= 1e9) return `${(n / 1e9).toFixed(2)}B`;
+		if (n >= 1e6) return `${(n / 1e6).toFixed(2)}M`;
+		if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`;
+		return `${n}`;
+	};
 	const fmtRate = (r: number): string => {
 		if (r >= 1e6) return `${(r / 1e6).toFixed(1)} MH/s`;
 		if (r >= 1e3) return `${(r / 1e3).toFixed(1)} KH/s`;
@@ -286,7 +294,7 @@
 			<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
 				<div class="rounded-2xl bg-card p-3.5">
 					<p class="text-[10px] text-muted-foreground mb-1 tracking-wide">Circulation</p>
-					<p class="text-[13px] font-medium text-foreground tabular-nums">{netStats.circulation_formatted}</p>
+					<p class="text-[13px] font-medium text-foreground tabular-nums">{fmtCompact(netStats.circulation_formatted)}</p>
 				</div>
 				<div class="rounded-2xl bg-card p-3.5">
 					<p class="text-[10px] text-muted-foreground mb-1 tracking-wide">Epoch</p>
@@ -294,7 +302,7 @@
 				</div>
 				<div class="rounded-2xl bg-card p-3.5">
 					<p class="text-[10px] text-muted-foreground mb-1 tracking-wide">Mining Reports</p>
-					<p class="text-[13px] font-medium text-foreground tabular-nums">{netStats.mining_reports?.toLocaleString()}</p>
+					<p class="text-[13px] font-medium text-foreground tabular-nums">{fmtCompact(netStats.mining_reports ?? 0)}</p>
 				</div>
 				<div class="rounded-2xl bg-card p-3.5">
 					<p class="text-[10px] text-muted-foreground mb-1 tracking-wide">Subsidy</p>
