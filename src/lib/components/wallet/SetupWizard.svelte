@@ -5,7 +5,8 @@
 	import { setNetwork, getNetwork } from '$lib/stores/network.svelte';
 	import { isWebAuthnAvailable, encryptWithPasskey, encryptWithPassword } from '$lib/core/encryption';
 	import type { WalletSnapshot } from '$lib/core/types';
-	import { Plus, KeyRound, Upload, Lock, Fingerprint, ShieldOff, ScanLine, LoaderCircle, ClipboardPaste } from '@lucide/svelte';
+	import { Plus, KeyRound, Upload, Lock, Fingerprint, ShieldOff, ScanLine, ClipboardPaste } from '@lucide/svelte';
+	import Loader from '$lib/components/ui/Loader.svelte';
 	import SelectionButton from '$lib/components/ui/selection-button.svelte';
 
 	type Step = 'choose' | 'recover' | 'qrscan' | 'encrypt';
@@ -280,7 +281,7 @@
 	<div class="w-full max-w-sm">
 	{#if loading}
 		<div class="flex flex-col items-center justify-center gap-5 py-20">
-			<LoaderCircle class="w-8 h-8 text-primary animate-spin opacity-60" />
+			<Loader size="sm" />
 			{#if scanProgress}
 				<p class="text-[14px] text-muted-foreground">{scanProgress}</p>
 			{/if}
