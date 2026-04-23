@@ -121,15 +121,17 @@
 {#if activePanel === 'insert'}
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div class="fixed inset-0 z-50 bg-background/60 backdrop-blur-md animate-fade-in" onclick={() => activePanel = null}></div>
-	<div class="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md px-5 animate-scale-in"
+	<div class="fixed inset-0 z-50 flex flex-col items-center justify-start pt-24 md:justify-center md:pt-0 px-5 animate-fade-in"
 		role="dialog" aria-modal="true" aria-label="Insert webcash">
-		<button onclick={() => activePanel = null}
-			class="flex items-center justify-center w-14 h-14 rounded-full bg-muted/40 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200 mb-4 ml-auto"
-			aria-label="Close">
-			<X class="w-7 h-7" />
-		</button>
-		<InsertForm onSubmit={(s) => { activePanel = null; onInsert(s); }} disabled={loading} />
+		<div class="absolute inset-0 bg-background/60 backdrop-blur-md" onclick={() => activePanel = null}></div>
+		<div class="relative w-full max-w-md animate-scale-in">
+			<button onclick={() => activePanel = null}
+				class="flex items-center justify-center w-14 h-14 rounded-full bg-muted/40 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200 mb-4 ml-auto"
+				aria-label="Close">
+				<X class="w-7 h-7" />
+			</button>
+			<InsertForm onSubmit={(s) => { activePanel = null; onInsert(s); }} disabled={loading} />
+		</div>
 	</div>
 {/if}
 
@@ -137,15 +139,17 @@
 {#if activePanel === 'pay'}
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div class="fixed inset-0 z-50 bg-background/60 backdrop-blur-md animate-fade-in" onclick={() => activePanel = null}></div>
-	<div class="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md px-5 animate-scale-in"
+	<div class="fixed inset-0 z-50 flex flex-col items-center justify-start pt-24 md:justify-center md:pt-0 px-5 animate-fade-in"
 		role="dialog" aria-modal="true" aria-label="Pay webcash">
-		<button onclick={() => activePanel = null}
-			class="flex items-center justify-center w-14 h-14 rounded-full bg-muted/40 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200 mb-4 ml-auto"
-			aria-label="Close">
-			<X class="w-7 h-7" />
-		</button>
-		<PayForm onSubmit={(a, m) => { activePanel = null; onPay(a, m); }} disabled={loading} formatAmount={formatAmount} {balanceWats} />
+		<div class="absolute inset-0 bg-background/60 backdrop-blur-md" onclick={() => activePanel = null}></div>
+		<div class="relative w-full max-w-md animate-scale-in">
+			<button onclick={() => activePanel = null}
+				class="flex items-center justify-center w-14 h-14 rounded-full bg-muted/40 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200 mb-4 ml-auto"
+				aria-label="Close">
+				<X class="w-7 h-7" />
+			</button>
+			<PayForm onSubmit={(a, m) => { activePanel = null; onPay(a, m); }} disabled={loading} formatAmount={formatAmount} {balanceWats} />
+		</div>
 	</div>
 {/if}
 
