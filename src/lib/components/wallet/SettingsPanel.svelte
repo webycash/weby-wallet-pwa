@@ -154,7 +154,7 @@
 
 	const isDetail = $derived(!!section);
 	const sectionClass = 'rounded-2xl bg-card overflow-hidden';
-	const summaryClass = 'flex items-center gap-3 px-4 py-3.5 cursor-pointer select-none hover:bg-muted/40 transition-all duration-200 text-[13px] font-semibold';
+	const summaryClass = 'flex items-center gap-3 px-4 py-3.5 cursor-pointer select-none hover:bg-muted/40 transition-all duration-200 text-[15px] font-semibold';
 	const contentClass = isDetail ? 'space-y-3' : 'px-4 pb-4 space-y-3';
 	const disabledClass = 'rounded-2xl bg-card opacity-30';
 </script>
@@ -162,8 +162,8 @@
 {#snippet walletContent()}
 	<div class={contentClass}>
 		<div class="flex items-center gap-2">
-			<span class="text-sm text-muted-foreground">Label:</span>
-			<span class="text-sm font-medium capitalize">{activeLabel}</span>
+			<span class="text-[14px] text-muted-foreground">Label:</span>
+			<span class="text-[14px] font-medium capitalize">{activeLabel}</span>
 			<span class="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground capitalize">{activeFamily}</span>
 			{#if isRoamingWallet}
 				<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-warning/20 text-warning font-semibold">Roaming</span>
@@ -209,7 +209,7 @@
 		</div>
 		{#if mnemonicWords}
 			<div class="pt-3">
-				<p class="text-xs text-muted-foreground mb-2">BIP39/BIP32 Mnemonic (keep secret)</p>
+				<p class="text-[13px] text-muted-foreground mb-2">BIP39/BIP32 Mnemonic (keep secret)</p>
 				<div class="rounded-2xl bg-muted/50 p-3 text-sm font-mono leading-relaxed break-words select-all">
 					{mnemonicWords}
 				</div>
@@ -220,7 +220,7 @@
 		{/if}
 		{#if qrDataUrl}
 			<div class="pt-3 text-center">
-				<p class="text-xs text-muted-foreground mb-3">Scan to import wallet</p>
+				<p class="text-[13px] text-muted-foreground mb-3">Scan to import wallet</p>
 				<div class="inline-block bg-white rounded-2xl p-4"><img src={qrDataUrl} alt="Wallet QR" class="w-48 h-48" /></div>
 			</div>
 		{/if}
@@ -234,7 +234,7 @@
 
 {#snippet webcashContent()}
 	<div class={contentClass}>
-		<p class="text-xs text-muted-foreground">Import a roaming webcash wallet from file or master secret.</p>
+		<p class="text-[13px] text-muted-foreground">Import a roaming webcash wallet from file or master secret.</p>
 
 		<input type="file" accept=".webcash,.json" bind:this={fileInputEl}
 			onchange={(e) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) importFile = f; }}
@@ -249,7 +249,7 @@
 			{#if importFile}
 				<input bind:value={importLabel} placeholder="Label"
 					class="w-full rounded-2xl bg-muted/50 px-3 py-1.5 text-sm" />
-				<label class="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
+				<label class="flex items-center gap-1.5 text-[13px] text-muted-foreground cursor-pointer">
 					<input type="checkbox" bind:checked={importShowPassword} class="rounded" />
 					Encrypted
 				</label>
@@ -297,7 +297,7 @@
 		<summary class={summaryClass}>
 			<Key class="w-4 h-4 text-muted-foreground" />
 			<span class="flex-1">Selected</span>
-			<span class="text-xs text-muted-foreground font-normal capitalize">{activeLabel}</span>
+			<span class="text-[13px] text-muted-foreground font-normal capitalize">{activeLabel}</span>
 		</summary>
 		<div class="px-4 pb-4">{@render walletContent()}</div>
 	</details>
@@ -322,7 +322,7 @@
 		<div class={summaryClass}>
 			<span class="w-4 h-4 text-muted-foreground font-bold text-sm leading-4">B</span>
 			<span class="flex-1">Bitcoin</span>
-			<span class="text-xs text-muted-foreground">Coming soon</span>
+			<span class="text-[13px] text-muted-foreground">Coming soon</span>
 		</div>
 	</div>
 
@@ -333,7 +333,7 @@
 				<circle cx="12" cy="14" r="3" />
 			</svg>
 			<span class="flex-1">RGB</span>
-			<span class="text-xs text-muted-foreground">Coming soon</span>
+			<span class="text-[13px] text-muted-foreground">Coming soon</span>
 		</div>
 	</div>
 </div>

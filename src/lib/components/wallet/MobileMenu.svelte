@@ -64,9 +64,9 @@
 			<!-- Main menu -->
 			<div class="flex justify-end p-4">
 				<button onclick={closeMenu}
-					class="flex items-center justify-center w-11 h-11 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all duration-200"
+					class="flex items-center justify-center w-14 h-14 rounded-full bg-muted/40 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
 					aria-label="Close menu">
-					<X class="w-5 h-5" />
+					<X class="w-7 h-7" />
 				</button>
 			</div>
 
@@ -130,9 +130,9 @@
 			<!-- Settings section list -->
 			<div class="flex items-center gap-3 p-4">
 				<button onclick={popSettings}
-					class="flex items-center justify-center w-11 h-11 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all duration-200"
+					class="flex items-center justify-center w-14 h-14 rounded-full bg-muted/40 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
 					aria-label="Back">
-					<ArrowLeft class="w-5 h-5" />
+					<ArrowLeft class="w-6 h-6" />
 				</button>
 				<h2 class="text-[19px] font-semibold">Settings</h2>
 			</div>
@@ -160,9 +160,9 @@
 			<!-- Settings detail view -->
 			<div class="flex items-center gap-3 p-4">
 				<button onclick={popSettingsDetail}
-					class="flex items-center justify-center w-11 h-11 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all duration-200"
+					class="flex items-center justify-center w-14 h-14 rounded-full bg-muted/40 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
 					aria-label="Back">
-					<ArrowLeft class="w-5 h-5" />
+					<ArrowLeft class="w-6 h-6" />
 				</button>
 				<h2 class="text-[19px] font-semibold">{detailTitle}</h2>
 			</div>

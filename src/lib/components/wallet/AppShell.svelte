@@ -271,7 +271,7 @@
 			<div class="flex items-center justify-between px-6 py-5">
 				<h2 class="text-[17px] font-semibold">Something went wrong</h2>
 				<button onclick={dismissMessage}
-					class="flex items-center justify-center w-11 h-11 rounded-full bg-muted/40 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
+					class="flex items-center justify-center w-14 h-14 rounded-full bg-muted/40 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
 					aria-label="Close">
 					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
 				</button>

@@ -68,16 +68,16 @@
 		<SelectionButton selected={current === 'none'} disabled={loading} onclick={selectNone}>
 			<ShieldOff class="w-4 h-4 shrink-0" />
 			<div class="flex-1 min-w-0">
-				<p class="text-sm font-medium">No encryption</p>
-				<p class="text-[11px] {current === 'none' ? 'opacity-80' : 'text-muted-foreground'}">Wallet data stored unencrypted</p>
+				<p class="text-[14px] font-medium">No encryption</p>
+				<p class="text-[13px] {current === 'none' ? 'opacity-80' : 'text-muted-foreground'}">Wallet data stored unencrypted</p>
 			</div>
 		</SelectionButton>
 
 		<SelectionButton selected={current === 'password'} disabled={loading} onclick={selectPassword}>
 			<Lock class="w-4 h-4 shrink-0" />
 			<div class="flex-1 min-w-0">
-				<p class="text-sm font-medium">Password</p>
-				<p class="text-[11px] {current === 'password' ? 'opacity-80' : 'text-muted-foreground'}">Argon2 + AES-256-GCM encryption</p>
+				<p class="text-[14px] font-medium">Password</p>
+				<p class="text-[13px] {current === 'password' ? 'opacity-80' : 'text-muted-foreground'}">Argon2 + AES-256-GCM encryption</p>
 			</div>
 		</SelectionButton>
 
@@ -85,8 +85,8 @@
 			<SelectionButton selected={current === 'passkey'} disabled={loading} onclick={selectPasskey}>
 				<Fingerprint class="w-4 h-4 shrink-0" />
 				<div class="flex-1 min-w-0">
-					<p class="text-sm font-medium">Passkey</p>
-					<p class="text-[11px] {current === 'passkey' ? 'opacity-80' : 'text-muted-foreground'}">Face ID / Touch ID / fingerprint</p>
+					<p class="text-[14px] font-medium">Passkey</p>
+					<p class="text-[13px] {current === 'passkey' ? 'opacity-80' : 'text-muted-foreground'}">Face ID / Touch ID / fingerprint</p>
 				</div>
 			</SelectionButton>
 		{/if}
