@@ -286,60 +286,52 @@
 			{/if}
 		</div>
 	{:else if step === 'choose'}
-		<div class="text-center mb-10">
-			<h1 class="text-3xl font-light text-foreground tracking-tight mb-3">Create Your Wallet</h1>
-			<p class="text-[13px] text-muted-foreground leading-relaxed">All data stays on your device. Private by default.</p>
+		<div class="space-y-6">
+			<div class="text-center">
+				<h1 class="text-2xl font-light text-foreground tracking-tight mb-2">Create Your Wallet</h1>
+				<p class="text-[13px] text-muted-foreground leading-relaxed">All data stays on your device. Private by default.</p>
+			</div>
+
+			<div class="space-y-2">
+				<SelectionButton selected={false} onclick={createNew}>
+					<Plus class="w-5 h-5 shrink-0" />
+					<div class="flex-1">
+						<p class="text-[14px] font-medium">{loading ? 'Creating...' : 'Create New Wallet'}</p>
+						<p class="text-[11px] text-muted-foreground">Generate a fresh master secret</p>
+					</div>
+				</SelectionButton>
+
+				<SelectionButton selected={false} onclick={() => { step = 'recover' }}>
+					<KeyRound class="w-5 h-5 shrink-0" />
+					<div class="flex-1">
+						<p class="text-[14px] font-medium">Recover</p>
+						<p class="text-[11px] text-muted-foreground">From mnemonic or hex secret</p>
+					</div>
+				</SelectionButton>
+
+				<label class="w-full flex items-center gap-3 rounded-full bg-muted/50 hover:bg-muted/80 px-5 py-4 text-left transition-all duration-200 cursor-pointer">
+					<Upload class="w-5 h-5 shrink-0" />
+					<div class="flex-1">
+						<p class="text-[14px] font-medium">Import</p>
+						<p class="text-[11px] text-muted-foreground">From JSON backup file</p>
+					</div>
+					<input type="file" accept=".json" class="hidden" onchange={importFile} />
+				</label>
+
+				<SelectionButton selected={false} onclick={() => { step = 'qrscan' }}>
+					<ScanLine class="w-5 h-5 shrink-0" />
+					<div class="flex-1">
+						<p class="text-[14px] font-medium">Scan QR</p>
+						<p class="text-[11px] text-muted-foreground">Import from another device</p>
+					</div>
+				</SelectionButton>
+			</div>
+
 			<a href="https://github.com/webycash/weby-wallet-pwa" target="_blank" rel="noopener noreferrer"
-				class="inline-flex items-center gap-1 mt-2 text-[11px] text-muted-foreground/50 hover:text-muted-foreground transition-all">
+				class="flex items-center justify-center gap-2.5 mt-4 text-[13px] text-primary hover:opacity-70 transition-all duration-200">
+				<svg class="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
 				Open source
 			</a>
-		</div>
-
-		<div class="space-y-3">
-			<button onclick={createNew}
-				class="w-full flex items-center gap-4 rounded-2xl bg-card p-5 text-left hover:bg-muted/50 transition-all duration-200 active:scale-[0.98]"
-				disabled={loading}>
-				<div class="rounded-full bg-primary p-2.5 shrink-0">
-					<Plus class="w-5 h-5 text-primary-foreground" />
-				</div>
-				<div>
-					<span class="font-medium text-foreground text-[14px]">{loading ? 'Creating...' : 'Create New Wallet'}</span>
-					<span class="block text-[11px] text-muted-foreground mt-0.5">Generate a fresh master secret</span>
-				</div>
-			</button>
-
-			<button onclick={() => { step = 'recover' }}
-				class="w-full flex items-center gap-4 rounded-2xl bg-card p-5 text-left hover:bg-muted/50 transition-all duration-200 active:scale-[0.98]">
-				<div class="rounded-full bg-primary p-2.5 shrink-0">
-					<KeyRound class="w-5 h-5 text-primary-foreground" />
-				</div>
-				<div>
-					<span class="font-medium text-foreground text-[14px]">Recover</span>
-					<span class="block text-[11px] text-muted-foreground mt-0.5">From mnemonic or hex secret</span>
-				</div>
-			</button>
-
-			<label class="w-full flex items-center gap-4 rounded-2xl bg-card p-5 text-left hover:bg-muted/50 transition-all duration-200 active:scale-[0.98] cursor-pointer">
-				<div class="rounded-full bg-primary p-2.5 shrink-0">
-					<Upload class="w-5 h-5 text-primary-foreground" />
-				</div>
-				<div>
-					<span class="font-medium text-foreground text-[14px]">Import</span>
-					<span class="block text-[11px] text-muted-foreground mt-0.5">From JSON backup file</span>
-				</div>
-				<input type="file" accept=".json" class="hidden" onchange={importFile} />
-			</label>
-
-			<button onclick={() => { step = 'qrscan' }}
-				class="w-full flex items-center gap-4 rounded-2xl bg-card p-5 text-left hover:bg-muted/50 transition-all duration-200 active:scale-[0.98]">
-				<div class="rounded-full bg-primary p-2.5 shrink-0">
-					<ScanLine class="w-5 h-5 text-primary-foreground" />
-				</div>
-				<div>
-					<span class="font-medium text-foreground text-[14px]">Scan QR</span>
-					<span class="block text-[11px] text-muted-foreground mt-0.5">Import from another device</span>
-				</div>
-			</button>
 		</div>
 
 	{:else if step === 'recover'}
