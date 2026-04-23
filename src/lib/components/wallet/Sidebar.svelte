@@ -30,12 +30,12 @@
 			{:else}
 				<button
 					onclick={() => navigateTo(item.id)}
-					class="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-[16px] font-medium transition-all duration-200
+					class="w-full flex items-center gap-4 px-4 py-4 rounded-2xl text-[18px] font-medium transition-all duration-200
 						{activeView === item.id
 							? 'bg-primary/10 text-primary'
 							: 'text-muted-foreground hover:text-foreground hover:bg-muted/30'}"
 					aria-current={activeView === item.id ? 'page' : undefined}>
-					<item.icon class="w-[22px] h-[22px] shrink-0" />
+					<item.icon class="w-[24px] h-[24px] shrink-0" />
 					{item.label}
 				</button>
 			{/if}
@@ -46,12 +46,12 @@
 		{#each actionItems as item}
 			<button
 				onclick={() => navigateTo(item.id)}
-				class="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-[16px] font-medium transition-all duration-200
+				class="w-full flex items-center gap-4 px-4 py-4 rounded-2xl text-[18px] font-medium transition-all duration-200
 					{activeView === item.id
 						? 'bg-primary/10 text-primary'
 						: 'text-muted-foreground hover:text-foreground hover:bg-muted/30'}"
 				aria-current={activeView === item.id ? 'page' : undefined}>
-				<item.icon class="w-[22px] h-[22px] shrink-0" />
+				<item.icon class="w-[24px] h-[24px] shrink-0" />
 				{item.label}
 			</button>
 		{/each}

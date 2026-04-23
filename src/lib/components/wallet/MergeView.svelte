@@ -10,7 +10,7 @@
 <div class="max-w-md mx-auto space-y-6 animate-fade-in">
 	<div>
 		<h2 class="text-[15px] font-semibold mb-2">Merge Outputs</h2>
-		<p class="text-[13px] text-muted-foreground leading-relaxed">
+		<p class="text-[14px] text-muted-foreground leading-relaxed">
 			Combine multiple small webcash outputs into fewer larger ones. This reduces wallet size and improves performance.
 		</p>
 	</div>

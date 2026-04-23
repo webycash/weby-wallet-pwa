@@ -282,21 +282,21 @@
 		<div class="flex flex-col items-center justify-center gap-5 py-20">
 			<LoaderCircle class="w-8 h-8 text-primary animate-spin opacity-60" />
 			{#if scanProgress}
-				<p class="text-[13px] text-muted-foreground">{scanProgress}</p>
+				<p class="text-[14px] text-muted-foreground">{scanProgress}</p>
 			{/if}
 		</div>
 	{:else if step === 'choose'}
 		<div class="space-y-6">
 			<div class="text-center">
-				<h1 class="text-2xl font-light text-foreground tracking-tight mb-2">Create Your Wallet</h1>
-				<p class="text-[13px] text-muted-foreground leading-relaxed">All data stays on your device. Private by default.</p>
+				<h1 class="text-3xl font-normal text-foreground tracking-tight mb-2">Create Your Wallet</h1>
+				<p class="text-[14px] text-muted-foreground leading-relaxed">All data stays on your device. Private by default.</p>
 			</div>
 
 			<div class="space-y-2">
 				<SelectionButton selected={false} onclick={createNew}>
 					<Plus class="w-5 h-5 shrink-0" />
 					<div class="flex-1">
-						<p class="text-[14px] font-medium">{loading ? 'Creating...' : 'Create New Wallet'}</p>
+						<p class="text-[15px] font-semibold">{loading ? 'Creating...' : 'Create New Wallet'}</p>
 						<p class="text-[11px] text-muted-foreground">Generate a fresh master secret</p>
 					</div>
 				</SelectionButton>
@@ -304,7 +304,7 @@
 				<SelectionButton selected={false} onclick={() => { step = 'recover' }}>
 					<KeyRound class="w-5 h-5 shrink-0" />
 					<div class="flex-1">
-						<p class="text-[14px] font-medium">Recover</p>
+						<p class="text-[15px] font-semibold">Recover</p>
 						<p class="text-[11px] text-muted-foreground">From mnemonic or hex secret</p>
 					</div>
 				</SelectionButton>
@@ -312,7 +312,7 @@
 				<label class="w-full flex items-center gap-3 rounded-full bg-muted/50 hover:bg-muted/80 px-5 py-4 text-left transition-all duration-200 cursor-pointer">
 					<Upload class="w-5 h-5 shrink-0" />
 					<div class="flex-1">
-						<p class="text-[14px] font-medium">Import</p>
+						<p class="text-[15px] font-semibold">Import</p>
 						<p class="text-[11px] text-muted-foreground">From JSON backup file</p>
 					</div>
 					<input type="file" accept=".json" class="hidden" onchange={importFile} />
@@ -321,7 +321,7 @@
 				<SelectionButton selected={false} onclick={() => { step = 'qrscan' }}>
 					<ScanLine class="w-5 h-5 shrink-0" />
 					<div class="flex-1">
-						<p class="text-[14px] font-medium">Scan QR</p>
+						<p class="text-[15px] font-semibold">Scan QR</p>
 						<p class="text-[11px] text-muted-foreground">Import from another device</p>
 					</div>
 				</SelectionButton>
@@ -337,8 +337,8 @@
 	{:else if step === 'recover'}
 		<div class="space-y-6">
 			<div class="text-center">
-				<h2 class="text-2xl font-light text-foreground tracking-tight mb-2">Recover Wallet</h2>
-				<p class="text-[13px] text-muted-foreground leading-relaxed">Enter your master secret. We'll scan the server for your webcash.</p>
+				<h2 class="text-3xl font-normal text-foreground tracking-tight mb-2">Recover Wallet</h2>
+				<p class="text-[14px] text-muted-foreground leading-relaxed">Enter your master secret. We'll scan the server for your webcash.</p>
 			</div>
 			<div class="relative">
 				<textarea
@@ -355,11 +355,11 @@
 			</div>
 			<div class="flex gap-3">
 				<button onclick={() => { step = 'choose'; error = '' }}
-					class="flex-1 rounded-full bg-muted/50 px-4 py-3.5 text-[14px] font-medium hover:bg-muted/80 transition-all duration-200 active:scale-[0.97]">
+					class="flex-1 rounded-full bg-muted/50 px-4 py-3.5 text-[15px] font-semibold hover:bg-muted/80 transition-all duration-200 active:scale-[0.97]">
 					Back
 				</button>
 				<button onclick={recoverFromSecret}
-					class="flex-1 rounded-full bg-primary px-4 py-3.5 text-[14px] font-medium text-primary-foreground transition-all duration-200 active:scale-[0.97] disabled:opacity-30"
+					class="flex-1 rounded-full bg-primary px-4 py-3.5 text-[15px] font-semibold text-primary-foreground transition-all duration-200 active:scale-[0.97] disabled:opacity-30"
 					disabled={loading || (recoverInput.trim().length < 10)}>
 					{loading ? (scanProgress || 'Scanning...') : 'Recover'}
 				</button>
@@ -369,8 +369,8 @@
 	{:else if step === 'qrscan'}
 		<div class="space-y-5">
 			<div class="text-center">
-				<h2 class="text-2xl font-light text-foreground tracking-tight mb-2">Scan QR Code</h2>
-				<p class="text-[13px] text-muted-foreground leading-relaxed">
+				<h2 class="text-3xl font-normal text-foreground tracking-tight mb-2">Scan QR Code</h2>
+				<p class="text-[14px] text-muted-foreground leading-relaxed">
 					Open your wallet on the other device, go to Settings > QR Export, and scan the code.
 				</p>
 			</div>
@@ -402,11 +402,11 @@
 			</div>
 			<div class="flex gap-3">
 				<button onclick={() => { stopCamera(); step = 'choose'; error = '' }}
-					class="flex-1 rounded-full bg-muted/50 px-4 py-3.5 text-[14px] font-medium hover:bg-muted/80 transition-all duration-200 active:scale-[0.97]">
+					class="flex-1 rounded-full bg-muted/50 px-4 py-3.5 text-[15px] font-semibold hover:bg-muted/80 transition-all duration-200 active:scale-[0.97]">
 					Back
 				</button>
 				<button onclick={recoverFromSecret}
-					class="flex-1 rounded-full bg-primary px-4 py-3.5 text-[14px] font-medium text-primary-foreground transition-all duration-200 active:scale-[0.97] disabled:opacity-30"
+					class="flex-1 rounded-full bg-primary px-4 py-3.5 text-[15px] font-semibold text-primary-foreground transition-all duration-200 active:scale-[0.97] disabled:opacity-30"
 					disabled={loading || (recoverInput.trim().length < 10)}>
 					{loading ? (scanProgress || 'Importing...') : 'Import'}
 				</button>
@@ -416,15 +416,15 @@
 	{:else if step === 'encrypt'}
 		<div class="space-y-6">
 			<div class="text-center">
-				<h2 class="text-2xl font-light text-foreground tracking-tight mb-2">Protect Your Wallet</h2>
-				<p class="text-[13px] text-muted-foreground leading-relaxed">Choose how to encrypt your wallet data.</p>
+				<h2 class="text-3xl font-normal text-foreground tracking-tight mb-2">Protect Your Wallet</h2>
+				<p class="text-[14px] text-muted-foreground leading-relaxed">Choose how to encrypt your wallet data.</p>
 			</div>
 
 			<div class="space-y-2">
 				<SelectionButton selected={selectedEncryption === 'none'} onclick={() => selectedEncryption = 'none'}>
 					<ShieldOff class="w-5 h-5 shrink-0" />
 					<div class="flex-1">
-						<p class="text-[14px] font-medium">No encryption</p>
+						<p class="text-[15px] font-semibold">No encryption</p>
 						<p class="text-[11px] {selectedEncryption === 'none' ? 'opacity-70' : 'text-muted-foreground'}">Wallet data stored unencrypted</p>
 					</div>
 				</SelectionButton>
@@ -432,7 +432,7 @@
 				<SelectionButton selected={selectedEncryption === 'password'} onclick={() => selectedEncryption = 'password'}>
 					<Lock class="w-5 h-5 shrink-0" />
 					<div class="flex-1">
-						<p class="text-[14px] font-medium">Password</p>
+						<p class="text-[15px] font-semibold">Password</p>
 						<p class="text-[11px] {selectedEncryption === 'password' ? 'opacity-70' : 'text-muted-foreground'}">Argon2 + AES-256-GCM encryption</p>
 					</div>
 				</SelectionButton>
@@ -441,7 +441,7 @@
 					<SelectionButton selected={selectedEncryption === 'passkey'} onclick={() => selectedEncryption = 'passkey'}>
 						<Fingerprint class="w-5 h-5 shrink-0" />
 						<div class="flex-1">
-							<p class="text-[14px] font-medium">Passkey</p>
+							<p class="text-[15px] font-semibold">Passkey</p>
 							<p class="text-[11px] {selectedEncryption === 'passkey' ? 'opacity-70' : 'text-muted-foreground'}">Face ID / Touch ID / fingerprint</p>
 						</div>
 					</SelectionButton>
@@ -476,7 +476,7 @@
 			{/if}
 
 			<button onclick={confirmEncryption}
-				class="w-full rounded-full bg-primary px-4 py-3.5 text-[14px] font-medium text-primary-foreground transition-all duration-200 active:scale-[0.97]
+				class="w-full rounded-full bg-primary px-4 py-3.5 text-[15px] font-semibold text-primary-foreground transition-all duration-200 active:scale-[0.97]
 					{encLoading ? 'opacity-40' : 'hover:opacity-90'}"
 				disabled={encLoading || (selectedEncryption === 'password' && (!encPassword || encPassword.length < 8))}>
 				{#if encLoading}
@@ -491,7 +491,7 @@
 			</button>
 
 			<button onclick={() => { step = 'choose'; encError = ''; }}
-				class="w-full text-[13px] text-muted-foreground hover:text-foreground transition-all">
+				class="w-full text-[14px] text-muted-foreground hover:text-foreground transition-all">
 				Back
 			</button>
 		</div>

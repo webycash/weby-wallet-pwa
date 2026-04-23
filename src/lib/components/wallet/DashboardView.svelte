@@ -77,16 +77,16 @@
 		{/if}
 
 		{#if hidden}
-			<p class="text-5xl md:text-6xl font-light text-foreground tracking-tight">{WEBCASH_SYMBOL} ••••••</p>
+			<p class="text-6xl md:text-7xl font-normal text-foreground tracking-tight">{WEBCASH_SYMBOL} ••••••</p>
 		{:else if showUsd}
-			<p class="text-5xl md:text-6xl font-light text-foreground tracking-tight tabular-nums">{usdDisplay}</p>
+			<p class="text-6xl md:text-7xl font-normal text-foreground tracking-tight tabular-nums">{usdDisplay}</p>
 		{:else}
-			<p class="text-5xl md:text-6xl font-light text-foreground tracking-tight tabular-nums">{WEBCASH_SYMBOL} {display}</p>
+			<p class="text-6xl md:text-7xl font-normal text-foreground tracking-tight tabular-nums">{WEBCASH_SYMBOL} {display}</p>
 		{/if}
 	</div>
 
 	{#if message && messageType === 'success'}
-		<div class="rounded-2xl px-4 py-3 text-sm font-medium bg-primary/8 text-primary text-center">
+		<div class="rounded-2xl px-4 py-3 text-[15px] font-medium bg-primary/8 text-primary text-center">
 			{message}
 		</div>
 	{/if}
@@ -94,17 +94,17 @@
 	<!-- Insert / Pay buttons -->
 	<div class="grid grid-cols-2 gap-3 max-w-sm mx-auto w-full">
 		<button
-			class="h-12 rounded-full bg-muted/50 hover:bg-muted/80 flex items-center justify-center gap-2 text-sm font-medium transition-all duration-200 active:scale-[0.97]"
+			class="h-14 rounded-full bg-muted/50 hover:bg-muted/80 flex items-center justify-center gap-2 text-[15px] font-medium transition-all duration-200 active:scale-[0.97]"
 			onclick={() => (activePanel = 'insert')}
 			disabled={loading}>
-			<ArrowDownToLine class="w-[16px] h-[16px]" />
+			<ArrowDownToLine class="w-[18px] h-[18px]" />
 			Insert
 		</button>
 		<button
-			class="h-12 rounded-full bg-muted/50 hover:bg-muted/80 flex items-center justify-center gap-2 text-sm font-medium transition-all duration-200 active:scale-[0.97]"
+			class="h-14 rounded-full bg-muted/50 hover:bg-muted/80 flex items-center justify-center gap-2 text-[15px] font-medium transition-all duration-200 active:scale-[0.97]"
 			onclick={() => (activePanel = 'pay')}
 			disabled={loading}>
-			<ArrowUpFromLine class="w-[16px] h-[16px]" />
+			<ArrowUpFromLine class="w-[18px] h-[18px]" />
 			Pay
 		</button>
 	</div>

@@ -10,7 +10,7 @@
 <div class="max-w-md mx-auto space-y-6 animate-fade-in">
 	<div>
 		<h2 class="text-[15px] font-semibold mb-2">Recover Wallet</h2>
-		<p class="text-[13px] text-muted-foreground leading-relaxed">
+		<p class="text-[14px] text-muted-foreground leading-relaxed">
 			Scan the server for unspent outputs that belong to this wallet. Use this if you restored from a backup or suspect missing funds.
 		</p>
 	</div>

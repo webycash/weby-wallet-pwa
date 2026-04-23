@@ -95,8 +95,8 @@
 						{:else}
 							<button
 								onclick={() => navigateTo(item.id)}
-								class="w-full flex items-center gap-4 px-4 py-4 rounded-2xl text-[17px] font-medium text-foreground hover:bg-muted/40 transition-all duration-200 active:scale-[0.98]">
-								<item.icon class="w-[20px] h-[20px] text-muted-foreground" />
+								class="w-full flex items-center gap-4 px-4 py-4 rounded-2xl text-[19px] font-medium text-foreground hover:bg-muted/40 transition-all duration-200 active:scale-[0.98]">
+								<item.icon class="w-[22px] h-[22px] text-muted-foreground" />
 								{item.label}
 							</button>
 						{/if}
@@ -104,8 +104,8 @@
 
 					<button
 						onclick={pushSettings}
-						class="w-full flex items-center gap-4 px-4 py-4 rounded-2xl text-[17px] font-medium text-foreground hover:bg-muted/40 transition-all duration-200 active:scale-[0.98]">
-						<Settings class="w-[20px] h-[20px] text-muted-foreground" />
+						class="w-full flex items-center gap-4 px-4 py-4 rounded-2xl text-[19px] font-medium text-foreground hover:bg-muted/40 transition-all duration-200 active:scale-[0.98]">
+						<Settings class="w-[22px] h-[22px] text-muted-foreground" />
 						Settings
 					</button>
 
@@ -114,8 +114,8 @@
 					{#each actionItems as item}
 						<button
 							onclick={() => navigateTo(item.id)}
-							class="w-full flex items-center gap-4 px-4 py-4 rounded-2xl text-[17px] font-medium text-foreground hover:bg-muted/40 transition-all duration-200 active:scale-[0.98]">
-							<item.icon class="w-[20px] h-[20px] text-muted-foreground" />
+							class="w-full flex items-center gap-4 px-4 py-4 rounded-2xl text-[19px] font-medium text-foreground hover:bg-muted/40 transition-all duration-200 active:scale-[0.98]">
+							<item.icon class="w-[22px] h-[22px] text-muted-foreground" />
 							{item.label}
 						</button>
 					{/each}
@@ -134,7 +134,7 @@
 					aria-label="Back">
 					<ArrowLeft class="w-5 h-5" />
 				</button>
-				<h2 class="text-[17px] font-semibold">Settings</h2>
+				<h2 class="text-[19px] font-semibold">Settings</h2>
 			</div>
 
 			<div class="flex-1 overflow-y-auto px-6 pb-8">
@@ -143,7 +143,7 @@
 						<button
 							onclick={() => section.enabled && pushSettingsDetail(section.id)}
 							disabled={!section.enabled}
-							class="w-full flex items-center justify-between px-4 py-4 rounded-2xl text-[17px] font-medium transition-all duration-200 active:scale-[0.98]
+							class="w-full flex items-center justify-between px-4 py-4 rounded-2xl text-[19px] font-medium transition-all duration-200 active:scale-[0.98]
 								{section.enabled ? 'text-foreground hover:bg-muted/40' : 'text-muted-foreground/30 cursor-not-allowed'}">
 							<span>{section.label}</span>
 							{#if section.enabled}
@@ -164,7 +164,7 @@
 					aria-label="Back">
 					<ArrowLeft class="w-5 h-5" />
 				</button>
-				<h2 class="text-[17px] font-semibold">{detailTitle}</h2>
+				<h2 class="text-[19px] font-semibold">{detailTitle}</h2>
 			</div>
 
 			<div class="flex-1 overflow-y-auto px-4 pb-8">

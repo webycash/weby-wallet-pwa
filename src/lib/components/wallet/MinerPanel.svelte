@@ -224,7 +224,7 @@
 	<div class="flex items-center justify-between">
 		<div class="flex items-center gap-3">
 			<Pickaxe class="w-[18px] h-[18px] text-primary opacity-60" />
-			<span class="text-[15px] font-medium text-foreground">Miner</span>
+			<span class="text-[17px] font-semibold text-foreground">Miner</span>
 			{#if gpuInitializing}
 				<span class="text-[10px] px-2 py-0.5 rounded-full bg-muted/60 text-muted-foreground font-medium animate-pulse">Detecting GPU...</span>
 			{:else if useGpu}
@@ -254,19 +254,19 @@
 		<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
 			<div class="rounded-2xl bg-card p-3.5">
 				<p class="text-[10px] text-muted-foreground mb-1 tracking-wide">Speed</p>
-				<p class="text-[17px] font-light text-foreground tabular-nums">{fmtRate(hashRate)}</p>
+				<p class="text-[19px] font-normal text-foreground tabular-nums">{fmtRate(hashRate)}</p>
 			</div>
 			<div class="rounded-2xl bg-card p-3.5">
 				<p class="text-[10px] text-muted-foreground mb-1 tracking-wide">ETA</p>
-				<p class="text-[17px] font-light text-foreground tabular-nums">{fmtEta(hashRate, difficulty)}</p>
+				<p class="text-[19px] font-normal text-foreground tabular-nums">{fmtEta(hashRate, difficulty)}</p>
 			</div>
 			<div class="rounded-2xl bg-card p-3.5">
 				<p class="text-[10px] text-muted-foreground mb-1 tracking-wide">Solutions</p>
-				<p class="text-[17px] font-light text-foreground tabular-nums">{solutionsSubmitted}/{solutionsFound}</p>
+				<p class="text-[19px] font-normal text-foreground tabular-nums">{solutionsSubmitted}/{solutionsFound}</p>
 			</div>
 			<div class="rounded-2xl bg-card p-3.5">
 				<p class="text-[10px] text-muted-foreground mb-1 tracking-wide">Reward</p>
-				<p class="text-[17px] font-light text-foreground tabular-nums">{miningAmount || '\u2014'} W</p>
+				<p class="text-[19px] font-normal text-foreground tabular-nums">{miningAmount || '\u2014'} W</p>
 			</div>
 		</div>
 		<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">

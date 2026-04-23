@@ -27,15 +27,15 @@
 				<div class="grid grid-cols-3 gap-3 text-center">
 					<div class="rounded-2xl bg-card p-3.5">
 						<p class="text-[10px] text-muted-foreground mb-1 tracking-wide">Mined</p>
-						<p class="text-lg font-semibold tabular-nums">{stats.mined_count ?? 0}</p>
+						<p class="text-xl font-semibold tabular-nums">{stats.mined_count ?? 0}</p>
 					</div>
 					<div class="rounded-2xl bg-card p-3.5">
 						<p class="text-[10px] text-muted-foreground mb-1 tracking-wide">Received</p>
-						<p class="text-lg font-semibold tabular-nums">{stats.received_count ?? 0}</p>
+						<p class="text-xl font-semibold tabular-nums">{stats.received_count ?? 0}</p>
 					</div>
 					<div class="rounded-2xl bg-card p-3.5">
 						<p class="text-[10px] text-muted-foreground mb-1 tracking-wide">Sent</p>
-						<p class="text-lg font-semibold tabular-nums">{stats.sent_count ?? 0}</p>
+						<p class="text-xl font-semibold tabular-nums">{stats.sent_count ?? 0}</p>
 					</div>
 				</div>
 				<div class="grid grid-cols-3 gap-3 text-center">

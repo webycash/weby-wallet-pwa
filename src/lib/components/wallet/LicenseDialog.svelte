@@ -27,15 +27,15 @@
 		{#if hasGift}
 			<div class="text-center">
 				<Gift class="w-10 h-10 text-primary mx-auto mb-4 opacity-60" />
-				<p class="text-[13px] text-muted-foreground mb-2">Someone sent you</p>
+				<p class="text-[14px] text-muted-foreground mb-2">Someone sent you</p>
 				<p class="text-4xl font-light text-foreground tracking-tight">₩{giftAmount || '?'}</p>
-				{#if giftMemo}<p class="text-[13px] text-muted-foreground mt-3 italic">"{giftMemo}"</p>{/if}
+				{#if giftMemo}<p class="text-[14px] text-muted-foreground mt-3 italic">"{giftMemo}"</p>{/if}
 			</div>
 		{/if}
 
 		<div class="text-center">
-			<h2 class="text-2xl font-light text-foreground tracking-tight mb-3">Terms of Service</h2>
-			<p class="text-[13px] text-muted-foreground leading-relaxed">
+			<h2 class="text-3xl font-normal text-foreground tracking-tight mb-3">Terms of Service</h2>
+			<p class="text-[14px] text-muted-foreground leading-relaxed">
 				By using this wallet you agree to the
 				<a href="https://webcash.org/terms" target="_blank" rel="noopener noreferrer" class="text-primary hover:opacity-80 transition-opacity">Webcash Terms of Service</a>.
 			</p>

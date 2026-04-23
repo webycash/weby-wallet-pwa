@@ -188,7 +188,7 @@
 				<!-- Wallet selector -->
 				<div class="flex justify-center mb-4">
 					<button onclick={() => showWalletDropdown = !showWalletDropdown}
-						class="flex items-center gap-2 px-4 py-2 rounded-full bg-muted/40 hover:bg-muted/60 text-[14px] font-medium transition-all duration-200 relative">
+						class="flex items-center gap-2 px-4 py-2 rounded-full bg-muted/40 hover:bg-muted/60 text-[15px] font-medium transition-all duration-200 relative">
 						<span class="capitalize">{activeLabel}</span>
 						{#if isRoamingWallet}
 							<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-warning/15 text-warning font-medium">R</span>
@@ -244,7 +244,7 @@
 					<VerifyView />
 				{:else if activeView === 'settings'}
 					<div class="animate-fade-in">
-						<h2 class="text-[15px] font-semibold mb-4">Settings</h2>
+						<h2 class="text-[17px] font-semibold mb-4">Settings</h2>
 						<SettingsPanel {activeFamily} {activeLabel} {isRoamingWallet}
 							onRefresh={refresh} onMessage={showMessage} {appDialog} />
 					</div>
@@ -270,7 +270,7 @@
 		<div class="fixed inset-4 md:inset-x-auto md:inset-y-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-md z-50 bg-background rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-scale-in"
 			role="dialog" aria-modal="true" aria-label="Error">
 			<div class="flex items-center justify-between px-5 py-4">
-				<h2 class="text-[15px] font-semibold">Something went wrong</h2>
+				<h2 class="text-[17px] font-semibold">Something went wrong</h2>
 				<button onclick={dismissMessage}
 					class="flex items-center justify-center w-8 h-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all duration-200"
 					aria-label="Close">
