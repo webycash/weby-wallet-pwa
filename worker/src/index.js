@@ -74,9 +74,10 @@ async function checkSpent(network, publicWc) {
 // --- SVG card generators ---
 
 function giftCardSvg(amount, memo, spent) {
+  const memoColor = spent === true ? '#999999' : '#7B4DB8';
   const memoLine = memo
     ? `<text x="600" y="450" text-anchor="middle" font-size="56" font-weight="400"
-           font-family="Geist,Inter,sans-serif" fill="#7B4DB8" opacity="0.5">"${esc(memo.slice(0, 35))}"</text>`
+           font-family="Geist,Inter,sans-serif" fill="${memoColor}" opacity="0.5">"${esc(memo.slice(0, 35))}"</text>`
     : '';
 
   // Auto-scale amount font size based on character count
@@ -84,33 +85,48 @@ function giftCardSvg(amount, memo, spent) {
   const len = amountText.length;
   const fontSize = len <= 6 ? 140 : len <= 9 ? 110 : len <= 12 ? 90 : 72;
 
-  const statusText = spent === true ? 'INVALID' : 'REDEEM';
-  const statusColor = spent === true ? '#CC0000' : '#7B4DB8';
-  const statusOpacity = spent === true ? '0.6' : '0.35';
-  const amountColor = spent === true ? '#888888' : '#7B4DB8';
+  const isInvalid = spent === true;
+  const statusText = isInvalid ? 'INVALID' : 'REDEEM';
+  const gray = '#999999';
+  const purple = '#7B4DB8';
+  const color = isInvalid ? gray : purple;
+
+  // For invalid cards: gray logo via SVG filter
+  const logoCircle = isInvalid
+    ? '<circle cx="512" cy="512" r="413" stroke="' + gray + '" stroke-width="60" fill="none"/>'
+    : LOGO_CIRCLE;
+  const logoText = isInvalid
+    ? LOGO_TEXT.replace(/#7B4DB8/g, gray)
+    : LOGO_TEXT;
+
+  // Strikethrough line on amount for invalid cards
+  const strikethrough = isInvalid
+    ? `<line x1="200" y1="330" x2="1000" y2="330" stroke="${gray}" stroke-width="4" opacity="0.5"/>`
+    : '';
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
   <rect width="1200" height="630" fill="#faf9fc"/>
 
   <!-- Webycash logo top-left -->
   <g transform="translate(44,28) scale(0.17)">
-    ${LOGO_CIRCLE}
-    ${LOGO_TEXT}
+    ${logoCircle}
+    ${logoText}
   </g>
 
   <!-- Status top-right -->
   <text x="1152" y="100" text-anchor="end" font-size="56" font-weight="600"
-        font-family="Geist,Inter,sans-serif" fill="${statusColor}" opacity="${statusOpacity}" letter-spacing="5">${statusText}</text>
+        font-family="Geist,Inter,sans-serif" fill="${color}" opacity="${isInvalid ? '0.5' : '0.35'}" letter-spacing="5">${statusText}</text>
 
   <!-- Amount then symbol -->
   <text x="600" y="340" text-anchor="middle" font-size="${fontSize}" font-weight="700"
-        font-family="Geist,Inter,sans-serif" fill="${amountColor}" letter-spacing="-3">${esc(amount)}  &#x20A9;</text>
+        font-family="Geist,Inter,sans-serif" fill="${color}" letter-spacing="-3">${esc(amount)}  &#x20A9;</text>
+  ${strikethrough}
 
   ${memoLine}
 
   <!-- Website bottom center -->
   <text x="600" y="580" text-anchor="middle" font-size="42" font-weight="600"
-        font-family="Geist,Inter,sans-serif" fill="#7B4DB8" opacity="0.3">weby.cash</text>
+        font-family="Geist,Inter,sans-serif" fill="${color}" opacity="0.3">weby.cash</text>
 </svg>`;
 }
 
