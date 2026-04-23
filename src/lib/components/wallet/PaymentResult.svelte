@@ -122,29 +122,24 @@
 {#if showQr}
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onclick={() => showQr = false}>
+	<div class="fixed inset-0 z-50 flex flex-col items-center justify-center px-5 animate-fade-in">
+		<div class="absolute inset-0 bg-background/60 backdrop-blur-md" onclick={() => showQr = false}></div>
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div class="bg-card rounded-2xl p-6 mx-4 max-w-sm w-full space-y-4 fade-in" onclick={(e) => e.stopPropagation()}>
-			<div class="flex items-center justify-between">
-				<p class="text-sm font-semibold text-foreground">₩{displayAmount} webcash</p>
-				<button onclick={() => showQr = false} class="text-muted-foreground hover:text-foreground transition-all">
-					<X class="w-5 h-5" />
-				</button>
-			</div>
+		<div class="relative max-w-sm w-full animate-scale-in" onclick={(e) => e.stopPropagation()}>
+			<button onclick={() => showQr = false}
+				class="flex items-center justify-center w-14 h-14 rounded-full bg-muted/40 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200 mb-4 ml-auto"
+				aria-label="Close">
+				<X class="w-7 h-7" />
+			</button>
 			{#if qrDataUrl}
-				<img src={qrDataUrl} alt="QR Code" class="w-full rounded-xl" />
+				<img src={qrDataUrl} alt="QR Code" class="w-full rounded-2xl" />
 			{/if}
-			<div class="grid grid-cols-2 gap-2">
-				<Button variant="outline" onclick={() => showQr = false}>
-					<X class="w-5 h-5" /> Close
+			{#if canShare}
+				<Button class="w-full mt-4" onclick={shareQr}>
+					<Share2 class="w-4 h-4" /> Share QR
 				</Button>
-				{#if canShare}
-					<Button onclick={shareQr}>
-						<Share2 class="w-4 h-4" /> Share QR
-					</Button>
-				{/if}
-			</div>
+			{/if}
 		</div>
 	</div>
 {/if}

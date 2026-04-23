@@ -114,25 +114,24 @@
 {#if scanning}
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onclick={stopScan}>
+	<div class="fixed inset-0 z-50 flex flex-col items-center justify-center px-5 animate-fade-in">
+		<div class="absolute inset-0 bg-background/60 backdrop-blur-md" onclick={stopScan}></div>
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div class="bg-card rounded-2xl p-6 mx-4 max-w-sm w-full space-y-4 fade-in" onclick={(e) => e.stopPropagation()}>
-			<div class="flex items-center justify-between">
-				<h3 class="text-sm font-semibold text-foreground">Scan QR Code</h3>
-				<button onclick={stopScan} class="text-muted-foreground hover:text-foreground transition-all">
-					<X class="w-5 h-5" />
-				</button>
-			</div>
-			<div class="rounded-2xl overflow-hidden bg-black aspect-square relative">
+		<div class="relative max-w-sm w-full animate-scale-in" onclick={(e) => e.stopPropagation()}>
+			<button onclick={stopScan}
+				class="flex items-center justify-center w-14 h-14 rounded-full bg-muted/40 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200 mb-4 ml-auto"
+				aria-label="Close">
+				<X class="w-7 h-7" />
+			</button>
+			<div class="rounded-3xl overflow-hidden bg-black aspect-square relative">
 				<video bind:this={videoEl} autoplay playsinline muted class="w-full h-full object-cover"></video>
 				<canvas bind:this={canvasEl} class="hidden"></canvas>
 				<div class="absolute inset-0 pointer-events-none">
-					<div class="absolute inset-[12%] border border-primary rounded-2xl"></div>
-					<div class="absolute inset-[12%] border border-primary rounded-2xl animate-pulse"></div>
+					<div class="absolute inset-[12%] border-2 border-primary/40 rounded-2xl"></div>
 				</div>
-				<div class="absolute bottom-3 left-0 right-0 text-center">
-					<span class="text-xs text-white bg-black backdrop-blur-sm px-3 py-1.5 rounded-full">{scanStatus}</span>
+				<div class="absolute bottom-4 left-0 right-0 text-center">
+					<span class="text-[12px] text-white/80 bg-black/50 backdrop-blur-sm px-4 py-2 rounded-full">{scanStatus}</span>
 				</div>
 			</div>
 		</div>
