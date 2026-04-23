@@ -135,6 +135,8 @@
 
 	const canMineWallet = $derived(activeLabel === 'main' && !isRoamingWallet);
 	const activeView = $derived(nav.activeView);
+	let miningMounted = $state(false);
+	$effect(() => { if (activeView === 'mining' && canMineWallet) miningMounted = true; });
 
 	onMount(() => {
 		const mq = window.matchMedia('(min-width: 768px)');
@@ -215,6 +217,13 @@
 						</div>
 					{/if}
 				</div>
+			<!-- MiningView persists once visited so mining never stops on navigate -->
+			{#if miningMounted && canMineWallet}
+				<div class={activeView === 'mining' ? 'animate-fade-in' : 'hidden'}>
+					<MiningView {network} {canMineWallet} onBalanceUpdate={refresh} />
+				</div>
+			{/if}
+
 			{#key activeView}
 				{#if activeView === 'dashboard'}
 					<DashboardView
@@ -226,7 +235,7 @@
 						onClearPayment={() => { paymentResult = ''; paymentMemo = ''; }}
 						{isStandalone} {isDesktop} onInstall={onInstall} />
 				{:else if activeView === 'mining'}
-					<MiningView {network} {canMineWallet} onBalanceUpdate={refresh} />
+					<!-- rendered above, outside #key, to persist -->
 				{:else if activeView === 'merge'}
 					<MergeView {loading} onMerge={handleMerge} />
 				{:else if activeView === 'recovery'}
