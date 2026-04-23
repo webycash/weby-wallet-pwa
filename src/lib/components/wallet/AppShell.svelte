@@ -4,7 +4,6 @@
 		insertWebcash, payWebcash, checkWallet, mergeOutputs, recoverWallet, resetDb,
 		setActive, addWallet, listWallets, getActiveFamily, getActiveLabel,
 		lockWallet, getRawState, isRoaming, canMine, type WalletInfo } from '$lib/stores/wallet.svelte';
-	import { isMining } from '$lib/core/miner';
 	import { getNetwork, setNetwork } from '$lib/stores/network.svelte';
 	import { encryptionType } from '$lib/stores/settings.svelte';
 	import { encryptWithPassword } from '$lib/core/encryption';
@@ -127,7 +126,7 @@
 	const handleVisibility = () => {
 		if (document.visibilityState === 'hidden') {
 			saveEncryptedState();
-		} else if (encryptionType() !== 'none' && !isMining()) {
+		} else if (encryptionType() !== 'none') {
 			lockWallet();
 			onLock();
 		}
