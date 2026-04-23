@@ -134,7 +134,9 @@
 
 	const canMineWallet = $derived(activeLabel === 'main' && !isRoamingWallet);
 	const activeView = $derived(nav.activeView);
-	let miningMounted = $state(false);
+	let miningMounted = $state(
+		typeof localStorage !== 'undefined' && localStorage.getItem('weby_mining_snapshot') !== null
+	);
 	$effect(() => { if (activeView === 'mining' && canMineWallet) miningMounted = true; });
 
 	onMount(() => {

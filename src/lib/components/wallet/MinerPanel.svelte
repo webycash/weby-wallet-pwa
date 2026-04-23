@@ -206,7 +206,7 @@
 		running = false;
 		setMining(false);
 		stopKeepAlive();
-		clearSnapshot();
+		saveSnapshot(); // preserve for auto-resume after unlock
 	};
 
 	const toggle = async () => {
