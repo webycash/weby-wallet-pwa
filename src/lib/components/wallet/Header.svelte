@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Menu } from '@lucide/svelte';
-	import { openMenu } from '$lib/stores/navigation.svelte';
+	import { openMenu, navigateTo } from '$lib/stores/navigation.svelte';
 	import type { NetworkMode } from '$lib/core/types';
 
 	let { network, onNetworkChange, activeFamily, onSwitchFamily, isDesktop }: {
@@ -24,9 +24,9 @@
 		<!-- Desktop: logo left, tabs center, network right -->
 		<div class="flex h-40 items-center justify-between px-12 max-w-7xl mx-auto">
 			<div class="flex items-center shrink-0">
-				<a href="https://weby.cash" class="flex items-center">
+				<button onclick={() => navigateTo('dashboard')} class="flex items-center">
 					<img src="/logo.svg" alt="weby" class="h-20 w-auto dark:brightness-0 dark:invert" />
-				</a>
+				</button>
 			</div>
 
 			<div class="flex rounded-full bg-muted/50 p-1 gap-1">
@@ -60,9 +60,9 @@
 	{:else}
 		<!-- Mobile: logo left, hamburger right, tabs below full-width -->
 		<div class="flex h-24 items-center justify-between px-5">
-			<a href="https://weby.cash" class="flex items-center">
+			<button onclick={() => navigateTo('dashboard')} class="flex items-center">
 				<img src="/logo.svg" alt="weby" class="h-14 w-auto dark:brightness-0 dark:invert" />
-			</a>
+			</button>
 
 			<button
 				onclick={openMenu}
