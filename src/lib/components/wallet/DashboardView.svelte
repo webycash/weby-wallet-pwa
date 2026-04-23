@@ -47,14 +47,22 @@
 		return RIG_COST_PER_HOUR / solutions_per_hour / MINING_AMOUNT;
 	};
 	const usdPrice = estimateUsdPrice();
-	const fmtDisplay = (s: string): string => {
-		if (!s.includes('.')) return s + '.00';
-		const trimmed = s.replace(/0+$/, '');
-		if (trimmed.endsWith('.')) return trimmed + '00';
-		if (trimmed.split('.')[1].length === 1) return trimmed + '0';
-		return trimmed;
+	const fmtBalance = (wats: number, family: string): string => {
+		if (wats === 0) return '0.00';
+		const isBtc = family === 'bitcoin';
+		const unit = isBtc ? 1e8 : 1e8; // both use 1e8 base
+		const value = wats / unit;
+		const smallUnit = isBtc ? 'Sats' : 'Wats';
+
+		// Above 0.009 → show 2 decimals (e.g. "10.34", "0.05")
+		if (value >= 0.01) return value.toFixed(2);
+
+		// Below 0.01 → express in Wats/Sats with compact format
+		if (wats >= 1e6) return `${(wats / 1e6).toFixed(2)}M ${smallUnit}`;
+		if (wats >= 1e3) return `${(wats / 1e3).toFixed(wats >= 1e4 ? 1 : 2)}K ${smallUnit}`;
+		return `${wats} ${smallUnit}`;
 	};
-	const display = $derived(fmtDisplay(formatAmount ? formatAmount(balanceWats) : (balanceWats / 1e8).toFixed(8)));
+	const display = $derived(fmtBalance(balanceWats, 'webcash'));
 	const usdValue = $derived((balanceWats / 1e8) * usdPrice);
 	const usdDisplay = $derived(usdValue === 0 ? '$0.00' : usdValue < 0.01 ? `$${usdValue.toFixed(6)}` : `$${usdValue.toFixed(2)}`);
 </script>
@@ -81,6 +89,8 @@
 			<p class="text-6xl md:text-7xl font-normal text-foreground tracking-tight">{WEBCASH_SYMBOL} ••••••</p>
 		{:else if showUsd}
 			<p class="text-6xl md:text-7xl font-normal text-foreground tracking-tight tabular-nums">{usdDisplay}</p>
+		{:else if display.includes('Wats') || display.includes('Sats')}
+			<p class="text-4xl md:text-5xl font-normal text-foreground tracking-tight tabular-nums">{display}</p>
 		{:else}
 			<p class="text-6xl md:text-7xl font-normal text-foreground tracking-tight tabular-nums">{WEBCASH_SYMBOL} {display}</p>
 		{/if}
