@@ -199,9 +199,8 @@
 					}];
 
 					onBalanceUpdate();
+					saveSnapshot();
 				}
-
-				saveSnapshot();
 			}
 		} catch (e: any) { error = e.message || 'GPU mining failed'; }
 		running = false;
