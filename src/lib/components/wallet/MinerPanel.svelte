@@ -1,9 +1,10 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { stopMining, type MinerStats } from '$lib/core/miner';
+	import { onMount, onDestroy } from 'svelte';
+	import { setMining, stopMining, type MinerStats } from '$lib/core/miner';
 	import { getMasterSecret, getRawState, setRawState } from '$lib/stores/wallet.svelte';
 	import { getWasm } from '$lib/core/wasm';
 	import type { NetworkMode } from '$lib/core/types';
+	import { acquireWakeLock, releaseWakeLock, reacquireWakeLock, startAudioKeepAlive, stopAudioKeepAlive } from '$lib/core/keep-alive';
 	import { Pickaxe, Square, Zap, Clock, Target, Hash, Trophy, Cpu, Monitor } from '@lucide/svelte';
 
 	let { network, onBalanceUpdate }: { network: NetworkMode; onBalanceUpdate: () => void } = $props();
@@ -36,6 +37,36 @@
 		submitted: boolean;
 	}
 	let history = $state<MinedSolution[]>([]);
+
+	// ── Snapshot persistence (survives background / page reload) ──
+	const SNAPSHOT_KEY = 'weby_mining_snapshot';
+	let mineStartTime = 0;
+
+	const saveSnapshot = () => {
+		try {
+			localStorage.setItem(SNAPSHOT_KEY, JSON.stringify({
+				active: true, startedAtMs: mineStartTime,
+				totalAttempts, solutionsFound, solutionsSubmitted,
+				difficulty, miningAmount, hashRate, history,
+			}));
+		} catch { /* quota — best effort */ }
+	};
+	const loadSnapshot = (): any | null => {
+		try { const r = localStorage.getItem(SNAPSHOT_KEY); return r ? JSON.parse(r) : null; }
+		catch { return null; }
+	};
+	const clearSnapshot = () => localStorage.removeItem(SNAPSHOT_KEY);
+
+	const startKeepAlive = async () => { await acquireWakeLock(); startAudioKeepAlive(); };
+	const stopKeepAlive = () => { releaseWakeLock(); stopAudioKeepAlive(); };
+
+	const handleMinerVisibility = async () => {
+		if (document.visibilityState === 'hidden') {
+			if (running) saveSnapshot();
+		} else if (running) {
+			await reacquireWakeLock();
+		}
+	};
 
 	const fmt = (n: number): string => {
 		if (n >= 1e9) return `${(n / 1e9).toFixed(1)}G`;
@@ -72,18 +103,50 @@
 			const res = await fetch('https://webcash.org/stats');
 			netStats = await res.json();
 		} catch { /* stats are optional */ }
+
+		document.addEventListener('visibilitychange', handleMinerVisibility);
+
+		// Auto-resume from saved snapshot (page reload / iOS tab kill)
+		const snap = loadSnapshot();
+		if (snap?.active && useGpu) {
+			mineGpu(snap);
+		}
 	});
 
-	const mineGpu = async () => {
+	onDestroy(() => {
+		document.removeEventListener('visibilitychange', handleMinerVisibility);
+		if (running) {
+			saveSnapshot();
+			setMining(false);
+			stopKeepAlive();
+		}
+	});
+
+	const mineGpu = async (resume?: any) => {
 		error = ''; result = ''; resultHash = '';
-		running = true; solutionsFound = 0; solutionsSubmitted = 0; totalAttempts = 0;
+		running = true;
+		setMining(true);
+		await startKeepAlive();
+
+		if (resume) {
+			totalAttempts = resume.totalAttempts ?? 0;
+			solutionsFound = resume.solutionsFound ?? 0;
+			solutionsSubmitted = resume.solutionsSubmitted ?? 0;
+			difficulty = resume.difficulty ?? 0;
+			miningAmount = resume.miningAmount ?? '';
+			hashRate = resume.hashRate ?? 0;
+			history = resume.history ?? [];
+		} else {
+			solutionsFound = 0; solutionsSubmitted = 0; totalAttempts = 0;
+		}
 
 		try {
 			const wasm = await getWasm();
 			const stateJson = await getRawState();
-			if (!stateJson) { error = 'No wallet'; running = false; return; }
+			if (!stateJson) { error = 'No wallet'; running = false; setMining(false); stopKeepAlive(); return; }
 
-			const startTime = Date.now();
+			const startTime = resume?.startedAtMs ?? Date.now();
+			mineStartTime = startTime;
 
 			while (running) {
 				const freshState = await getRawState();
@@ -126,13 +189,22 @@
 
 					onBalanceUpdate();
 				}
+
+				saveSnapshot();
 			}
 		} catch (e: any) { error = e.message || 'GPU mining failed'; }
 		running = false;
+		setMining(false);
+		stopKeepAlive();
+		clearSnapshot();
 	};
 
 	const toggle = async () => {
-		if (running) { stopMining(); running = false; return; }
+		if (running) {
+			stopMining(); running = false;
+			setMining(false); stopKeepAlive(); clearSnapshot();
+			return;
+		}
 		if (useGpu) await mineGpu();
 	};
 </script>

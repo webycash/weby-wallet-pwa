@@ -10,6 +10,7 @@ use harmoniis_wallet::webylib::{Amount, SecretWebcash};
 use harmoniis_wallet::WebcashWallet as Wallet;
 use harmoniis_wallet::miner::gpu::GpuMiner;
 use harmoniis_wallet::miner::nonce_table::NonceTable;
+use harmoniis_wallet::miner::snapshot::MiningSessionSnapshot;
 use std::cell::RefCell;
 use std::str::FromStr;
 
@@ -235,4 +236,26 @@ pub async fn gpu_mine(s: &str, n: &str) -> Result<String, JsError> {
     let miner = GPU_MINER.with(|c| { let b = c.borrow(); Ok::<_,JsError>((b.as_ref().ok_or_else(|| JsError::new("GPU not initialized"))? as *const GpuMiner,)) })?;
     let result = unsafe { &*miner.0 }.mine_and_claim(&wl, net(n), 8).await.map_err(e)?;
     serde_json::to_string(&result).map_err(e)
+}
+
+// ── Mining session snapshot ─────────────────────────────────────
+
+#[wasm_bindgen]
+pub fn create_mining_snapshot() -> String {
+    serde_json::to_string(&MiningSessionSnapshot::new()).unwrap()
+}
+
+#[wasm_bindgen]
+pub fn record_mining_batch(
+    snapshot_json: &str, attempted: u64, found: bool,
+    hash_hex: &str, difficulty_achieved: u32, amount: &str,
+) -> Result<String, JsError> {
+    let mut snap = MiningSessionSnapshot::from_json(snapshot_json).map_err(e)?;
+    snap.record_batch(attempted, found, hash_hex, difficulty_achieved, amount);
+    snap.to_json().map_err(e)
+}
+
+#[wasm_bindgen]
+pub fn mining_snapshot_active(snapshot_json: &str) -> bool {
+    MiningSessionSnapshot::from_json(snapshot_json).map(|s| s.is_active()).unwrap_or(false)
 }

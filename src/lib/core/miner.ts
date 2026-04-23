@@ -1,5 +1,4 @@
-// CPU mining coordinator — legacy, replaced by GPU mining in MinerPanel.
-// Kept as stub for type compatibility.
+// Mining state flag — lets AppShell skip wallet-lock while mining is active.
 
 export interface MinerStats {
 	readonly hashRate: number;
@@ -9,5 +8,8 @@ export interface MinerStats {
 	readonly uptimeSecs: number;
 }
 
-export const stopMining = (): void => {};
-export const isMining = (): boolean => false;
+let _mining = false;
+
+export const setMining = (v: boolean): void => { _mining = v; };
+export const isMining = (): boolean => _mining;
+export const stopMining = (): void => { _mining = false; };

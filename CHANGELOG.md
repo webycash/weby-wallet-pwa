@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2026-04-23
+
+### Added
+- **Background mining survival**: Mining continues uninterrupted when the tab goes to background on desktop (silent AudioContext keep-alive + Screen Wake Lock)
+- **Mining auto-resume**: Session state is saved to localStorage; mining resumes automatically after page reload or iOS suspension
+- **Visibility-aware wallet lock**: Wallet no longer locks on tab return while mining is active
+
 ## [0.2.1] - 2026-04-23
 
 ### Fixed
