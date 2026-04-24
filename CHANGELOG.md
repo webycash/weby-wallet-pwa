@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.3] - 2026-04-24
+
+### Added
+- **One-tap iOS migration**: The install prompt on iOS now offers "Copy wallet for install" — clicking it serializes the full wallet (mnemonic, per-network IDB state, registry, active selection, encryption config including passkey credential ID) to the clipboard. On first launch of the installed PWA the setup wizard detects a fresh iOS standalone context and offers an "Import from Safari" button that reads the clipboard and restores the full wallet. A `?migrate=...` URL param is also accepted so the bundle can be passed via link. iOS shows a one-time "Paste from Safari?" permission prompt on the first clipboard read — this is expected
+- **Migration bundle format** (`src/lib/core/migration.ts`): versioned JSON + base64, including both `weby_*` localStorage entries and all wallet_state entries from both networks
+
+### Fixed
+- **iOS flicker/reload crash loop while mining**: Stopped auto-resuming mining from the persisted snapshot on mount. The snapshot now always writes `active: false`; stats are restored for display only and the user taps Start to resume. MinerPanel is also no longer eagerly mounted on load just because a snapshot exists — it mounts only when the user navigates to the mining view. The previous behavior caused iOS to kill the WebView under memory pressure, re-resume on reload, and kill again, producing a visible flicker loop
+
 ## [0.2.2] - 2026-04-23
 
 ### Added

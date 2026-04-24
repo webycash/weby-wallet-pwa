@@ -5,11 +5,18 @@
 	import { setNetwork, getNetwork } from '$lib/stores/network.svelte';
 	import { isWebAuthnAvailable, encryptWithPasskey, encryptWithPassword } from '$lib/core/encryption';
 	import type { WalletSnapshot } from '$lib/core/types';
-	import { Plus, KeyRound, Upload, Lock, Fingerprint, ShieldOff, ScanLine, ClipboardPaste } from '@lucide/svelte';
+	import { Plus, KeyRound, Upload, Lock, Fingerprint, ShieldOff, ScanLine, ClipboardPaste, Clipboard } from '@lucide/svelte';
 	import Loader from '$lib/components/ui/Loader.svelte';
 	import SelectionButton from '$lib/components/ui/selection-button.svelte';
 
 	type Step = 'choose' | 'recover' | 'qrscan' | 'encrypt';
+
+	let { offerClipboardMigration = false, onClipboardMigration = () => {}, migrationImporting = false, migrationError = '' }: {
+		offerClipboardMigration?: boolean;
+		onClipboardMigration?: () => void;
+		migrationImporting?: boolean;
+		migrationError?: string;
+	} = $props();
 
 	let step = $state<Step>('choose');
 	let masterSecret = $state('');
@@ -289,11 +296,29 @@
 	{:else if step === 'choose'}
 		<div class="space-y-6">
 			<div class="text-center">
-				<h1 class="text-3xl font-normal text-foreground tracking-tight mb-2">Create Your Wallet</h1>
-				<p class="text-[14px] text-muted-foreground leading-relaxed">All data stays on your device. Private by default.</p>
+				{#if offerClipboardMigration}
+					<h1 class="text-3xl font-normal text-foreground tracking-tight mb-2">Welcome back</h1>
+					<p class="text-[14px] text-muted-foreground leading-relaxed">Import your wallet from Safari, or start a new one.</p>
+				{:else}
+					<h1 class="text-3xl font-normal text-foreground tracking-tight mb-2">Create Your Wallet</h1>
+					<p class="text-[14px] text-muted-foreground leading-relaxed">All data stays on your device. Private by default.</p>
+				{/if}
 			</div>
 
 			<div class="space-y-2">
+				{#if offerClipboardMigration}
+					<SelectionButton selected={false} onclick={onClipboardMigration}>
+						<Clipboard class="w-5 h-5 shrink-0" />
+						<div class="flex-1">
+							<p class="text-[15px] font-semibold">{migrationImporting ? 'Importing…' : 'Import from Safari'}</p>
+							<p class="text-[11px] text-muted-foreground">Paste the wallet you copied before installing</p>
+						</div>
+					</SelectionButton>
+					{#if migrationError}
+						<p class="text-[11px] text-destructive px-2">{migrationError}</p>
+					{/if}
+				{/if}
+
 				<SelectionButton selected={false} onclick={createNew}>
 					<Plus class="w-5 h-5 shrink-0" />
 					<div class="flex-1">

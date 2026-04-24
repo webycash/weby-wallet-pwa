@@ -134,9 +134,10 @@
 
 	const canMineWallet = $derived(activeLabel === 'main' && !isRoamingWallet);
 	const activeView = $derived(nav.activeView);
-	let miningMounted = $state(
-		typeof localStorage !== 'undefined' && localStorage.getItem('weby_mining_snapshot') !== null
-	);
+	// Mount MinerPanel lazily — only when the user navigates to mining. Mounting
+	// on load (previously triggered by a stored snapshot) caused a WebGPU init
+	// on every page load which, on iOS, contributed to the memory-kill loop.
+	let miningMounted = $state(false);
 	$effect(() => { if (activeView === 'mining' && canMineWallet) miningMounted = true; });
 
 	onMount(() => {

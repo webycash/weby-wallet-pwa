@@ -38,14 +38,17 @@
 	}
 	let history = $state<MinedSolution[]>([]);
 
-	// ── Snapshot persistence (survives background / page reload) ──
+	// ── Snapshot persistence (stats survive backgrounding / reload) ──
+	// active=false always: auto-resuming mining on reload caused iOS to kill the
+	// WebView under memory pressure, then re-resume, then re-kill — a flicker
+	// loop. Stats are restored for display; the user taps Start to resume.
 	const SNAPSHOT_KEY = 'weby_mining_snapshot';
 	let mineStartTime = 0;
 
 	const saveSnapshot = () => {
 		try {
 			localStorage.setItem(SNAPSHOT_KEY, JSON.stringify({
-				active: true, startedAtMs: mineStartTime,
+				active: false, startedAtMs: mineStartTime,
 				totalAttempts, solutionsFound, solutionsSubmitted,
 				difficulty, miningAmount, hashRate, history,
 			}));
@@ -114,11 +117,16 @@
 
 		document.addEventListener('visibilitychange', handleMinerVisibility);
 
-		// Auto-resume from saved snapshot (page reload / iOS tab kill)
+		// Restore stats display from last session (never auto-resume — see saveSnapshot)
 		const snap = loadSnapshot();
-		if (snap?.active && useGpu && !isMining()) {
-			clearSnapshot();
-			mineGpu(snap);
+		if (snap) {
+			totalAttempts = snap.totalAttempts ?? 0;
+			solutionsFound = snap.solutionsFound ?? 0;
+			solutionsSubmitted = snap.solutionsSubmitted ?? 0;
+			difficulty = snap.difficulty ?? 0;
+			miningAmount = snap.miningAmount ?? '';
+			hashRate = snap.hashRate ?? 0;
+			history = snap.history ?? [];
 		}
 	});
 
