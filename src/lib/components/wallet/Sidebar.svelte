@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Home, Pickaxe, Settings, BarChart3, ShieldCheck, Merge, RotateCcw } from '@lucide/svelte';
+	import { Home, Pickaxe, Settings, BarChart3, ShieldCheck, Merge, RotateCcw, ArrowLeftRight } from '@lucide/svelte';
 	import { nav, navigateTo, type View } from '$lib/stores/navigation.svelte';
 
 	let { canMineWallet }: {
@@ -8,6 +8,7 @@
 
 	const navItems: { id: View; label: string; icon: any }[] = [
 		{ id: 'dashboard', label: 'Dashboard', icon: Home },
+		{ id: 'exchange', label: 'Exchange', icon: ArrowLeftRight },
 		{ id: 'mining', label: 'Mining', icon: Pickaxe },
 		{ id: 'settings', label: 'Settings', icon: Settings },
 		{ id: 'stats', label: 'Stats', icon: BarChart3 },

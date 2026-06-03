@@ -23,6 +23,8 @@
 	import StatsView from './StatsView.svelte';
 	import SettingsPanel from './SettingsPanel.svelte';
 	import AppDialog from './AppDialog.svelte';
+	import ExchangeView from '../exchange/ExchangeView.svelte';
+	import { initPushRouter, replayPushQueue, pushStatus } from '$lib/modules/webycash-exchange/push-store.svelte';
 
 	let { pendingWebcash = '', onLock = () => {}, onInstall }: {
 		pendingWebcash?: string;
@@ -146,6 +148,20 @@
 		const listener = (e: MediaQueryListEvent) => { isDesktop = e.matches; };
 		mq.addEventListener('change', listener);
 
+		// Wire the exchange push router to the service worker. AppShell mounts
+		// only when the wallet is unlocked (see +page.svelte), so the router runs
+		// in the unlocked state: pushes that arrive while the app is open are
+		// routed, deduped, dispatched, and acked here.
+		//
+		// NOTE: a push that arrives while the app is CLOSED or on the LockScreen
+		// has no in-page listener yet, so it is not queued in-memory by this
+		// router. Durable queue-while-locked (the SW persisting safe metadata to
+		// IndexedDB and the app draining it on unlock) is a deferred integration;
+		// `replayPushQueue` drains anything this router queued during THIS session
+		// (e.g. a transient re-lock) and is a no-op otherwise.
+		initPushRouter(() => true);
+		void replayPushQueue();
+
 		(async () => {
 			const wasm = await getWasm();
 			fmt = (wats: number) => wasm.format_amount(BigInt(wats));
@@ -238,6 +254,8 @@
 						{isStandalone} {isDesktop} onInstall={onInstall} />
 				{:else if activeView === 'mining'}
 					<!-- rendered above, outside #key, to persist -->
+				{:else if activeView === 'exchange'}
+					<ExchangeView {isDesktop} />
 				{:else if activeView === 'merge'}
 					<MergeView {loading} onMerge={handleMerge} />
 				{:else if activeView === 'recovery'}

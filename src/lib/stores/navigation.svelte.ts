@@ -1,4 +1,4 @@
-export type View = 'dashboard' | 'mining' | 'merge' | 'recovery' | 'verify' | 'settings' | 'stats';
+export type View = 'dashboard' | 'mining' | 'merge' | 'recovery' | 'verify' | 'settings' | 'stats' | 'exchange';
 export type MobileScreen = 'menu' | 'settings' | 'settings-detail';
 export type SettingsTab = 'wallet' | 'master' | 'webcash' | 'bitcoin' | 'rgb' | 'vouchers';
 

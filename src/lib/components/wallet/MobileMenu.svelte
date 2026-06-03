@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Home, Pickaxe, Settings, BarChart3, ShieldCheck, Merge, RotateCcw, X, ArrowLeft, Key, Lock, ChevronRight } from '@lucide/svelte';
+	import { Home, Pickaxe, Settings, BarChart3, ShieldCheck, Merge, RotateCcw, X, ArrowLeft, Key, Lock, ChevronRight, ArrowLeftRight } from '@lucide/svelte';
 	import { nav, closeMenu, navigateTo, pushSettings, popSettings,
 		pushSettingsDetail, popSettingsDetail, type View, type SettingsTab } from '$lib/stores/navigation.svelte';
 	import SettingsPanel from './SettingsPanel.svelte';
@@ -23,6 +23,7 @@
 
 	const navItems: { id: View; label: string; icon: any }[] = [
 		{ id: 'dashboard', label: 'Dashboard', icon: Home },
+		{ id: 'exchange', label: 'Exchange', icon: ArrowLeftRight },
 		{ id: 'mining', label: 'Mining', icon: Pickaxe },
 		{ id: 'stats', label: 'Stats & Log', icon: BarChart3 },
 	];
