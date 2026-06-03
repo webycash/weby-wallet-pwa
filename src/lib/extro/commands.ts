@@ -150,14 +150,27 @@ export type PushCommand = {
 
 export type HookOutcome = 'Processed' | 'Queued' | 'Duplicate';
 
-/** Stable error discriminants (mirrors extro-node `ErrorCode`). */
+/**
+ * Stable error discriminants — the PascalCase variant names extro-node's codec
+ * emits for the `code` field (mirrors extro-node `ErrorCode`; see
+ * extro-node/src/scheme402/error.rs + src/wasm/codec.rs::error_code_name). Kept
+ * open (`| string`) so a future code is still assignable before this union is
+ * updated.
+ */
 export type ErrorCode =
-	| 'NotBooted'
 	| 'MalformedCommand'
+	| 'NotBooted'
 	| 'PermissionDenied'
-	| 'VerificationFailed'
-	| 'PairRejected'
+	| 'WalletLocked'
+	| 'WalletError'
+	| 'ShamirError'
+	| 'SignatureInvalid'
+	| 'PolicyRejected'
+	| 'PayloadError'
+	| 'Unsupported'
 	| 'Internal'
+	| 'ProofError'
+	| 'StorageError'
 	| string;
 
 export type ResponseBody =
