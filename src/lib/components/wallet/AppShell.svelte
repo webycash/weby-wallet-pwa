@@ -140,7 +140,12 @@
 		}
 	};
 
-	const canMineWallet = $derived(activeLabel === 'main' && !isRoamingWallet && nav.activeTab === 'webcash');
+	// Mining CAPABILITY is a property of the wallet (main, non-roaming) — NOT of
+	// the active tab. The Mining *menu* is Webcash-only (it lives only in the
+	// Webcash menu data), but an in-progress miner must keep running in the
+	// background while the user browses Bitcoin/Exchange/etc., so the persistent
+	// mount below stays alive across tabs.
+	const canMineWallet = $derived(activeLabel === 'main' && !isRoamingWallet);
 	const activeTab = $derived(nav.activeTab);
 	const activeView = $derived(nav.activeView);
 
