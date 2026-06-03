@@ -10,7 +10,7 @@
 	import * as Persistence from '$lib/core/persistence';
 	import { getWasm } from '$lib/core/wasm';
 	import type { SecretWebcash, WalletStats, NetworkMode } from '$lib/core/types';
-	import { nav, navigateTo } from '$lib/stores/navigation.svelte';
+	import { nav, selectTab, closeSettings, isAssetTab } from '$lib/stores/navigation.svelte';
 
 	import Header from './Header.svelte';
 	import Sidebar from './Sidebar.svelte';
@@ -24,6 +24,9 @@
 	import SettingsPanel from './SettingsPanel.svelte';
 	import AppDialog from './AppDialog.svelte';
 	import ExchangeView from '../exchange/ExchangeView.svelte';
+	import BitcoinView from '../bitcoin/BitcoinView.svelte';
+	import RgbView from '../rgb/RgbView.svelte';
+	import VouchersView from '../vouchers/VouchersView.svelte';
 	import { initPushRouter, replayPushQueue, pushStatus } from '$lib/modules/webycash-exchange/push-store.svelte';
 
 	let { pendingWebcash = '', onLock = () => {}, onInstall }: {
@@ -85,16 +88,19 @@
 			activeFamily = await getActiveFamily();
 			activeLabel = await getActiveLabel();
 			isRoamingWallet = isRoaming();
-			walletList = await listWallets(activeFamily);
-			balanceWats = await getBalance();
-			walletStats = await getStats();
-			webcashList = await getWebcash();
+			// A never-created non-webcash slot can throw inside ensureState
+			// (no HD slot / derive failure). Honest behaviour is balance 0, NOT a
+			// blanked app — guard each query so a missing family degrades cleanly.
+			try { walletList = await listWallets(activeFamily); } catch { walletList = []; }
+			try { balanceWats = await getBalance(); } catch { balanceWats = 0; }
+			try { walletStats = await getStats(); } catch { walletStats = null; }
+			try { webcashList = await getWebcash(); } catch { webcashList = []; }
 		} finally { loading = false; }
 	};
 
 	const switchFamily = async (family: string) => {
 		if (family === activeFamily) return;
-		await setActive(family, 'main');
+		try { await setActive(family, 'main'); } catch { /* degrade to 0 below */ }
 		await refresh();
 	};
 
@@ -134,13 +140,24 @@
 		}
 	};
 
-	const canMineWallet = $derived(activeLabel === 'main' && !isRoamingWallet);
+	const canMineWallet = $derived(activeLabel === 'main' && !isRoamingWallet && nav.activeTab === 'webcash');
+	const activeTab = $derived(nav.activeTab);
 	const activeView = $derived(nav.activeView);
+
+	// Observe the active tab: when it is an asset family, ensure the wallet store's
+	// active family matches (setActive + refresh, via switchFamily). `exchange` is
+	// a mode, not a family — never switch for it. This is the ONE place the pure
+	// nav store's intent becomes a wallet side effect.
+	$effect(() => {
+		const tab = nav.activeTab;
+		if (isAssetTab(tab) && tab !== activeFamily) void switchFamily(tab);
+	});
+
 	// Mount MinerPanel lazily — only when the user navigates to mining. Mounting
 	// on load (previously triggered by a stored snapshot) caused a WebGPU init
 	// on every page load which, on iOS, contributed to the memory-kill loop.
 	let miningMounted = $state(false);
-	$effect(() => { if (activeView === 'mining' && canMineWallet) miningMounted = true; });
+	$effect(() => { if (activeTab === 'webcash' && activeView === 'mining' && canMineWallet) miningMounted = true; });
 
 	onMount(() => {
 		const mq = window.matchMedia('(min-width: 768px)');
@@ -172,7 +189,7 @@
 			if (appLoader) appLoader.remove();
 			const appRoot = document.getElementById('app-root');
 			if (appRoot) appRoot.style.opacity = '1';
-			if (pendingWebcash) { navigateTo('dashboard'); setTimeout(() => handleInsert(pendingWebcash), 500); }
+			if (pendingWebcash) { selectTab('webcash'); setTimeout(() => handleInsert(pendingWebcash), 500); }
 		})();
 		document.addEventListener('visibilitychange', handleVisibility);
 
@@ -187,13 +204,10 @@
 	<div class="min-h-[60vh]"></div>
 {:else}
 	<div class="min-h-screen bg-background">
-		<Header {network} onNetworkChange={handleNetworkChange} {activeFamily} onSwitchFamily={switchFamily} {isDesktop} />
+		<Header {network} onNetworkChange={handleNetworkChange} {isDesktop} />
 
 		{#if !isDesktop}
-			<MobileMenu
-				{activeFamily} {activeLabel} {isRoamingWallet} {canMineWallet}
-				{network} onNetworkChange={handleNetworkChange}
-				onRefresh={refresh} onMessage={showMessage} {appDialog} />
+			<MobileMenu {canMineWallet} {network} onNetworkChange={handleNetworkChange} />
 		{/if}
 
 		<!-- Centered sidebar + content -->
@@ -203,83 +217,113 @@
 			{/if}
 
 			<main class="px-5 py-4 md:py-6 flex-1 max-w-lg {isDesktop ? '' : 'mx-auto'}">
-				<!-- Wallet selector -->
-				<div class="flex justify-center mb-4">
-					<button onclick={() => showWalletDropdown = !showWalletDropdown}
-						class="flex items-center gap-2 px-4 py-2 rounded-full bg-muted/40 hover:bg-muted/60 text-[15px] font-medium transition-all duration-200 relative">
-						<span class="capitalize">{activeLabel}</span>
-						{#if isRoamingWallet}
-							<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-warning/15 text-warning font-medium">R</span>
-						{/if}
-						<svg class="w-3 h-3 opacity-40 transition-transform duration-200 {showWalletDropdown ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-					</button>
-					{#if showWalletDropdown}
-						<!-- svelte-ignore a11y_click_events_have_key_events -->
-						<!-- svelte-ignore a11y_no_static_element_interactions -->
-						<div class="fixed inset-0 z-40" onclick={() => showWalletDropdown = false}></div>
-						<div class="absolute mt-12 z-50 min-w-[12rem] rounded-2xl bg-popover shadow-xl overflow-hidden animate-scale-in">
-							{#each walletList as w}
-								<button
-									onclick={() => { switchWallet(w.label); showWalletDropdown = false; }}
-									class="w-full px-4 py-2.5 text-[13px] text-left transition-all duration-150
-										{w.label === activeLabel ? 'bg-primary/8 font-medium' : 'hover:bg-muted/40'}">
-									<span class="capitalize">{w.label}</span>
-									{#if w.roaming}<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-warning/15 text-warning font-medium ml-1.5">R</span>{/if}
-									{#if fmt && w.balance > 0}<span class="text-xs opacity-35 ml-1.5">{fmt(w.balance)}</span>{/if}
+				<!-- Wallet selector — asset tabs only (Exchange is a mode, not a family) -->
+				{#if isAssetTab(activeTab)}
+					<div class="flex justify-center mb-4">
+						<button onclick={() => showWalletDropdown = !showWalletDropdown}
+							class="flex items-center gap-2 px-4 py-2 rounded-full bg-muted/40 hover:bg-muted/60 text-[15px] font-medium transition-all duration-200 relative">
+							<span class="capitalize">{activeLabel}</span>
+							{#if isRoamingWallet}
+								<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-warning/15 text-warning font-medium">R</span>
+							{/if}
+							<svg class="w-3 h-3 opacity-40 transition-transform duration-200 {showWalletDropdown ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+						</button>
+						{#if showWalletDropdown}
+							<!-- svelte-ignore a11y_click_events_have_key_events -->
+							<!-- svelte-ignore a11y_no_static_element_interactions -->
+							<div class="fixed inset-0 z-40" onclick={() => showWalletDropdown = false}></div>
+							<div class="absolute mt-12 z-50 min-w-[12rem] rounded-2xl bg-popover shadow-xl overflow-hidden animate-scale-in">
+								{#each walletList as w}
+									<button
+										onclick={() => { switchWallet(w.label); showWalletDropdown = false; }}
+										class="w-full px-4 py-2.5 text-[13px] text-left transition-all duration-150
+											{w.label === activeLabel ? 'bg-primary/8 font-medium' : 'hover:bg-muted/40'}">
+										<span class="capitalize">{w.label}</span>
+										{#if w.roaming}<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-warning/15 text-warning font-medium ml-1.5">R</span>{/if}
+										{#if fmt && w.balance > 0}<span class="text-xs opacity-35 ml-1.5">{fmt(w.balance)}</span>{/if}
+									</button>
+								{/each}
+								<button onclick={() => { handleNewWallet(); showWalletDropdown = false; }}
+									class="w-full px-4 py-2.5 text-[13px] text-left text-muted-foreground hover:bg-muted/40 transition-all duration-150">
+									+ New wallet
 								</button>
-							{/each}
-							<button onclick={() => { handleNewWallet(); showWalletDropdown = false; }}
-								class="w-full px-4 py-2.5 text-[13px] text-left text-muted-foreground hover:bg-muted/40 transition-all duration-150">
-								+ New wallet
-							</button>
-						</div>
-					{/if}
-				</div>
-			<!-- MiningView persists once visited so mining never stops on navigate -->
-			{#if miningMounted && canMineWallet}
-				<div class={activeView === 'mining' ? 'animate-fade-in' : 'hidden'}>
-					<MiningView {network} {canMineWallet} onBalanceUpdate={refresh} />
-				</div>
-			{/if}
-
-			{#key activeView}
-				{#if activeView === 'dashboard'}
-					<DashboardView
-						{balanceWats} formatAmount={fmt} {network} {loading}
-						{message} {messageType} {copiedError}
-						onInsert={handleInsert} onPay={handlePay}
-						{paymentResult} {paymentMemo}
-						onDismissMessage={dismissMessage} onCopyError={copyError}
-						onClearPayment={() => { paymentResult = ''; paymentMemo = ''; }}
-						{isStandalone} {isDesktop} onInstall={onInstall} />
-				{:else if activeView === 'mining'}
-					<!-- rendered above, outside #key, to persist -->
-				{:else if activeView === 'exchange'}
-					<ExchangeView {isDesktop} />
-				{:else if activeView === 'merge'}
-					<MergeView {loading} onMerge={handleMerge} />
-				{:else if activeView === 'recovery'}
-					<RecoveryView {loading} onRecover={handleRecover} />
-				{:else if activeView === 'verify'}
-					<VerifyView />
-				{:else if activeView === 'settings'}
-					<div class="animate-fade-in">
-						<h2 class="text-[17px] font-semibold mb-4">Settings</h2>
-						<SettingsPanel {activeFamily} {activeLabel} {isRoamingWallet}
-							onRefresh={refresh} onMessage={showMessage} {appDialog} />
+							</div>
+						{/if}
 					</div>
-				{:else if activeView === 'stats'}
-					<StatsView stats={walletStats} webcash={webcashList} formatAmount={fmt} />
 				{/if}
-			{/key}
 
-			{#if message && messageType === 'success' && activeView !== 'dashboard'}
-				<div class="mt-6 rounded-2xl px-4 py-3 text-sm font-medium bg-primary/8 text-primary text-center">
-					{message}
+				<!-- MiningView persists once visited so mining never stops on navigate -->
+				{#if miningMounted && canMineWallet}
+					<div class={activeTab === 'webcash' && activeView === 'mining' ? 'animate-fade-in' : 'hidden'}>
+						<MiningView {network} {canMineWallet} onBalanceUpdate={refresh} />
+					</div>
+				{/if}
+
+				<!-- Router: branch on the active TAB first, then the view within it.
+				     View ids (balance/receive/history/issue) repeat across tabs, so
+				     keying on tab+view is mandatory. -->
+				{#key `${activeTab}:${activeView}`}
+					{#if activeTab === 'webcash'}
+						{#if activeView === 'balance'}
+							<DashboardView
+								{balanceWats} formatAmount={fmt} {network} {loading}
+								{message} {messageType} {copiedError}
+								onInsert={handleInsert} onPay={handlePay}
+								{paymentResult} {paymentMemo}
+								onDismissMessage={dismissMessage} onCopyError={copyError}
+								onClearPayment={() => { paymentResult = ''; paymentMemo = ''; }}
+								{isStandalone} {isDesktop} onInstall={onInstall} />
+						{:else if activeView === 'mining'}
+							<!-- rendered above, outside #key, to persist -->
+						{:else if activeView === 'merge'}
+							<MergeView {loading} onMerge={handleMerge} />
+						{:else if activeView === 'recover'}
+							<RecoveryView {loading} onRecover={handleRecover} />
+						{:else if activeView === 'verify'}
+							<VerifyView />
+						{:else if activeView === 'stats'}
+							<StatsView stats={walletStats} webcash={webcashList} formatAmount={fmt} />
+						{/if}
+					{:else if activeTab === 'bitcoin'}
+						<BitcoinView {balanceWats} {network} label={activeLabel} />
+					{:else if activeTab === 'rgb'}
+						<RgbView />
+					{:else if activeTab === 'vouchers'}
+						<VouchersView />
+					{:else if activeTab === 'exchange'}
+						<ExchangeView {isDesktop} />
+					{/if}
+				{/key}
+
+				{#if message && messageType === 'success' && !(activeTab === 'webcash' && activeView === 'balance')}
+					<div class="mt-6 rounded-2xl px-4 py-3 text-sm font-medium bg-primary/8 text-primary text-center">
+						{message}
+					</div>
+				{/if}
+			</main>
+		</div>
+
+		<!-- Global Settings overlay — reachable from any tab, gated on nav.settingsOpen -->
+		{#if nav.settingsOpen}
+			<!-- svelte-ignore a11y_click_events_have_key_events -->
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div class="fixed inset-0 z-50 bg-background/60 backdrop-blur-md" onclick={closeSettings}></div>
+			<div class="fixed top-4 left-4 right-4 bottom-4 md:inset-x-auto md:inset-y-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-md md:max-h-[80vh] z-50 bg-background rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-scale-in"
+				role="dialog" aria-modal="true" aria-label="Settings">
+				<div class="flex items-center justify-between px-6 py-5">
+					<h2 class="text-[17px] font-semibold">Settings</h2>
+					<button onclick={closeSettings}
+						class="flex items-center justify-center w-14 h-14 rounded-full bg-muted/40 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
+						aria-label="Close">
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+					</button>
 				</div>
-			{/if}
-		</main>
-	</div>
+				<div class="flex-1 overflow-y-auto px-4 pb-5">
+					<SettingsPanel {activeFamily} {activeLabel} {isRoamingWallet}
+						onRefresh={refresh} onMessage={showMessage} {appDialog} />
+				</div>
+			</div>
+		{/if}
 	</div>
 
 	<!-- Error modal -->

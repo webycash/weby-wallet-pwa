@@ -1,16 +1,20 @@
 import { defineConfig } from 'vitest/config';
+import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// Standalone vitest config. We deliberately do NOT pull in the SvelteKit
-// plugin here: the unit suite covers pure `.ts` logic (pair policy, book math,
-// fee split, push-hook dedupe, trade timeline, facade single-flight) which
-// needs no DOM and no rune compilation. `$state` runes live only in
-// `*.svelte.ts` reactive wrappers, which are intentionally not unit-tested —
-// they delegate to the pure modules that are.
+// Standalone vitest config. The bulk of the suite covers pure `.ts` logic (pair
+// policy, book math, fee split, push-hook dedupe, trade timeline, facade
+// single-flight). The Svelte plugin is included so the rune-bearing navigation
+// store (`navigation.svelte.ts`, a `.svelte.ts` module that compiles `$state`
+// and imports `@lucide/svelte` icon components) can be imported and unit-tested
+// directly — the menu-as-data model is the navigation contract and is covered
+// here. The plugin only transforms Svelte files; pure `.ts` tests are untouched.
 export default defineConfig({
+	plugins: [svelte()],
+	resolve: { conditions: ['browser'] },
 	test: {
 		environment: 'node',
 		include: ['src/**/*.test.ts'],
