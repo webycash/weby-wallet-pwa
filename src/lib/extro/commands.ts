@@ -57,6 +57,22 @@ export type WalletCommand =
 	| { op: 'ListSummaries'; slot: number }
 	| { op: 'Lock' };
 
+// ── Expected-outcome selector (mirrors ExpectedOutcome) ──────────────────────
+
+/**
+ * Which outcome a mediated-conditional command must authorize. Selects the
+ * conditional's domain tag at the trust boundary (mirrors extro-node
+ * `ExpectedOutcome`): `Release` → ConditionalRelease, `Refund` →
+ * ConditionalRefund, `Custom(label)` → Conditional(label). The wire payload
+ * derives its own tag from its embedded outcome, so a release payload can only
+ * open under the release tag and vice-versa — a single command can never cross
+ * outcomes.
+ */
+export type ExpectedOutcome =
+	| { kind: 'Release' }
+	| { kind: 'Refund' }
+	| { kind: 'Custom'; label: string };
+
 // ── Scheme-402 commands ──────────────────────────────────────────────────────
 
 export type Scheme402Command =
@@ -78,9 +94,13 @@ export type Scheme402Command =
 			expected_recipient_fp: Uint8Array; // 20 bytes
 	  }
 	| { op: 'FailToDeliver'; signed_request: Uint8Array; signer_vk: Uint8Array }
-	| { op: 'OrderRequest'; signed_request: Uint8Array; taker_vk: Uint8Array }
-	| { op: 'ArkVerifySettle'; signed_payload: Uint8Array; signer_vk: Uint8Array }
-	| { op: 'ArkVerifyRefund'; signed_payload: Uint8Array; signer_vk: Uint8Array };
+	| { op: 'VerifyPaymentRequest'; signed_request: Uint8Array; payer_vk: Uint8Array }
+	| {
+			op: 'ConditionalVerify';
+			signed_payload: Uint8Array;
+			signer_vk: Uint8Array;
+			expect_outcome: ExpectedOutcome;
+	  };
 
 // ── Hook commands ─────────────────────────────────────────────────────────────
 
@@ -97,12 +117,26 @@ export type HookCommand =
 			signer_vk: Uint8Array;
 			swap_id: Uint8Array;
 	  }
-	| { op: 'ReleaseSettle'; signed_payload: Uint8Array; signer_vk: Uint8Array }
-	| { op: 'ReleaseRefund'; signed_payload: Uint8Array; signer_vk: Uint8Array };
+	| {
+			op: 'ReleaseConditional';
+			signed_payload: Uint8Array;
+			signer_vk: Uint8Array;
+			expect_outcome: ExpectedOutcome;
+	  };
 
 // ── Push command ──────────────────────────────────────────────────────────────
 
-export type PushKind = 'EncryptedDelivery' | 'FailToDeliver' | 'ArkSettle' | 'ArkRefund';
+/**
+ * Which wallet hook an inbound push payload routes to (mirrors `PushKind`).
+ * `ReleaseConditional` CARRIES the expected outcome, so this is a tagged union
+ * (modeled like {@link ResponseBody}/{@link ExpectedOutcome}), not a bare
+ * string — that object-vs-string shape is the encoding change the generalized
+ * surface introduces.
+ */
+export type PushKind =
+	| { kind: 'EncryptedDelivery' }
+	| { kind: 'FailToDeliver' }
+	| { kind: 'ReleaseConditional'; outcome: ExpectedOutcome };
 
 export type PushCommand = {
 	op: 'DispatchPush';
@@ -139,12 +173,20 @@ export type ResponseBody =
 			ciphertext_hash: Uint8Array;
 	  }
 	| {
-			kind: 'OrderVerdict';
-			allowed: boolean;
-			settlement_model: string;
-			requires_referee: boolean;
+			kind: 'PaymentRequestVerified';
+			idempotency: Uint8Array; // 16 bytes
+			amount_raw: bigint;
+			asset_family: string;
+			payee_fingerprint: Uint8Array; // 20 bytes
+			accepts_referee: boolean;
 	  }
-	| { kind: 'ArkVerified'; session_id: Uint8Array; outcome: 'settle' | 'refund'; referee_released: boolean }
+	| {
+			kind: 'ConditionalVerified';
+			session_id: Uint8Array; // 16 bytes
+			/** `"release"`, `"refund"`, or a custom outcome label. */
+			outcome: string;
+			referee_released: boolean;
+	  }
 	| { kind: 'Hook'; outcome: HookOutcome };
 
 export interface FamilySummary {
@@ -169,3 +211,19 @@ export const newRequestId = (): RequestId => {
 
 export const isOk = (r: ExtroResponse): r is Extract<ExtroResponse, { kind: 'Ok' }> =>
 	r.kind === 'Ok';
+
+/**
+ * Stable outcome label for an {@link ExpectedOutcome} (mirrors the Rust
+ * `ExpectedOutcome::label()`): `"release"` / `"refund"` / the custom label
+ * verbatim.
+ */
+export const expectedOutcomeLabel = (o: ExpectedOutcome): string => {
+	switch (o.kind) {
+		case 'Release':
+			return 'release';
+		case 'Refund':
+			return 'refund';
+		case 'Custom':
+			return o.label;
+	}
+};

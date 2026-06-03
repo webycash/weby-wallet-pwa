@@ -3,11 +3,13 @@
 // Source of truth (asset model + pair matrix):
 //   extro/docs/development/24-extro-402-scheme-and-webycash-plan.md §"Asset Model".
 //
-// This MIRRORS the extrolib default-deny pair policy on the wallet/UI side. It
-// is a SECOND, independent re-derivation — extro-node also re-derives the
-// verdict from the signed order request and never trusts an incoming one
-// (`Scheme402Command::OrderRequest`). The UI must not let a user reach a
-// confirm button for a pair this rejects, and must never label a bearer flow as
+// This MIRRORS the extrolib default-deny pair policy on the wallet/UI side, and
+// it is now the SOLE owner of the pair/settlement decision: the generalized
+// `Scheme402Command::VerifyPaymentRequest` is rail-agnostic and deliberately
+// does NOT re-derive any exchange pair policy (it only verifies the signed
+// request and returns its public commitments). The exchange application drives
+// the verdict from this module. The UI must not let a user reach a confirm
+// button for a pair this rejects, and must never label a bearer flow as
 // strictly atomic.
 //
 // CRITICAL invariants:

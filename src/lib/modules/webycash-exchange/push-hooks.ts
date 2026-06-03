@@ -32,8 +32,8 @@ import {
 export type HookKind =
 	| 'insert' // encrypted bearer payload → Insert
 	| 'invalidate' // public-hash invalidation / fail-to-deliver → Invalidate
-	| 'release-settle' // ARK settle release
-	| 'release-refund' // ARK refund release
+	| 'release-settle' // mediated-conditional Release → ReleaseConditional
+	| 'release-refund' // mediated-conditional Refund → ReleaseConditional
 	| 'fail-to-deliver'; // explicit fail-to-deliver (also rotates the secret)
 
 /**
@@ -90,11 +90,13 @@ export interface RouterDeps {
 }
 
 const PUSH_KIND_MAP: Record<HookKind, PushKind> = {
-	insert: 'EncryptedDelivery',
-	invalidate: 'FailToDeliver',
-	'fail-to-deliver': 'FailToDeliver',
-	'release-settle': 'ArkSettle',
-	'release-refund': 'ArkRefund'
+	insert: { kind: 'EncryptedDelivery' },
+	invalidate: { kind: 'FailToDeliver' },
+	'fail-to-deliver': { kind: 'FailToDeliver' },
+	// A mediated-conditional release routes to ReleaseConditional; the app's
+	// settle/refund label selects the expected outcome (and thus the domain tag).
+	'release-settle': { kind: 'ReleaseConditional', outcome: { kind: 'Release' } },
+	'release-refund': { kind: 'ReleaseConditional', outcome: { kind: 'Refund' } }
 };
 
 /**

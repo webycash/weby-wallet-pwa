@@ -14,12 +14,12 @@
 
 import type { ExtroAdapter } from './client';
 import {
+	expectedOutcomeLabel,
 	type ExtroCommand,
 	type ExtroResponse,
 	type HookOutcome,
 	type ResponseBody
 } from './commands';
-import { evaluatePair, type AssetClass } from '$lib/modules/webycash-exchange/pair-policy';
 
 /** A controllable deferred used to hold a dispatch open in tests. */
 export interface Gate {
@@ -41,8 +41,6 @@ export interface MockNodeOptions {
 	 * force overlap windows and prove serialization.
 	 */
 	gate?: Gate;
-	/** Pair both legs map to, used to drive OrderRequest verdicts in tests. */
-	orderPair?: { a: AssetClass; b: AssetClass };
 	/** Force the next hook dispatch outcome (e.g. simulate a locked wallet). */
 	forceHookOutcome?: HookOutcome;
 }
@@ -118,16 +116,18 @@ export class MockExtroAdapter implements ExtroAdapter {
 				const c = op.cmd;
 				if (c.op === 'SimplePay')
 					return ok({ kind: 'SignedRetry', retry: new Uint8Array(0), receipt_id: c.idempotency });
-				if (c.op === 'OrderRequest') {
-					const pair = this.opts.orderPair ?? { a: 'Webcash', b: 'BitcoinArk' };
-					const verdict = evaluatePair(pair.a, pair.b);
+				if (c.op === 'VerifyPaymentRequest')
+					// Pair-policy / order semantics are NOT computed here — the
+					// exchange app re-derives them from its own pair-policy module.
+					// This returns only the request's public commitments.
 					return ok({
-						kind: 'OrderVerdict',
-						allowed: verdict.allowed,
-						settlement_model: verdict.settlementModel,
-						requires_referee: verdict.requiresReferee
+						kind: 'PaymentRequestVerified',
+						idempotency: new Uint8Array(16),
+						amount_raw: 0n,
+						asset_family: 'webcash',
+						payee_fingerprint: new Uint8Array(20),
+						accepts_referee: true
 					});
-				}
 				if (c.op === 'AcceptEncryptedBearerDelivery')
 					return ok({
 						kind: 'DeliveryAccepted',
@@ -135,10 +135,13 @@ export class MockExtroAdapter implements ExtroAdapter {
 						recipient_fingerprint: c.expected_recipient_fp,
 						ciphertext_hash: new Uint8Array(32)
 					});
-				if (c.op === 'ArkVerifySettle')
-					return ok({ kind: 'ArkVerified', session_id: new Uint8Array(16), outcome: 'settle', referee_released: true });
-				if (c.op === 'ArkVerifyRefund')
-					return ok({ kind: 'ArkVerified', session_id: new Uint8Array(16), outcome: 'refund', referee_released: true });
+				if (c.op === 'ConditionalVerify')
+					return ok({
+						kind: 'ConditionalVerified',
+						session_id: new Uint8Array(16),
+						outcome: expectedOutcomeLabel(c.expect_outcome),
+						referee_released: true
+					});
 				return ok({ kind: 'Empty' });
 			}
 			case 'Hook':
