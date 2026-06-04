@@ -20,15 +20,21 @@ export default defineConfig({
 	},
 	resolve: {
 		alias: {
-			'$wasm': resolve(__dirname, 'crates/wallet-wasm/pkg')
+			'$wasm': resolve(__dirname, 'crates/wallet-wasm/pkg'),
+			// Built extro-node WASM, synced from extro/extro-node/pkg by
+			// scripts/sync-wasm.mjs (pre{dev,build}). Backs the bundled adapter.
+			'$node': resolve(__dirname, 'src/lib/node/pkg')
 		}
 	},
 	server: {
 		fs: {
-			allow: [resolve(__dirname, 'crates/wallet-wasm/pkg')]
+			allow: [
+				resolve(__dirname, 'crates/wallet-wasm/pkg'),
+				resolve(__dirname, 'src/lib/node/pkg')
+			]
 		}
 	},
 	optimizeDeps: {
-		exclude: ['$wasm']
+		exclude: ['$wasm', '$node']
 	}
 });
