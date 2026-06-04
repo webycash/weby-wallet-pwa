@@ -80,6 +80,7 @@ export const TAB_MENUS: Record<Tab, readonly NavItem[]> = {
 		{ view: 'receive', label: 'Receive', icon: ArrowDownToLine },
 		{ view: 'redeem', label: 'Redeem', icon: Gift },
 		{ view: 'issue', label: 'Issue', icon: PlusCircle },
+		{ view: 'transfer', label: 'Transfer', icon: ArrowLeftRight },
 		{ view: 'history', label: 'History', icon: History },
 	],
 	exchange: [

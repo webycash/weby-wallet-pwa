@@ -290,7 +290,7 @@
 							<StatsView stats={walletStats} webcash={webcashList} formatAmount={fmt} />
 						{/if}
 					{:else if activeTab === 'bitcoin'}
-						<BitcoinView {balanceWats} {network} label={activeLabel} />
+						<BitcoinView {network} />
 					{:else if activeTab === 'rgb'}
 						<RgbView />
 					{:else if activeTab === 'vouchers'}

@@ -149,6 +149,52 @@ export class MockExtroAdapter implements ExtroAdapter {
 				const outcome: HookOutcome = this.opts.forceHookOutcome ?? 'Processed';
 				return ok({ kind: 'Hook', outcome });
 			}
+			case 'Rail': {
+				// Deterministic shape-mirrors so the per-rail tabs are exercisable in
+				// mock mode. NO real settlement — read ops return zeroed/empty bodies,
+				// write ops echo a synthetic but well-formed result.
+				const c = op.cmd;
+				switch (c.op) {
+					case 'BitcoinBalance':
+						return ok({
+							kind: 'BitcoinBalance',
+							address: `mock:bitcoin:${c.slot}`,
+							confirmed_sats: 0n,
+							mempool_sats: 0n,
+							tx_count: 0n
+						});
+					case 'BitcoinSend':
+						return ok({ kind: 'BitcoinSent', txid: '00'.repeat(32), fee_sat: 0n, change_sat: 0n });
+					case 'VoucherBalance':
+					case 'RgbBalance':
+						return ok({ kind: 'RailBalance', groups: [] });
+					case 'RgbContracts':
+						return ok({ kind: 'RailContracts', contracts: [] });
+					case 'VoucherIssue':
+					case 'RgbIssue':
+						return ok({
+							kind: 'RailIssued',
+							scheme: c.op === 'RgbIssue' ? 'rgb' : 'voucher',
+							contract: c.op === 'RgbIssue' ? c.contract : c.contract,
+							issuer_fp: 'fp'.repeat(10),
+							secret: 'mock-bearer-secret'
+						});
+					case 'VoucherTransfer':
+					case 'RgbTransfer':
+						return ok({
+							kind: 'RailTransferred',
+							scheme: c.op === 'RgbTransfer' ? 'rgb' : 'voucher'
+						});
+					case 'VoucherRedeem':
+					case 'RgbRedeem':
+						return ok({
+							kind: 'RailRedeemed',
+							scheme: c.op === 'RgbRedeem' ? 'rgb' : 'voucher',
+							public_token: 'mock-public-token',
+							unspent: true
+						});
+				}
+			}
 		}
 	}
 }

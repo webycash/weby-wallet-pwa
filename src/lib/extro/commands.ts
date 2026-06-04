@@ -33,7 +33,8 @@ export type Op =
 	| { kind: 'Wallet'; cmd: WalletCommand }
 	| { kind: 'Scheme402'; cmd: Scheme402Command }
 	| { kind: 'Hook'; cmd: HookCommand }
-	| { kind: 'Push'; cmd: PushCommand };
+	| { kind: 'Push'; cmd: PushCommand }
+	| { kind: 'Rail'; cmd: RailCommand };
 
 export interface ExtroCommand {
 	request_id: RequestId;
@@ -146,6 +147,79 @@ export type PushCommand = {
 	swap_id: Uint8Array; // 16 bytes
 };
 
+// ── Rail commands (Op::Rail — per-rail asset operations) ─────────────────────
+//
+// Source of truth: extro-node `src/scheme402/command.rs::RailCommand` and the
+// `src/wasm/codec.rs::rail_from_js` Reflect mapping. These are the operations a
+// family does NOT already expose (the receive address of every family is
+// covered by {@link WalletCommand} `DeriveFamilyHandle`). The JS shape is
+// `{op:'<Variant>', ...fields}`, wrapped as `op:{kind:'Rail', cmd:<this>}`.
+
+/** Chain selector (mirrors `WireNetwork`). */
+export type WireNetwork = 'Bitcoin' | 'Testnet' | 'Signet' | 'Regtest';
+
+/**
+ * Which RGB flavor a rail op targets (mirrors `WireRgbFlavor`): `Fungible` →
+ * rgb20, `Collectible` → rgb21. Carried on every RGB issue/transfer/redeem op —
+ * the codec REQUIRES it (`wire_rgb_flavor_from_js`).
+ */
+export type WireRgbFlavor = 'Fungible' | 'Collectible';
+
+export type RailCommand =
+	| {
+			op: 'BitcoinBalance';
+			slot: number;
+			network: WireNetwork;
+			/** Esplora base URL; empty ⇒ the network default. */
+			esplora_url: string;
+	  }
+	| {
+			op: 'BitcoinSend';
+			slot: number;
+			network: WireNetwork;
+			/** Recipient address (validated for `network`). */
+			to: string;
+			/** Amount in satoshis (rides as a JS bigint; codec accepts u64). */
+			amount_sat: bigint;
+			/** Fee rate in sat/vByte. */
+			fee_rate_sat_per_vb: bigint;
+			esplora_url: string;
+	  }
+	| { op: 'VoucherBalance'; tokens: string[] }
+	| {
+			op: 'VoucherIssue';
+			slot: number;
+			server_url: string;
+			/** Amount string for the minted voucher (e.g. `"50.0"`). */
+			amount: string;
+			/** Contract id (issuer-chosen series name). */
+			contract: string;
+			/** Idempotency nonce; empty ⇒ a fresh time-derived value. */
+			nonce: string;
+	  }
+	| { op: 'VoucherTransfer'; server_url: string; input: string; recipient: string }
+	| { op: 'VoucherRedeem'; server_url: string; secret: string }
+	| { op: 'RgbBalance'; tokens: string[] }
+	| {
+			op: 'RgbIssue';
+			slot: number;
+			server_url: string;
+			flavor: WireRgbFlavor;
+			/** Amount string for the minted RGB20 token (ignored for RGB21). */
+			amount: string;
+			contract: string;
+			nonce: string;
+	  }
+	| {
+			op: 'RgbTransfer';
+			server_url: string;
+			flavor: WireRgbFlavor;
+			input: string;
+			recipient: string;
+	  }
+	| { op: 'RgbRedeem'; server_url: string; flavor: WireRgbFlavor; secret: string }
+	| { op: 'RgbContracts'; tokens: string[] };
+
 // ── Responses ─────────────────────────────────────────────────────────────────
 
 export type HookOutcome = 'Processed' | 'Queued' | 'Duplicate';
@@ -200,12 +274,71 @@ export type ResponseBody =
 			outcome: string;
 			referee_released: boolean;
 	  }
-	| { kind: 'Hook'; outcome: HookOutcome };
+	| { kind: 'Hook'; outcome: HookOutcome }
+	// ── Rail response arms (see codec.rs response_body_to_js) ───────────────────
+	| {
+			kind: 'BitcoinBalance';
+			address: string;
+			/** Confirmed balance in sats (rides as bigint; codec emits BigInt). */
+			confirmed_sats: bigint;
+			/** Unconfirmed mempool delta in sats. */
+			mempool_sats: bigint;
+			/** Number of transactions touching the address. */
+			tx_count: bigint;
+	  }
+	| {
+			kind: 'BitcoinSent';
+			/** Broadcast transaction id (hex). */
+			txid: string;
+			fee_sat: bigint;
+			change_sat: bigint;
+	  }
+	| { kind: 'RailBalance'; groups: RailBalanceGroup[] }
+	| {
+			kind: 'RailIssued';
+			/** Wire-form rail scheme, e.g. `"voucher"`, `"rgb20"`, `"rgb21"`. */
+			scheme: string;
+			contract: string;
+			issuer_fp: string;
+			/** The issued bearer secret (the PWA stores it). */
+			secret: string;
+	  }
+	| { kind: 'RailTransferred'; scheme: string }
+	| {
+			kind: 'RailRedeemed';
+			scheme: string;
+			public_token: string;
+			/** Whether the server reports the token on its books and unspent. */
+			unspent: boolean;
+	  }
+	| { kind: 'RailContracts'; contracts: RailContract[] };
 
 export interface FamilySummary {
 	family: string;
 	needs_namespace: boolean;
 	address: string | null;
+}
+
+/**
+ * One balance group, keyed by `(scheme, contract_id, issuer_fp)` (mirrors
+ * `RailBalanceGroup`). RGB20/Voucher groups carry a summable `total`; RGB21
+ * collectible groups carry a `count` (no per-item amount).
+ */
+export interface RailBalanceGroup {
+	scheme: string;
+	contract: string;
+	issuer_fp: string;
+	/** Item count in the group (rides as bigint; codec emits BigInt). */
+	count: bigint;
+	/** Summed amount string (canonical decimal); empty for count-only groups. */
+	total: string;
+}
+
+/** One held contract namespace `(scheme, contract_id, issuer_fp)`. */
+export interface RailContract {
+	scheme: string;
+	contract: string;
+	issuer_fp: string;
 }
 
 export type ExtroResponse =
