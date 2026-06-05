@@ -17,8 +17,51 @@ import {
 	type WalkParams
 } from './book-math';
 import { evaluatePair, type AssetClass } from './pair-policy';
-import { mockBook, MOCK_PAIRS, pairKey } from './mock-data';
-import type { LimitOrder, MarketWalk, TradingPair } from './types';
+import { MOCK_PAIRS, pairKey } from './mock-data';
+import { getExtroClient } from '$lib/extro';
+import { newRequestId, type WireOrder } from '$lib/extro/commands';
+import type { LimitOrder, MarketWalk, Side, TradingPair } from './types';
+
+/** Lowercase hex of bytes. */
+const bytesToHex = (b: Uint8Array): string => {
+	let s = '';
+	for (const x of b) s += x.toString(16).padStart(2, '0');
+	return s;
+};
+
+/** Standard base64 of bytes (signed-commitment carriage matches `LimitOrder`). */
+const bytesToB64 = (b: Uint8Array): string => {
+	let bin = '';
+	for (const x of b) bin += String.fromCharCode(x);
+	return typeof btoa !== 'undefined'
+		? btoa(bin)
+		: Buffer.from(b).toString('base64');
+};
+
+/**
+ * Map a wire `WireOrder` (discovered over DHTX) onto the exchange `LimitOrder`
+ * the book renders. `source` is always `'dhtx'` — there is no mock/paste path.
+ * The `signed_commitment` bytes are carried verbatim (base64) so a downstream
+ * fill can re-verify the maker signature.
+ */
+function toLimitOrder(o: WireOrder): LimitOrder {
+	return {
+		id: bytesToHex(o.order_id),
+		pair: {
+			base: o.pair.base as AssetClass,
+			quote: o.pair.quote as AssetClass
+		},
+		side: (o.side === 'Buy' ? 'buy' : 'sell') as Side,
+		price: Number(o.price_atomic),
+		amount: Number(o.amount_atomic),
+		makerFingerprint: bytesToHex(o.maker_fp),
+		makerVk: bytesToHex(o.maker_vk),
+		expiresAt: Number(o.expires_at),
+		observedAt: Number(o.observed_at),
+		source: 'dhtx',
+		signedCommitment: bytesToB64(o.signed_commitment)
+	};
+}
 
 interface BookState {
 	pair: TradingPair;
@@ -37,7 +80,7 @@ const state = $state<BookState>({
 	loading: false,
 	error: null,
 	lastUpdated: null,
-	source: 'mock'
+	source: 'dhtx'
 });
 
 const nowSec = () => Math.floor(Date.now() / 1000);
@@ -109,24 +152,82 @@ export function selectPair(pair: TradingPair): void {
 }
 
 /**
- * Refresh the book for the selected pair. Today this loads MOCK data (real
- * torrent/DHTX subscription is deferred); the loading/error states are real so
- * the UI is exercised.
+ * Refresh the book for the selected pair by **discovering orders from the node
+ * network over DHTX** — no central server, no mock, no out-of-band paste. Issues
+ * `DhtxCommand::FetchOrders` through the facade client; the WASM drains any frames
+ * that arrived from connected peers, sweeps expired, and returns the verified
+ * public-commitment set. Orders enter the store ONLY from the network.
  */
 export async function refreshBook(): Promise<void> {
 	state.loading = true;
 	state.error = null;
 	try {
-		// Simulate an async subscription tick.
-		await Promise.resolve();
-		state.orders = mockBook(state.pair, 100);
-		state.lastUpdated = nowSec();
-		state.source = 'mock';
+		const client = getExtroClient();
+		const resp = await client.send({
+			request_id: newRequestId(),
+			op: {
+				kind: 'Dhtx',
+				cmd: { op: 'FetchOrders', pair: { base: state.pair.base, quote: state.pair.quote } }
+			}
+		});
+		if (resp.kind === 'Ok' && resp.body.kind === 'Orders') {
+			state.orders = resp.body.orders.map(toLimitOrder);
+			state.lastUpdated = nowSec();
+			state.source = 'dhtx';
+		} else if (resp.kind === 'Err') {
+			state.error = resp.message;
+		} else {
+			state.error = `unexpected response body: ${resp.body.kind}`;
+		}
 	} catch (e) {
 		state.error = String(e);
 	} finally {
 		state.loading = false;
 	}
+}
+
+/**
+ * Publish a signed limit order into the node network. The wallet identity key
+ * signs the order INSIDE the WASM (it never crosses the JS boundary), records it
+ * locally, and broadcasts an `OrderAnnounce` to every connected peer. Returns the
+ * number of peers the announce reached (`0` when no peer is connected). On
+ * success the local book is refreshed so the maker sees its own order.
+ */
+export async function publishOrder(input: {
+	slot: number;
+	side: Side;
+	/** Price in quote-per-base, atomic units. */
+	priceAtomic: bigint;
+	/** Base amount, atomic units. */
+	amountAtomic: bigint;
+	/** Unix seconds the order expires (TTL). */
+	expiresAt: number;
+}): Promise<{ ok: true; orderId: string; peersBroadcast: number } | { ok: false; error: string }> {
+	const client = getExtroClient();
+	const resp = await client.send({
+		request_id: newRequestId(),
+		op: {
+			kind: 'Dhtx',
+			cmd: {
+				op: 'PublishOrder',
+				slot: input.slot,
+				pair: { base: state.pair.base, quote: state.pair.quote },
+				side: input.side === 'buy' ? 'Buy' : 'Sell',
+				price_atomic: input.priceAtomic,
+				amount_atomic: input.amountAtomic,
+				expires_at: input.expiresAt
+			}
+		}
+	});
+	if (resp.kind === 'Ok' && resp.body.kind === 'OrderPublished') {
+		const orderId = bytesToHex(resp.body.order_id);
+		await refreshBook();
+		return { ok: true, orderId, peersBroadcast: resp.body.peers_broadcast };
+	}
+	return {
+		ok: false,
+		error: resp.kind === 'Err' ? resp.message : `unexpected response: ${resp.body.kind}`
+	};
 }
 
 /** Walk the current live book for a market order. Pure delegation. */

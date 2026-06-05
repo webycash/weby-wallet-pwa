@@ -220,6 +220,22 @@ export class MockExtroAdapter implements ExtroAdapter {
 						});
 				}
 			}
+			case 'Dhtx': {
+				// The mock has no network. It NEVER fabricates a book — fetch returns
+				// an EMPTY order set and publish/reannounce report `0` peers. Real
+				// orderbook discovery requires the bundled (real-WASM) adapter; this
+				// arm exists only so mock-mode dev/tests stay shape-complete, never to
+				// supply mock orders into the live path.
+				const d = op.cmd;
+				switch (d.op) {
+					case 'FetchOrders':
+						return ok({ kind: 'Orders', orders: [] });
+					case 'PublishOrder':
+						return ok({ kind: 'OrderPublished', order_id: new Uint8Array(16), peers_broadcast: 0 });
+					case 'ReannounceOrders':
+						return ok({ kind: 'Reannounced', peers_broadcast: 0 });
+				}
+			}
 		}
 	}
 }

@@ -10,6 +10,7 @@
 	import {
 		orderbook,
 		refreshBook,
+		publishOrder,
 		openTrade,
 		settleTrade,
 		selectTrade,
@@ -87,11 +88,30 @@
 	};
 	const onPublish = async (a: { side: Side; price: number; amount: number }) => {
 		const orderValue = Math.round(a.price * a.amount);
+		// Leg 1: pay the 0.1% publication (seeder) fee over an allowed rail.
 		const res = await publishOrderFee(getExtroClient(), { orderValue, seeders, slot: 0 });
-		if (res.ok) flash(`Order published — fee paid to ${res.shares.length} seeder(s).`);
-		else if (res.reason === 'no-active-seeders') flash('Publishing blocked: no active seeders.', 'error');
-		else if (res.reason === 'unsupported-fee-rail') flash('Publishing blocked: unsupported fee rail.', 'error');
-		else flash('Publishing failed during fee payment.', 'error');
+		if (!res.ok) {
+			if (res.reason === 'no-active-seeders') flash('Publishing blocked: no active seeders.', 'error');
+			else if (res.reason === 'unsupported-fee-rail') flash('Publishing blocked: unsupported fee rail.', 'error');
+			else flash('Publishing failed during fee payment.', 'error');
+			return;
+		}
+		// Leg 2: sign + broadcast the signed limit order into the node network over
+		// DHTX (the WASM signs inside the wallet; the key never crosses JS). A
+		// connected peer's recv-loop verifies + records it; their FetchOrders then
+		// returns it with `source: 'dhtx'`.
+		const pub = await publishOrder({
+			slot: 0,
+			side: a.side,
+			priceAtomic: BigInt(Math.max(0, Math.trunc(a.price))),
+			amountAtomic: BigInt(Math.max(0, Math.trunc(a.amount))),
+			expiresAt: Math.floor(Date.now() / 1000) + 3600
+		});
+		if (pub.ok)
+			flash(
+				`Order published to ${pub.peersBroadcast} peer(s) — fee paid to ${res.shares.length} seeder(s).`
+			);
+		else flash(`Fee paid, but order broadcast failed: ${pub.error}`, 'error');
 	};
 	const onSettle = async (id: string) => {
 		busySwap = id;

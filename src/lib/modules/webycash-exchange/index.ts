@@ -22,6 +22,7 @@ export {
 	orderbook,
 	selectPair,
 	refreshBook,
+	publishOrder,
 	walkCurrent,
 	pairLabel,
 	assetClasses

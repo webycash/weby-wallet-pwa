@@ -35,7 +35,45 @@ export type Op =
 	| { kind: 'Hook'; cmd: HookCommand }
 	| { kind: 'Push'; cmd: PushCommand }
 	| { kind: 'Rail'; cmd: RailCommand }
-	| { kind: 'Keyserver'; cmd: KeyserverCommand };
+	| { kind: 'Keyserver'; cmd: KeyserverCommand }
+	| { kind: 'Dhtx'; cmd: DhtxCommand };
+
+// ── Dhtx commands (orderbook-on-DHTX; mirrors extro-node DhtxCommand) ─────────
+
+/** Buy/sell side of a limit order (mirrors `WireSide`). */
+export type WireSide = 'Buy' | 'Sell';
+
+/** Asset-class trading pair (mirrors `WirePair`). */
+export interface WirePair {
+	base: string;
+	quote: string;
+}
+
+/**
+ * Orderbook-on-DHTX command group (mirrors extro-node `DhtxCommand`). The wallet
+ * identity key signs the order INSIDE the WASM — the PWA only supplies the public
+ * parameters. There is NO central order relay; orders ride DHTX peer-to-peer.
+ */
+export type DhtxCommand =
+	/**
+	 * Sign + record + broadcast a signed limit order to all connected 1-hop peers.
+	 * Returns the order id and how many peers received it (`0` if no peer is
+	 * connected). `price_atomic`/`amount_atomic` ride as JS bigints; `expires_at`
+	 * is unix seconds (the order TTL).
+	 */
+	| {
+			op: 'PublishOrder';
+			slot: number;
+			pair: WirePair;
+			side: WireSide;
+			price_atomic: bigint;
+			amount_atomic: bigint;
+			expires_at: number;
+	  }
+	/** Read the local order store for a pair (orders discovered from peers + own). */
+	| { op: 'FetchOrders'; pair: WirePair }
+	/** Re-broadcast this node's own live orders for a pair (maker keep-alive). */
+	| { op: 'ReannounceOrders'; pair: WirePair };
 
 // ── Keyserver commands (mirrors extro-node KeyserverCommand) ─────────────────
 
@@ -326,6 +364,24 @@ export type ResponseBody =
 	| { kind: 'ProviderMaterial'; musig2_pubkey: string; settle_nonce: string; refund_nonce: string }
 	| { kind: 'ProofKeysInstalled' }
 	| { kind: 'InitiateEnvelope'; bytes: Uint8Array }
+	// ── Dhtx orderbook response arms (mirrors extro-node ResponseBody) ──────────
+	| {
+			/** A signed limit order was published into the node network. */
+			kind: 'OrderPublished';
+			order_id: Uint8Array; // 16 bytes
+			/** How many connected peers received the OrderAnnounce broadcast. */
+			peers_broadcast: number;
+	  }
+	| {
+			/** Verified public-commitment orders discovered from the network. */
+			kind: 'Orders';
+			orders: WireOrder[];
+	  }
+	| {
+			/** This node's own live orders were re-broadcast. */
+			kind: 'Reannounced';
+			peers_broadcast: number;
+	  }
 	| { kind: 'KeyserverPinned' }
 	| { kind: 'Discovered'; fingerprint_hex: string; verified: boolean }
 	| {
@@ -424,6 +480,25 @@ export interface FamilySummary {
 	family: string;
 	needs_namespace: boolean;
 	address: string | null;
+}
+
+/**
+ * Public projection of a node-side `LiveOrder` (mirrors extro-node `WireOrder`) —
+ * exactly the fields the exchange `LimitOrder` needs, never a secret. The codec
+ * emits `order_id`/`maker_fp`/`maker_vk`/`signed_commitment` as `Uint8Array`,
+ * `price_atomic`/`amount_atomic`/`expires_at`/`observed_at` as JS `bigint`.
+ */
+export interface WireOrder {
+	order_id: Uint8Array; // 16 bytes
+	pair: WirePair;
+	side: WireSide;
+	price_atomic: bigint;
+	amount_atomic: bigint;
+	maker_fp: Uint8Array; // 20 bytes
+	maker_vk: Uint8Array; // 32 bytes
+	expires_at: bigint;
+	observed_at: bigint;
+	signed_commitment: Uint8Array;
 }
 
 /**
