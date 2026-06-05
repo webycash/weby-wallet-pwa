@@ -193,6 +193,14 @@ export class MockExtroAdapter implements ExtroAdapter {
 							public_token: 'mock-public-token',
 							unspent: true
 						});
+					case 'MintWebcash':
+						return ok({
+							kind: 'WebcashMinted',
+							secret: `e${c.amount}:secret:${'00'.repeat(32)}`,
+							public_token: `e${c.amount}:public:${'00'.repeat(32)}`,
+							index: c.index,
+							unspent: true
+						});
 				}
 			}
 		}

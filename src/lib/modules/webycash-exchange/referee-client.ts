@@ -4,7 +4,7 @@
 //
 //   GET  /v1/health
 //   GET  /v1/pubkey
-//   POST /v1/swap/initiate         (currently a 400 STUB — wire envelope not final)
+//   POST /v1/swap/initiate         (rkyv InitiateRequest bytes, octet-stream)
 //   POST /v1/swap/:id/advance
 //   POST /v1/swap/:id/ack
 //   GET  /v1/swap/:id/audit
@@ -13,8 +13,9 @@
 // The module does NOT implement the referee state machine — it only calls it,
 // and treats the referee as a MEDIATOR, never as custody (per the security
 // invariants). The DEFAULT adapter is a MOCK so dev/tests need no live referee;
-// the real HTTP adapter targets the routes above. `initiate` is a known 400
-// stub today, so the real adapter's initiate is explicitly deferred.
+// the real HTTP adapter targets the routes above. `initiate` POSTs the
+// two-proof envelope the off-thread prover built; the mock returns a
+// deterministic, scriptable swap id.
 
 import type { TradePhase } from './types';
 
@@ -51,10 +52,21 @@ export interface WalletAck {
 	outcome: string;
 }
 
+/** The referee's reply to `POST /v1/swap/initiate`. */
+export interface InitiateResult {
+	swap_id: string;
+	phase: string;
+}
+
 export interface RefereeClient {
 	readonly mode: 'mock' | 'http';
 	health(): Promise<RefereeHealth>;
 	pubkey(): Promise<RefereePubkey>;
+	/**
+	 * Submit the rkyv `InitiateRequest` envelope (built off-thread by the prover)
+	 * to `POST /v1/swap/initiate`. Returns the referee-assigned swap id + phase.
+	 */
+	initiate(envelope: Uint8Array): Promise<InitiateResult>;
 	/** Advance the swap one step; returns the new phase + terminality. */
 	advance(swapId: string): Promise<AdvanceResult>;
 	/** Post a signed wallet ack. */
@@ -95,6 +107,18 @@ export class MockRefereeClient implements RefereeClient {
 			musig2_pubshare_hex: '00'.repeat(33),
 			referee_version: 'mock'
 		};
+	}
+
+	/**
+	 * Deterministic stub: derives a swap id from the envelope bytes (length +
+	 * first/last byte) so tests get a stable, scriptable id without a live
+	 * referee, and reports the opening `request-sent` phase.
+	 */
+	async initiate(envelope: Uint8Array): Promise<InitiateResult> {
+		const tag = envelope.length
+			? `${envelope.length}-${envelope[0]}-${envelope[envelope.length - 1]}`
+			: '0';
+		return { swap_id: `mock-${tag}`, phase: 'request-sent' };
 	}
 
 	async advance(swapId: string): Promise<AdvanceResult> {
@@ -180,14 +204,24 @@ export class HttpRefereeClient implements RefereeClient {
 	}
 
 	/**
-	 * DEFERRED: `POST /v1/swap/initiate` is a 400 stub today (the signed wire
-	 * envelope is not finalized). Calling it returns the stub's structured 400.
-	 * Real initiation is driven via the orchestrator/tests for now.
+	 * POST the rkyv `InitiateRequest` envelope (built off-thread by the prover)
+	 * as `application/octet-stream`. The referee verifies both Groth16 proofs +
+	 * its binding gate and replies with the assigned `{swap_id, phase}`.
 	 */
-	async initiate(): Promise<never> {
-		throw new Error(
-			'referee /v1/swap/initiate is a 400 stub (signed wire envelope not finalized). ' +
-				'Initiation is deferred until the envelope lands.'
-		);
+	async initiate(envelope: Uint8Array): Promise<InitiateResult> {
+		// Copy into a tight ArrayBuffer so a subarray-backed view (e.g. the
+		// worker's transferred buffer) is sent whole, not its parent buffer.
+		const body = envelope.slice();
+		const r = await this.f(this.url('/v1/swap/initiate'), {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/octet-stream' },
+			body
+		});
+		if (!r.ok) {
+			const detail = await r.text().catch(() => '');
+			throw new Error(`referee /v1/swap/initiate ${r.status}: ${detail || r.statusText}`);
+		}
+		const parsed = (await r.json()) as { swap_id: string; phase: string };
+		return { swap_id: parsed.swap_id, phase: parsed.phase };
 	}
 }

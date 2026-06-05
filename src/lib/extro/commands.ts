@@ -239,7 +239,24 @@ export type RailCommand =
 			recipient: string;
 	  }
 	| { op: 'RgbRedeem'; server_url: string; flavor: WireRgbFlavor; secret: string }
-	| { op: 'RgbContracts'; tokens: string[] };
+	| { op: 'RgbContracts'; tokens: string[] }
+	| {
+			/**
+			 * Mint a webcash to the wallet's webcash-family scalar at (slot 0, index)
+			 * on the live webcash server — the bearer-custody bridge that lets an
+			 * in-browser 402 swap's bearer leg settle. `index` must be < 64 (the
+			 * bearer secret source's scan gap). The minted secret's
+			 * H = SHA-256(hex(scalar)) is the H the swap proves against and the
+			 * referee /health_check checks.
+			 */
+			op: 'MintWebcash';
+			/** Webcash-family index at slot 0; must be < 64. */
+			index: number;
+			/** Amount string for the minted webcash (e.g. `"1.0"`). Not part of H. */
+			amount: string;
+			/** Webcash-server base URL (e.g. `"http://localhost:8181"`). */
+			server_url: string;
+	  };
 
 // ── Responses ─────────────────────────────────────────────────────────────────
 
@@ -338,7 +355,23 @@ export type ResponseBody =
 			/** Whether the server reports the token on its books and unspent. */
 			unspent: boolean;
 	  }
-	| { kind: 'RailContracts'; contracts: RailContract[] };
+	| { kind: 'RailContracts'; contracts: RailContract[] }
+	| {
+			/**
+			 * A minted webcash now held by the wallet's webcash-family scalar and
+			 * (when `unspent`) on the live server's books — the bearer-custody
+			 * bridge that unblocks an in-browser 402 swap's bearer leg.
+			 */
+			kind: 'WebcashMinted';
+			/** The minted bearer secret token (`e{amount}:secret:{hex(scalar)}`). */
+			secret: string;
+			/** The `/health_check` lookup token (`e{amount}:public:{H}`). */
+			public_token: string;
+			/** Webcash-family index the scalar was minted at (slot 0). */
+			index: number;
+			/** Whether the server reports the minted token unspent (mint confirmed). */
+			unspent: boolean;
+	  };
 
 export interface FamilySummary {
 	family: string;

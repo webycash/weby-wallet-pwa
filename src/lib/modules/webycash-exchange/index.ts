@@ -13,6 +13,8 @@ export * from './publish';
 export * from './push-hooks';
 export * from './referee-client';
 export * from './trade-timeline';
+export * from './swap-facts';
+export * from './swap-runner';
 export * from './mock-data';
 
 // Reactive stores (Svelte 5 runes — import where a component needs them).
@@ -28,6 +30,7 @@ export {
 	trades,
 	openTrade,
 	settleTrade,
+	runSwap,
 	selectTrade,
 	cancel as cancelTradeAction,
 	setReferee
