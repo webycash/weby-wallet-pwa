@@ -1,6 +1,10 @@
 node_modules/
 .svelte-kit/
 build/
+
+# Playwright e2e harness artifacts
+playwright-report/
+test-results/
 .DS_Store
 *.swp
 *.swo
