@@ -92,6 +92,12 @@ export type ExpectedOutcome =
 // ── Scheme-402 commands ──────────────────────────────────────────────────────
 
 export type Scheme402Command =
+	/** Emit the provider's MuSig2 material (pubkey + settle/refund nonces) for a swap. */
+	| { op: 'ProviderMaterial'; slot: number; swap_id: string }
+	/** Cache the Groth16 proving keys for in-wasm SwapInitiate. */
+	| { op: 'InstallProofKeys'; bearer_pk: Uint8Array; conditional_pk: Uint8Array }
+	/** Build the two-proof /v1/swap/initiate envelope in-wasm. `facts` is TwoProofFacts. */
+	| { op: 'SwapInitiate'; facts: unknown }
 	| {
 			op: 'SimplePay';
 			slot: number;
@@ -269,6 +275,11 @@ export type ResponseBody =
 	| { kind: 'Issuer'; fingerprint: string; pubkey_hex: string }
 	| { kind: 'Summaries'; families: FamilySummary[] }
 	| { kind: 'SignedRetry'; retry: Uint8Array; receipt_id: Uint8Array }
+	| { kind: 'ProviderMaterial'; musig2_pubkey: string; settle_nonce: string; refund_nonce: string }
+	| { kind: 'ProofKeysInstalled' }
+	| { kind: 'InitiateEnvelope'; bytes: Uint8Array }
+	| { kind: 'KeyserverPinned' }
+	| { kind: 'Discovered'; fingerprint_hex: string; verified: boolean }
 	| {
 			kind: 'DeliveryAccepted';
 			delivery_id: Uint8Array;

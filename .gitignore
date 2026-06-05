@@ -28,3 +28,4 @@ crates/wallet-wasm/pkg/
 /Cargo.toml
 /Cargo.lock
 /target/
+static/circuits-dev/
