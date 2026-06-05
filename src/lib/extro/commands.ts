@@ -46,6 +46,13 @@ export interface ExtroCommand {
 // ── Wallet commands (subset the exchange module needs) ───────────────────────
 
 export type WalletCommand =
+	// Seed lifecycle. `Generate`/`Import` create a seed and transition the
+	// extro-node MasterWallet to *Unlocked* (see extro-node wallet/master.rs
+	// `generate`), returning the rkyv-sealed envelope; `Unlock` re-opens a
+	// persisted envelope. `passphrase` seals the seed at rest.
+	| { op: 'Generate'; passphrase: Uint8Array }
+	| { op: 'Import'; mnemonic: string; passphrase: Uint8Array }
+	| { op: 'Unlock'; sealed_seed: Uint8Array; passphrase: Uint8Array }
 	| { op: 'DeriveIdentity'; slot: number }
 	| {
 			op: 'DeriveFamilyHandle';
@@ -54,8 +61,16 @@ export type WalletCommand =
 			index: number;
 			/** `[contract_id, issuer_fingerprint_hex]` for Voucher/RGB; null otherwise. */
 			namespace?: [string, string] | null;
+			/** Address network for the Bitcoin family (drives the bech32 HRP:
+			 * `tb1…` for Signet/Testnet, `bc1…` for mainnet). Omit/`null` →
+			 * family default (mainnet). Non-bitcoin families ignore it. */
+			network?: WireNetwork | null;
 	  }
 	| { op: 'ListSummaries'; slot: number }
+	/** Public issuer identity (fingerprint + Ed25519 pubkey) for an
+	 * issuer-namespaced family (Voucher/RGB) — register it on a rail server to
+	 * become a recognized issuer. Public-only. */
+	| { op: 'DeriveIssuer'; family: WireFamily; slot: number }
 	| { op: 'Lock' };
 
 // ── Expected-outcome selector (mirrors ExpectedOutcome) ──────────────────────
@@ -251,6 +266,7 @@ export type ResponseBody =
 	| { kind: 'Empty' }
 	| { kind: 'Identity'; fingerprint_hex: string; verifying_key: Uint8Array; slot: number }
 	| { kind: 'FamilyHandle'; address: string; slot: number; index: number }
+	| { kind: 'Issuer'; fingerprint: string; pubkey_hex: string }
 	| { kind: 'Summaries'; families: FamilySummary[] }
 	| { kind: 'SignedRetry'; retry: Uint8Array; receipt_id: Uint8Array }
 	| {

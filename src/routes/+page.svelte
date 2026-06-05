@@ -12,9 +12,19 @@
 	import { setNetwork } from '$lib/stores/network.svelte';
 	import { setupWallet, insertWebcash, resetDb } from '$lib/stores/wallet.svelte';
 	import { parseMigrationBundle, importMigrationBundle, readClipboardBundle, clearClipboard, type MigrationBundle } from '$lib/core/migration';
+	import { seedExtroWallet, resetExtroSeed } from '$lib/extro/seed';
+	import { getMnemonic } from '$lib/core/persistence';
 	import type { NetworkMode } from '$lib/core/types';
 
 	let unlocked = $state(encryptionType() === 'none');
+
+	// When the PWA is unlocked, slave the bundled extro-node wallet's lock state
+	// to it: Import the canonical mnemonic so DeriveFamilyHandle (receive
+	// addresses) and the address-deriving rail balances work for the session.
+	// Covers both the LockScreen path and the no-encryption auto-unlock above.
+	$effect(() => {
+		if (browser && unlocked) void seedExtroWallet(getMnemonic());
+	});
 	let installPrompt = $state<ReturnType<typeof InstallPrompt>>();
 	let pendingWebcash = $state('');
 	let pendingNetwork = $state<NetworkMode>('production');
@@ -190,6 +200,6 @@
 {:else if !unlocked}
 	<LockScreen onUnlock={() => { unlocked = true; }} />
 {:else}
-	<AppShell {pendingWebcash} onLock={() => { unlocked = false; }} onInstall={() => installPrompt?.show()} />
+	<AppShell {pendingWebcash} onLock={() => { resetExtroSeed(); unlocked = false; }} onInstall={() => installPrompt?.show()} />
 	<InstallPrompt bind:this={installPrompt} />
 {/if}

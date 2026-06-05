@@ -13,11 +13,17 @@ export const prerender = true;
 export const load = () => {
 	if (browser) {
 		const mode = configuredAdapterMode();
+		let client: ReturnType<typeof configureExtro> | null = null;
 		if (mode === 'bundled') {
-			configureExtro({ mode: 'bundled', bundled: { load: loadBundledExtroNode } });
+			client = configureExtro({ mode: 'bundled', bundled: { load: loadBundledExtroNode } });
 		} else if (mode === 'mock') {
-			configureExtro({ mode: 'mock' });
+			client = configureExtro({ mode: 'mock' });
 		}
+		// DEV diagnostic: expose the authoritative app client so it can be probed
+		// from the page console (dynamic `import('/src/lib/extro')` resolves to a
+		// SEPARATE module instance whose singleton defaults to mock — unusable for
+		// inspecting the real bundled client). Remove before ship.
+		if (import.meta.env.DEV && client) (window as unknown as { __extro?: unknown }).__extro = client;
 		// 'cross-domain' needs explicit crossDomain options wired by the caller;
 		// leave the facade's lazy mock default in place for it (pre-production).
 	}

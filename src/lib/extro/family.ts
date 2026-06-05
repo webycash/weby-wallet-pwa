@@ -11,6 +11,8 @@
 
 import { getExtroClient } from './index';
 import { newRequestId, isOk, type WireFamily } from './commands';
+import { railEndpoints } from './config';
+import { getNetwork } from '$lib/stores/network.svelte';
 import type { AssetTab } from '$lib/stores/navigation.svelte';
 
 /** Map an asset tab to its extro-node WireFamily discriminant. */
@@ -37,9 +39,13 @@ export const deriveFamilyAddress = async (
 ): Promise<FamilyAddress> => {
 	try {
 		const client = getExtroClient();
+		// Derive on the SELECTED network so a testnet Receive address is `tb1…`,
+		// matching the network the balance rail queries (extro-node ignores this
+		// for network-agnostic families).
+		const network = railEndpoints(getNetwork()).network;
 		const res = await client.send({
 			request_id: newRequestId(),
-			op: { kind: 'Wallet', cmd: { op: 'DeriveFamilyHandle', family: TAB_FAMILY[tab], slot, index, namespace: null } },
+			op: { kind: 'Wallet', cmd: { op: 'DeriveFamilyHandle', family: TAB_FAMILY[tab], slot, index, namespace: null, network } },
 		});
 		if (isOk(res) && res.body.kind === 'FamilyHandle') return { ok: true, address: res.body.address };
 		const message = res.kind === 'Err' ? res.message : 'Unexpected response';
