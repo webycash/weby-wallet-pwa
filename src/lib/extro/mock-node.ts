@@ -203,6 +203,23 @@ export class MockExtroAdapter implements ExtroAdapter {
 						});
 				}
 			}
+			case 'Keyserver': {
+				const k = op.cmd;
+				switch (k.op) {
+					case 'Pin':
+						return ok({ kind: 'KeyserverPinned' });
+					case 'Discover':
+						return ok({ kind: 'Discovered', fingerprint_hex: 'aa'.repeat(20), verified: false });
+					case 'Bootstrap':
+						return ok({
+							kind: 'Bootstrapped',
+							roster_count: 0,
+							dhtx_seeds_count: 0,
+							interest_seeds_count: 0,
+							connected: false
+						});
+				}
+			}
 		}
 	}
 }

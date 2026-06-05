@@ -34,7 +34,38 @@ export type Op =
 	| { kind: 'Scheme402'; cmd: Scheme402Command }
 	| { kind: 'Hook'; cmd: HookCommand }
 	| { kind: 'Push'; cmd: PushCommand }
-	| { kind: 'Rail'; cmd: RailCommand };
+	| { kind: 'Rail'; cmd: RailCommand }
+	| { kind: 'Keyserver'; cmd: KeyserverCommand };
+
+// ── Keyserver commands (mirrors extro-node KeyserverCommand) ─────────────────
+
+/**
+ * Key-server identity + network-join surface (mirrors extro-node
+ * `KeyserverCommand`). `Pin` anchors the server's `(fingerprint, vk)` out-of-band
+ * (fail-closed, not TOFU); `Discover` fetches + verifies the server identity
+ * record; `Bootstrap` joins the network via the WebRTC rendezvous
+ * (`POST /.well-known/extro`, ADR-0001/0002).
+ */
+export type KeyserverCommand =
+	| {
+			op: 'Pin';
+			base_url: string;
+			domain: string;
+			/** 40-hex key-server PGP fingerprint. */
+			fingerprint_hex: string;
+			/** 64-hex Ed25519 verifying key. */
+			vk_hex: string;
+	  }
+	| { op: 'Discover'; base_url: string; domain: string }
+	/**
+	 * Join the network via the WebRTC rendezvous. The in-browser node opens an
+	 * `RTCPeerConnection`, signs a `BootstrapRequest` with its slot-0 identity,
+	 * posts it, fail-closed verifies the response against the pinned key-server
+	 * anchor, and brings up the key-server DataChannel. **wasm-only** — the
+	 * native node returns `Unsupported`. Connecting roster peers + walking the
+	 * DHTX seeds is the later DHTX task; this brings up only the KS link.
+	 */
+	| { op: 'Bootstrap'; base_url: string; domain: string };
 
 export interface ExtroCommand {
 	request_id: RequestId;
@@ -297,6 +328,22 @@ export type ResponseBody =
 	| { kind: 'InitiateEnvelope'; bytes: Uint8Array }
 	| { kind: 'KeyserverPinned' }
 	| { kind: 'Discovered'; fingerprint_hex: string; verified: boolean }
+	| {
+			/**
+			 * A completed network-bootstrap join. Redacted summary only — never
+			 * the SDP answer, ICE secrets, or seed payloads (those stay inside
+			 * the transport/DHTX layer).
+			 */
+			kind: 'Bootstrapped';
+			/** Number of peer offers the server forwarded in the roster. */
+			roster_count: number;
+			/** Number of DHTX seeds the server returned. */
+			dhtx_seeds_count: number;
+			/** Number of interest seeds the server returned. */
+			interest_seeds_count: number;
+			/** Whether the key-server DataChannel reached the `Open` state. */
+			connected: boolean;
+	  }
 	| {
 			kind: 'DeliveryAccepted';
 			delivery_id: Uint8Array;
