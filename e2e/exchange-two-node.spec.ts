@@ -312,6 +312,48 @@ test('(d) Node B discovers Node A\'s order over DHTX (no server, no paste)', asy
 	// fresh-delivery from stale-residual.
 	expect(publishedOrderId, 'step (c) must have published an order before (d)').toMatch(/^[0-9a-fA-F]+$/);
 
+	// ROLE DETERMINATION (load-bearing for the verdict). `decide_role` = larger
+	// fingerprint answers; the answerer wires its DataChannel `onmessage` only
+	// inside `ondatachannel` (after SCTP), while the offerer wires it at channel
+	// creation. The order flows A→B, so a "received-but-never-seen" half-open on
+	// the RECEIVE side is only viable if B (the receiver) is the ANSWERER. We
+	// record both fingerprints + B's role so a `total_frames_seen===0` failure is
+	// attributed to the right side.
+	const idA = await probeIdentity(nodeA);
+	const idB = await probeIdentity(nodeB);
+	const bIsAnswerer = idB.fingerprintHex.toLowerCase() > idA.fingerprintHex.toLowerCase();
+	console.log(
+		`[d] roles — A.fp=${idA.fingerprintHex} B.fp=${idB.fingerprintHex} → ` +
+			`B is the ${bIsAnswerer ? 'ANSWERER (onmessage wired in ondatachannel — half-open-on-recv viable)' : 'OFFERER (onmessage live from create — recv half-open NOT viable; look at A)'}`
+	);
+
+	// RECV-PLANE DIAGNOSTICS (the observability this harness was rebuilt around):
+	// each FetchOrders now returns a `diag` counter block (peers_connected /
+	// channels_open / frames_drained_this_poll / total_frames_seen /
+	// orders_recorded / drop_* / redundant_*). We capture it EVERY poll and read
+	// it especially on failure to make received-but-dropped vs never-received
+	// distinguishable. CRITICAL: there is exactly ONE FetchOrders per poll
+	// (refreshBook's) so the drain is not split — orders AND diag come from the
+	// same drained response.
+	type RecvDiag = {
+		peers_connected: number;
+		channels_open: number;
+		frames_drained_this_poll: number;
+		total_frames_seen: number;
+		orders_recorded: number;
+		drop_decode: number;
+		drop_bad_signature: number;
+		drop_fp_mismatch: number;
+		drop_bad_vk: number;
+		drop_body_mismatch: number;
+		redundant_duplicate: number;
+		redundant_expired: number;
+		last_drop_peek_byte: number;
+		last_drop_frame_len: number;
+		last_drop_declared_len: number;
+		last_drop_frame_hex: string;
+		last_drop_error: string;
+	};
 	let book: {
 		source: string;
 		askCount: number;
@@ -319,9 +361,19 @@ test('(d) Node B discovers Node A\'s order over DHTX (no server, no paste)', asy
 		askIds: string[];
 		bidIds: string[];
 		error: string | null;
-	} = { source: '<none>', askCount: 0, bidCount: 0, askIds: [], bidIds: [], error: null };
+		diag: RecvDiag | null;
+	} = {
+		source: '<none>',
+		askCount: 0,
+		bidCount: 0,
+		askIds: [],
+		bidIds: [],
+		error: null,
+		diag: null
+	};
 	const startedAt = Date.now();
 	let discoveredAtMs: number | null = null;
+	const diagTrail: Array<{ pollMs: number; b: RecvDiag | null }> = [];
 
 	// Re-poll the REAL refreshBook() until A's SPECIFIC order appears. The DHTX
 	// recv is "pull-on-drain" (no periodic tick — deferred to v2), so the
@@ -343,9 +395,11 @@ test('(d) Node B discovers Node A\'s order over DHTX (no server, no paste)', asy
 						bidCount: orderbook.bids.length,
 						askIds: orderbook.asks.map((o) => o.id),
 						bidIds: orderbook.bids.map((o) => o.id),
-						error: orderbook.error
+						error: orderbook.error,
+						diag: orderbook.diag as RecvDiag | null
 					};
 				});
+				diagTrail.push({ pollMs: Date.now() - startedAt, b: book.diag });
 				const found =
 					book.askIds.includes(publishedOrderId) || book.bidIds.includes(publishedOrderId);
 				if (found && discoveredAtMs === null) discoveredAtMs = Date.now() - startedAt;
@@ -357,11 +411,53 @@ test('(d) Node B discovers Node A\'s order over DHTX (no server, no paste)', asy
 				intervals: [1000, 1000, 2000, 2000, 3000]
 			}
 		)
-		.toBe(true);
+		.toBe(true)
+		.catch(async (e) => {
+			// FAILURE PATH — capture both nodes' final counters before rethrowing so
+			// the verdict (received-but-dropped vs never-received vs half-open) is in
+			// the report. Read A's diag via a direct FetchOrders so we can see whether
+			// A's reported peersBroadcast:1 corresponds to a truly-open channel.
+			const aDiag = await nodeA.page
+				.evaluate(async () => {
+					const { orderbook, refreshBook } = await import(
+						'/src/lib/modules/webycash-exchange/orderbook-store.svelte.ts'
+					);
+					await refreshBook();
+					return orderbook.diag;
+				})
+				.catch(() => null);
+			const bd = book.diag;
+			const hint = !bd
+				? 'no diag (instrument broken)'
+				: bd.peers_connected < 1
+					? 'B peers_connected<1 → B never registered A (asymmetric connect, case b)'
+					: bd.channels_open < 1
+						? 'B channels_open<1 → channel never/no-longer Open (half-open, case b)'
+						: bd.total_frames_seen < 1
+							? 'B total_frames_seen=0 with open channel → frame NEVER arrived (transport/glare, case b)'
+							: bd.orders_recorded < 1
+								? `B received ${bd.total_frames_seen} frame(s) but recorded 0 → DROPPED (case a). ` +
+									`drop_decode=${bd.drop_decode} drop_bad_sig=${bd.drop_bad_signature} ` +
+									`drop_fp=${bd.drop_fp_mismatch} drop_vk=${bd.drop_bad_vk} drop_body=${bd.drop_body_mismatch} | ` +
+									`last_drop: byte=0x${(bd.last_drop_peek_byte & 0xff).toString(16)} ` +
+									`(raw ${bd.last_drop_peek_byte}) len=${bd.last_drop_frame_len} declared=${bd.last_drop_declared_len}`
+								: 'orders_recorded>=1 but predicate missed A’s id → wrong-order/id-mismatch';
+			console.log(
+				`[d] DISCOVER FAILURE for order ${publishedOrderId}.\n` +
+					`    VERDICT-HINT: ${hint}\n` +
+					`    DROP-ERROR: ${bd?.last_drop_error ?? '<none>'}\n` +
+					`    DROP-FRAME-HEX: ${bd?.last_drop_frame_hex ?? '<none>'}\n` +
+					`    B final diag: ${JSON.stringify(book.diag)}\n` +
+					`    A diag (post-fail FetchOrders): ${JSON.stringify(aDiag)}\n` +
+					`    B diag trail (per poll): ${JSON.stringify(diagTrail)}`
+			);
+			throw e;
+		});
 
 	console.log(
 		`[d] node B discovered A's order ${publishedOrderId} after ${discoveredAtMs}ms — book:`,
-		JSON.stringify(book)
+		JSON.stringify(book),
+		`— B diag: ${JSON.stringify(book.diag)}`
 	);
 
 	// REAL source: the book comes from the DHTX node network, never 'mock'/'paste'.

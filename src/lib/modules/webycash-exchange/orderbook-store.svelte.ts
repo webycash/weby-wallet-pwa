@@ -63,6 +63,34 @@ function toLimitOrder(o: WireOrder): LimitOrder {
 	};
 }
 
+/**
+ * Recv-plane diagnostics surfaced alongside each `FetchOrders` result (the wire
+ * `ResponseBody::Orders.diag`). Lets the UI — and the e2e harness — distinguish a
+ * never-arrived order (transport / half-open: `total_frames_seen === 0` while
+ * `peers_connected ≥ 1`) from a received-but-dropped one (`total_frames_seen > 0`
+ * while `orders_recorded === 0`, with a non-zero `drop_*`). All counters are
+ * non-secret. `null` until the first refresh.
+ */
+export interface RecvDiag {
+	peers_connected: number;
+	channels_open: number;
+	frames_drained_this_poll: number;
+	total_frames_seen: number;
+	orders_recorded: number;
+	drop_decode: number;
+	drop_bad_signature: number;
+	drop_fp_mismatch: number;
+	drop_bad_vk: number;
+	drop_body_mismatch: number;
+	redundant_duplicate: number;
+	redundant_expired: number;
+	last_drop_peek_byte: number;
+	last_drop_frame_len: number;
+	last_drop_declared_len: number;
+	last_drop_frame_hex: string;
+	last_drop_error: string;
+}
+
 interface BookState {
 	pair: TradingPair;
 	orders: LimitOrder[];
@@ -72,6 +100,8 @@ interface BookState {
 	lastUpdated: number | null;
 	/** Source channel label for the current book. */
 	source: string;
+	/** Recv-plane diagnostics from the last refresh; `null` until first poll. */
+	diag: RecvDiag | null;
 }
 
 const state = $state<BookState>({
@@ -80,7 +110,8 @@ const state = $state<BookState>({
 	loading: false,
 	error: null,
 	lastUpdated: null,
-	source: 'dhtx'
+	source: 'dhtx',
+	diag: null
 });
 
 const nowSec = () => Math.floor(Date.now() / 1000);
@@ -112,6 +143,10 @@ export const orderbook = {
 	},
 	get source() {
 		return state.source;
+	},
+	/** Recv-plane diagnostics from the last refresh (`null` until first poll). */
+	get diag(): RecvDiag | null {
+		return state.diag;
 	},
 	get bids(): LimitOrder[] {
 		return sortBids(live().filter((o) => o.side === 'buy'));
@@ -174,6 +209,11 @@ export async function refreshBook(): Promise<void> {
 			state.orders = resp.body.orders.map(toLimitOrder);
 			state.lastUpdated = nowSec();
 			state.source = 'dhtx';
+			// The WASM attaches recv-plane counters to every Orders body (additive
+			// field; the codec passes it through untyped). Capture it for the UI +
+			// the e2e diagnosis. Cast through unknown — commands.ts has not yet
+			// declared the field on the Orders body type.
+			state.diag = ((resp.body as unknown as { diag?: RecvDiag }).diag ?? null);
 		} else if (resp.kind === 'Err') {
 			state.error = resp.message;
 		} else {
