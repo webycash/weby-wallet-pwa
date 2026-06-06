@@ -73,7 +73,26 @@ export type DhtxCommand =
 	/** Read the local order store for a pair (orders discovered from peers + own). */
 	| { op: 'FetchOrders'; pair: WirePair }
 	/** Re-broadcast this node's own live orders for a pair (maker keep-alive). */
-	| { op: 'ReannounceOrders'; pair: WirePair };
+	| { op: 'ReannounceOrders'; pair: WirePair }
+	/**
+	 * Taker → maker (the directed settle plane). Sign + send a `0x26` SwapMsg
+	 * `Accept` carrying THIS node's bearer-seller identity to the maker. The
+	 * taker's PGP pubkey + cancel pubkey are derived inside the WASM.
+	 * `order_id`/`maker_fp` ride as fixed-length byte arrays (Uint8Array).
+	 */
+	| { op: 'SendSwapAccept'; slot: number; order_id: Uint8Array; maker_fp: Uint8Array }
+	/**
+	 * Maker → taker (the directed settle plane). Sign + send a `0x26` SwapMsg
+	 * `Provider` carrying THIS node's REAL per-swap MuSig2 material + provider
+	 * identity + ARK conditional references to the taker.
+	 */
+	| { op: 'SendProviderMaterial'; slot: number; order_id: Uint8Array; taker_fp: Uint8Array }
+	/**
+	 * Drain inbound swap messages, then read this node's swap inbox for an order:
+	 * the Accept received as the maker and/or the Provider material received as
+	 * the taker. Pull-on-drain (mirrors FetchOrders).
+	 */
+	| { op: 'FetchSwapMsgs'; order_id: Uint8Array };
 
 // ── Keyserver commands (mirrors extro-node KeyserverCommand) ─────────────────
 
@@ -382,6 +401,17 @@ export type ResponseBody =
 			kind: 'Reannounced';
 			peers_broadcast: number;
 	  }
+	| {
+			/** A directed swap message was sent; `delivered` = reached a peer. */
+			kind: 'SwapMsgSent';
+			delivered: boolean;
+	  }
+	| {
+			/** The directed swap bodies that have arrived for an order. */
+			kind: 'SwapMsgs';
+			accept: WireAccept | null;
+			provider: WireProviderMaterial | null;
+	  }
 	| { kind: 'KeyserverPinned' }
 	| { kind: 'Discovered'; fingerprint_hex: string; verified: boolean }
 	| {
@@ -480,6 +510,35 @@ export interface FamilySummary {
 	family: string;
 	needs_namespace: boolean;
 	address: string | null;
+}
+
+/**
+ * Public projection of a received taker `Accept` (maker side) — mirrors
+ * extro-node `WireAccept`. Bytes ride as `Uint8Array`; hex fields as strings.
+ */
+export interface WireAccept {
+	order_id: Uint8Array; // 16 bytes
+	bearer_seller_fp: Uint8Array; // 20 bytes
+	bearer_seller_pgp_pubkey: Uint8Array;
+	bearer_seller_cancel_pubkey_hex: string;
+}
+
+/**
+ * Public projection of received maker `Provider` material (taker side) — mirrors
+ * extro-node `WireProviderMaterial`. All public; no secret crosses. The MuSig2
+ * pubkey + nonces are REAL (derived from the maker's ARK scalar for the swap).
+ */
+export interface WireProviderMaterial {
+	order_id: Uint8Array; // 16 bytes
+	provider_fp: Uint8Array; // 20 bytes
+	provider_pgp_pubkey: Uint8Array;
+	provider_musig2_pubkey: string;
+	settle_nonce_pub: string;
+	refund_nonce_pub: string;
+	provider_cancel_pubkey_hex: string;
+	locked_ref: string;
+	tx_settle_hash_hex: string;
+	tx_refund_hash_hex: string;
 }
 
 /**

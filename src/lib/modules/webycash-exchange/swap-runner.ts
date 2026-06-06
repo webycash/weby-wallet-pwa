@@ -24,6 +24,7 @@ import { proveSwapInitiate } from '$lib/extro/prover';
 import {
 	bearerLegFromWallet,
 	buildSwapInitiateFacts,
+	type BearerSellerIdentity,
 	type ProviderMaterial
 } from './swap-facts';
 import type { RefereeClient } from './referee-client';
@@ -98,8 +99,18 @@ export interface ExecuteSwapInput {
 	order: LimitOrder;
 	/** BIP39 mnemonic of the active wallet — passed to the prover worker only. */
 	mnemonic: string;
-	/** The provider's published MuSig2/ARK material for this swap. */
+	/** The provider's published MuSig2/ARK material for this swap (over DHTX). */
 	provider: ProviderMaterial;
+	/** The taker's OWN bearer-seller identity (conditional recipient, self-owned). */
+	bearerSeller?: BearerSellerIdentity;
+	/**
+	 * Optional staging hook run AFTER `initiate` reaches `insert-pushed` and
+	 * BEFORE the first `advance`. This is where the bearer-rail spend (the
+	 * provider-claim `/replace` that flips `H` to Spent) happens — the swap
+	 * front-run guard requires `H` Unspent at initiate and Spent at advance, so
+	 * the spend MUST land between the two. Receives the assigned swap id.
+	 */
+	afterInitiate?: (swapId: string) => Promise<void>;
 	/** The referee to submit + advance against. */
 	referee: RefereeClient;
 	/** Progress callback (proving → initiating → advancing → settled/failed). */
@@ -131,6 +142,8 @@ export async function executeSwap(input: ExecuteSwapInput): Promise<ExecuteSwapR
 		order,
 		mnemonic,
 		provider,
+		bearerSeller,
+		afterInitiate,
 		referee,
 		onProgress,
 		slot = 0,
@@ -147,7 +160,7 @@ export async function executeSwap(input: ExecuteSwapInput): Promise<ExecuteSwapR
 			bearerLegFromWallet(slot, index, fillAmountRaw)
 		]);
 
-		const facts = buildSwapInitiateFacts({ order, bearer, provider });
+		const facts = buildSwapInitiateFacts({ order, bearer, provider, bearerSeller });
 
 		emit({ stage: 'proving' });
 		const envelope = await proveSwapInitiate({ mnemonic, bearerPk, conditionalPk, facts });
@@ -155,6 +168,10 @@ export async function executeSwap(input: ExecuteSwapInput): Promise<ExecuteSwapR
 		emit({ stage: 'initiating' });
 		const { swap_id, phase } = await referee.initiate(envelope);
 		emit({ stage: 'advancing', swapId: swap_id, phase });
+
+		// STAGING: the bearer-rail spend (provider-claim `/replace`) must land
+		// between initiate (H Unspent) and advance (H Spent) — the front-run guard.
+		if (afterInitiate) await afterInitiate(swap_id);
 
 		const final = await advanceToTerminal(referee, swap_id, (phase) =>
 			emit({ stage: 'advancing', swapId: swap_id, phase })

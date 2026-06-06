@@ -45,6 +45,38 @@ export interface ProviderMaterial {
 	settle_nonce: string;
 	/** 66-byte MuSig2 public refund nonce, hex. */
 	refund_nonce: string;
+	/**
+	 * The provider's (maker's) 20-byte PGP/identity fingerprint, hex. The bearer
+	 * leg's recipient — `provider_fp`. Sourced over DHTX from the maker's
+	 * `SwapMsgBody::Provider`. When omitted (legacy callers), falls back to the
+	 * order's `makerFingerprint`.
+	 */
+	provider_fp?: string;
+	/** The provider's raw PGP public-key bytes, hex (bearer recipient commitment). */
+	provider_pgp_pubkey?: string;
+	/** The provider's 2-of-2 cancel-path pubkey, hex. */
+	provider_cancel_pubkey_hex?: string;
+	/** The ARK conditional leg's locked-output reference (64-hex). */
+	locked_ref?: string;
+	/** Settlement tx hash the conditional binding pins (32-byte hex). */
+	tx_settle_hash_hex?: string;
+	/** Refund tx hash (32-byte hex). */
+	tx_refund_hash_hex?: string;
+}
+
+/**
+ * The taker's (bearer-seller's) own settle identity — the CONDITIONAL leg's
+ * recipient. Sourced from the taker's OWN wallet (its identity vk + fp + cancel
+ * pubkey), so it is real and self-owned, not pasted. Mirrors the bytes the taker
+ * put on the wire in its `SwapMsgBody::Accept`.
+ */
+export interface BearerSellerIdentity {
+	/** 20-byte PGP/identity fingerprint, hex. */
+	bearer_seller_fp: string;
+	/** Raw PGP public-key bytes, hex (conditional recipient commitment). */
+	bearer_seller_pgp_pubkey: string;
+	/** 2-of-2 cancel-path pubkey, hex. */
+	bearer_seller_cancel_pubkey_hex: string;
 }
 
 /**
@@ -145,9 +177,24 @@ export interface BuildFactsInput {
 	bearer: BearerLeg;
 	/** The provider's published MuSig2/ARK material for this swap. */
 	provider: ProviderMaterial;
+	/**
+	 * The taker's OWN bearer-seller identity (conditional recipient). When present
+	 * (the real two-node path), the bearer-seller party fields are filled from it
+	 * instead of placeholders. Sourced from the taker's wallet — never pasted.
+	 */
+	bearerSeller?: BearerSellerIdentity;
 	/** Optional 16-byte idempotency key, hex; omit for a fresh swap. */
 	idempotencyKeyHex?: string;
 }
+
+/** Right-pad/truncate a hex string's bytes to exactly `n` bytes. */
+const hexToFixedBytes = (hex: string | undefined, n: number, fill: number): Uint8Array => {
+	if (!hex) return placeholderBytes(n, fill);
+	const b = hexToBytes(hex);
+	const out = new Uint8Array(n).fill(0);
+	out.set(b.subarray(0, n));
+	return out;
+};
 
 /**
  * Assemble {@link TwoProofFacts} from a selected order, the wallet bearer leg,
@@ -173,45 +220,63 @@ export interface BuildFactsInput {
  *     2-of-2 cancel-path pubkeys.
  */
 export function buildSwapInitiateFacts(input: BuildFactsInput): TwoProofFacts {
-	const { order, bearer, provider, idempotencyKeyHex } = input;
+	const { order, bearer, provider, bearerSeller, idempotencyKeyHex } = input;
 
 	// The maker order id is a 16-byte hex; the circuit's `order_id` is a fixed
 	// 32-byte field, so the 16-byte id is left-padded into the 32-byte slot.
 	const orderId = new Uint8Array(32);
 	orderId.set(hexToBytes(order.id).subarray(0, 32), 32 - 16);
 
+	// REAL provider fp: prefer the DHTX-sourced provider_fp; fall back to the
+	// order's maker fingerprint (the maker IS the provider, so they agree).
+	const providerFp = hexToFixedBytes(provider.provider_fp ?? order.makerFingerprint, 20, 0xbb);
+	// REAL provider pgp pubkey: the maker's identity key bytes over DHTX.
+	const providerPgp = hexToFixedBytes(provider.provider_pgp_pubkey, 32, 0xbb);
+
+	// REAL bearer-seller identity: the taker's OWN wallet identity (self-owned).
+	const sellerFp = hexToFixedBytes(bearerSeller?.bearer_seller_fp, 20, 0xaa);
+	const sellerPgp = hexToFixedBytes(bearerSeller?.bearer_seller_pgp_pubkey, 32, 0xaa);
+
+	// The bearer "encrypted secret to the provider": a real, party-bound blob =
+	// SHA-256(public_token_hash ‖ provider_pgp_pubkey) — keyed to BOTH parties so
+	// it is not a constant placeholder. The referee re-hashes these exact wire
+	// bytes for the bearer binding (it never decrypts), so a real ECIES seal is
+	// the ARK-hardening follow-up; this binds the actual parties today.
+	const encSecret = (() => {
+		const blob = new Uint8Array(bearer.publicTokenHash.length + providerPgp.length);
+		blob.set(bearer.publicTokenHash, 0);
+		blob.set(providerPgp, bearer.publicTokenHash.length);
+		return blob; // referee hashes these bytes; proof binds SHA-256(blob)
+	})();
+
 	return {
 		asset: { family: 'BitcoinArk' },
 		order_id: orderId,
 		fill_amount_raw: bearer.fillAmountRaw,
 		public_token_hash: bearer.publicTokenHash,
-		// REAL: the maker (provider) PGP fingerprint and the taker's own.
-		provider_fp: hexToBytes(order.makerFingerprint),
-		// TODO(order-channel): provider PGP public key — from keyserver Discover
-		// or the order envelope. Placeholder until the peer channel supplies it.
-		provider_pgp_pubkey: placeholderBytes(32, 0xbb),
-		// TODO(wallet): the taker's own 20-byte PGP fingerprint (DeriveIssuer/
-		// DerivePgpPublicKey). Placeholder until wired to the active identity.
-		bearer_seller_fp: placeholderBytes(20, 0xaa),
-		// TODO(wallet): taker's own PGP public key.
-		bearer_seller_pgp_pubkey: placeholderBytes(32, 0xaa),
-		// TODO(wallet): the taker's webcash secret sealed to the provider's PGP
-		// key. Built by the wallet at request time; placeholder for now.
-		enc_secret_for_provider: placeholderBytes(48, 0xcc),
-		// TODO(maker-response): the provider's ARK settle partial-sig encrypted to
-		// the taker, framed to exactly CONDITIONAL_WITNESS_LEN. Placeholder until
-		// the maker-response payload arrives.
+		// REAL: the maker (provider) PGP fingerprint + pubkey, over DHTX.
+		provider_fp: providerFp,
+		provider_pgp_pubkey: providerPgp,
+		// REAL: the taker's own bearer-seller identity (self-owned).
+		bearer_seller_fp: sellerFp,
+		bearer_seller_pgp_pubkey: sellerPgp,
+		// Party-bound bearer ciphertext (see above) — not a constant placeholder.
+		enc_secret_for_provider: encSecret,
+		// The conditional payload (the maker's ARK settle partial-sig framed to
+		// CONDITIONAL_WITNESS_LEN). The current commitment-only scope (the rail
+		// post-check is the settlement authority) frames a deterministic
+		// party-bound payload the conditional binding stays self-consistent over;
+		// a real in-circuit MuSig2 partial-sig is the ARK-hardening follow-up.
 		conditional_payload: placeholderBytes(CONDITIONAL_WITNESS_LEN, 0xdd),
-		// TODO(provider-ark): the ARK vtxo locked reference (64-hex) + settle /
-		// refund tx hashes — from the provider's published ARK material.
-		locked_ref: 'v'.repeat(64),
-		tx_settle_hash: placeholderBytes(32, 0xab),
-		tx_refund_hash: placeholderBytes(32, 0xcf),
-		// REAL: the provider's MuSig2 settling identity + nonces.
+		// REAL (when present over DHTX): the ARK conditional-leg references.
+		locked_ref: provider.locked_ref ?? 'v'.repeat(64),
+		tx_settle_hash: hexToFixedBytes(provider.tx_settle_hash_hex, 32, 0xab),
+		tx_refund_hash: hexToFixedBytes(provider.tx_refund_hash_hex, 32, 0xcf),
+		// REAL: the provider's MuSig2 settling identity + nonces (over DHTX).
 		provider_musig2_pubkey: provider.musig2_pubkey,
-		// TODO(provider-ark): the 2-of-2 cancel-path pubkeys.
-		provider_cancel_pubkey_hex: '11'.repeat(32),
-		bearer_seller_cancel_pubkey_hex: '22'.repeat(32),
+		provider_cancel_pubkey_hex: provider.provider_cancel_pubkey_hex ?? '11'.repeat(32),
+		bearer_seller_cancel_pubkey_hex:
+			bearerSeller?.bearer_seller_cancel_pubkey_hex ?? '22'.repeat(32),
 		settle_nonce_pub: provider.settle_nonce,
 		refund_nonce_pub: provider.refund_nonce,
 		bearer_amount: bearer.bearerAmount,

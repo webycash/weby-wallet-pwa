@@ -119,6 +119,14 @@ export async function bootRealNode(browser: Browser, name: string): Promise<Real
 		);
 	}
 
+	// Expose this node's OWN seed mnemonic to the page so the in-browser prover
+	// worker (which boots its own wasm instance to prove off-thread) can import
+	// the same wallet. This is the node's own throwaway test seed — it never
+	// leaves the node's context, and the prover worker is terminated after.
+	await page.evaluate((m) => {
+		(window as unknown as { __mnemonic?: string }).__mnemonic = m;
+	}, mnemonic);
+
 	return { name, context, page, mnemonic };
 }
 
