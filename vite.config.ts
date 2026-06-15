@@ -15,6 +15,14 @@ export default defineConfig({
 		sveltekit(),
 		compression({ algorithms: ['gzip', 'brotliCompress'], include: /\.(js|css|html|wasm|json|svg)$/ }),
 	],
+	// The prover web worker (src/lib/extro/prover.ts) dynamically imports the
+	// extro-node WASM, so it is a code-splitting worker — which requires the ES
+	// module format (the vite default 'iife' rejects code-splitting). The worker
+	// also needs the wasm + top-level-await plugins to load the .wasm itself.
+	worker: {
+		format: 'es',
+		plugins: () => [wasm(), topLevelAwait()]
+	},
 	build: {
 		target: 'es2022'
 	},

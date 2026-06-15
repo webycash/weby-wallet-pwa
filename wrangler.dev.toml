@@ -1,0 +1,13 @@
+# DEV deploy (Cloudflare Worker + static assets, dev.weby.cash/wallet).
+# Build with BASE_PATH=/wallet, nest output under dev-deploy/wallet/, then:
+#   wrangler deploy --config wrangler.dev.toml
+name = "weby-wallet-pwa-dev"
+main = "dev-worker.js"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+assets = { directory = "dev-deploy", binding = "ASSETS" }
+
+# More specific than the marketing site's dev.weby.cash/* — this wins for /wallet*.
+[[routes]]
+pattern = "dev.weby.cash/wallet*"
+zone_name = "weby.cash"

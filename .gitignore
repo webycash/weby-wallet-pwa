@@ -33,3 +33,4 @@ crates/wallet-wasm/pkg/
 /Cargo.lock
 /target/
 static/circuits-dev/
+dev-deploy/
