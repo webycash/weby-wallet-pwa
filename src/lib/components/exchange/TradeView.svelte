@@ -3,7 +3,12 @@
 	 * charts, then the order book and the limit/market ticket. Charts are pure
 	 * renders of immutable series; settlement handlers come from the parent. */
 	import { orderbook, refreshBook, type Side, type MarketWalk, type Seeder } from '$lib/modules/webycash-exchange';
-	import { pairLabel, assetLabel, mockCandles, lastPrice } from '$lib/modules/webycash-exchange/view-data';
+	import { pairLabel, assetLabel } from '$lib/modules/webycash-exchange/view-data';
+	import {
+		candles as marketCandles,
+		lastObservedPrice,
+		observedDepthVolume
+	} from '$lib/modules/webycash-exchange/market-data';
 	import CandleChart from './charts/CandleChart.svelte';
 	import DepthChart from './charts/DepthChart.svelte';
 	import OrderBook from './OrderBook.svelte';
@@ -21,8 +26,17 @@
 		onPublish: (a: { side: Side; price: number; amount: number }) => void;
 	} = $props();
 
-	const candles = $derived(mockCandles(orderbook.pair, 48));
-	const last = $derived(lastPrice(candles));
+	// REAL market data — OHLC + depth bucketed from the observed order-book
+	// history (recorded on each DHTX poll). Re-derives whenever the book updates.
+	const candles = $derived.by(() => {
+		void orderbook.lastUpdated;
+		return marketCandles(orderbook.pair, 900, 60);
+	});
+	const last = $derived(orderbook.midPrice ?? lastObservedPrice(orderbook.pair) ?? 0);
+	const vol = $derived.by(() => {
+		void orderbook.lastUpdated;
+		return observedDepthVolume(orderbook.pair);
+	});
 	const quote = $derived(assetLabel(orderbook.pair.quote));
 </script>
 
@@ -32,11 +46,12 @@
 		<div>
 			<h2 class="text-xl font-semibold tracking-tight">{pairLabel(orderbook.pair)}</h2>
 			<p class="text-[12px] text-muted-foreground tabular-nums mt-0.5">
-				spread {orderbook.spread != null ? orderbook.spread.toFixed(2) : '—'} · {quote}
+				spread {orderbook.spread != null ? orderbook.spread.toFixed(2) : '—'}
+				· depth {vol > 0 ? vol.toLocaleString() : '—'} {quote}
 			</p>
 		</div>
 		<p class="text-4xl font-light tracking-tight tabular-nums text-primary leading-none">
-			{last.toFixed(last < 1 ? 4 : 2)}
+			{last > 0 ? last.toFixed(last < 1 ? 4 : 2) : '—'}
 		</p>
 	</div>
 
@@ -45,7 +60,16 @@
 	<div class="grid gap-5 items-start lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)_minmax(0,1.05fr)]">
 		<div class="space-y-5 min-w-0">
 			<div class="rounded-2xl bg-muted/20 ring-1 ring-border/40 p-4">
-				<CandleChart {candles} maPeriod={7} label={quote} />
+				{#if candles.length > 1}
+					<CandleChart {candles} maPeriod={7} label={quote} />
+				{:else}
+					<div class="h-[180px] flex flex-col items-center justify-center text-center gap-1">
+						<p class="text-[13px] text-muted-foreground">Awaiting market data</p>
+						<p class="text-[11px] text-muted-foreground/60 max-w-[240px]">
+							Candles build from the live order book as it's observed over the network.
+						</p>
+					</div>
+				{/if}
 			</div>
 			<div class="rounded-2xl bg-muted/20 ring-1 ring-border/40 p-4">
 				<p class="text-[10px] tracking-[0.14em] uppercase text-muted-foreground mb-2">Depth</p>

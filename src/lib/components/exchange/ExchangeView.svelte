@@ -16,7 +16,6 @@
 		selectTrade,
 		cancelTradeAction,
 		trades,
-		mockSeeders,
 		type MarketWalk,
 		type Seeder,
 		type Side
@@ -33,7 +32,9 @@
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	let { isDesktop = false }: { isDesktop?: boolean } = $props();
 
-	let seeders = $state<Seeder[]>(mockSeeders(3));
+	// Real seeders are the DHTX peers that relay the order; until peer-level
+	// seeder discovery lands there are none (honest — no fabricated seeders).
+	let seeders = $state<Seeder[]>([]);
 	let banner = $state<{ text: string; kind: 'info' | 'warn' | 'error' } | null>(null);
 	let busySwap = $state<string | null>(null);
 	const view = $derived(nav.activeView);
@@ -123,7 +124,6 @@
 	};
 	const onCancel = (id: string) => cancelTradeAction(id);
 	const onSelectTrade = (id: string | null) => selectTrade(id);
-	const setSeederCount = (n: number) => (seeders = n === 0 ? [] : mockSeeders(n));
 </script>
 
 <div class="animate-fade-in space-y-4">
@@ -154,7 +154,7 @@
 	{:else if view === 'orders'}
 		<OrdersView {onSettle} {onCancel} {onSelectTrade} {busySwap} />
 	{:else if view === 'network'}
-		<NetworkView {seeders} onRefresh={() => refreshBook()} {setSeederCount} />
+		<NetworkView onRefresh={() => refreshBook()} />
 	{:else}
 		<MarketsView />
 	{/if}
