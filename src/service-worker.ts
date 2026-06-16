@@ -67,6 +67,8 @@ const relayToClients = async (msg: ExchangePushMessage): Promise<void> => {
 	for (const client of clients) client.postMessage(msg);
 };
 
+const NOTIF_ICON = '/web-app-manifest-192x192.png';
+
 self.addEventListener('push', (event) => {
 	let payload: unknown;
 	try {
@@ -74,15 +76,72 @@ self.addEventListener('push', (event) => {
 	} catch {
 		return; // not JSON / not for us
 	}
+	if (!payload || typeof payload !== 'object') return;
+
+	// Generic notification shape (from the push dispatch Worker `/api/push/send`):
+	// { title, body, tag, icon, url, data }. Show it directly. Chrome requires a
+	// visible notification per push under `userVisibleOnly: true`.
+	const generic = payload as {
+		title?: unknown;
+		body?: unknown;
+		tag?: unknown;
+		icon?: unknown;
+		url?: unknown;
+		data?: unknown;
+	};
+	if (typeof generic.title === 'string') {
+		const data =
+			generic.data && typeof generic.data === 'object'
+				? generic.data
+				: { url: typeof generic.url === 'string' ? generic.url : '/wallet' };
+		event.waitUntil(
+			self.registration.showNotification(generic.title, {
+				body: typeof generic.body === 'string' ? generic.body : '',
+				icon: typeof generic.icon === 'string' ? generic.icon : NOTIF_ICON,
+				tag: typeof generic.tag === 'string' ? generic.tag : undefined,
+				data
+			})
+		);
+		return;
+	}
+
+	// Keyserver-shaped settlement payload: relay to open clients for the in-app
+	// router AND show an OS notification so a closed/backgrounded wallet still
+	// surfaces the update.
 	if (!isValidKeyserverPayload(payload)) return;
-
-	// Best-effort SW dedupe by (swap_id, kind, signed_payload) — the app does the
-	// authoritative payload-hash dedupe.
 	const burstKey = `${payload.swap_id}:${payload.kind}:${payload.signed_payload}`;
-	if (swDedupe(burstKey)) return;
-
+	if (swDedupe(burstKey)) return; // best-effort SW dedupe; app does the authoritative one
 	const message = toPushMessage(payload);
-	event.waitUntil(relayToClients({ type: EXCHANGE_PUSH_MSG, message }));
+	event.waitUntil(
+		Promise.all([
+			relayToClients({ type: EXCHANGE_PUSH_MSG, message }),
+			self.registration.showNotification('weby.cash · swap update', {
+				body: `Settlement ${String(payload.kind).replace(/_/g, ' ')}`,
+				icon: NOTIF_ICON,
+				tag: `swap-${payload.swap_id}`,
+				data: { url: '/wallet' }
+			})
+		])
+	);
+});
+
+// Focus an existing wallet window on tap, else open one at the target URL.
+self.addEventListener('notificationclick', (event) => {
+	event.notification.close();
+	const data = event.notification.data as { url?: string } | undefined;
+	const target = data?.url || '/wallet';
+	event.waitUntil(
+		(async () => {
+			const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+			for (const client of all) {
+				if ('focus' in client) {
+					await client.focus();
+					return;
+				}
+			}
+			if (self.clients.openWindow) await self.clients.openWindow(target);
+		})()
+	);
 });
 
 // Allow clients to ask the SW to re-establish control / skip waiting.

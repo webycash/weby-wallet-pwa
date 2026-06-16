@@ -3,8 +3,15 @@
 	 * diagnostics attached to every DHTX FetchOrders poll (peers connected,
 	 * channels open, orders recorded). No mocks: when nothing is connected the
 	 * counts are honestly zero. */
-	import { Users, Radio, Boxes, RefreshCw } from '@lucide/svelte';
+	import { Users, Radio, Boxes, RefreshCw, Bell, BellOff } from '@lucide/svelte';
+	import { onMount } from 'svelte';
 	import { orderbook } from '$lib/modules/webycash-exchange';
+	import {
+		enablePush,
+		disablePush,
+		isPushEnabled,
+		pushSupported
+	} from '$lib/modules/webycash-exchange/push-subscribe';
 	import { getExtroMode } from '$lib/extro';
 
 	let { onRefresh }: { onRefresh: () => void } = $props();
@@ -12,6 +19,44 @@
 	const peers = $derived(orderbook.diag?.peers_connected ?? 0);
 	const channels = $derived(orderbook.diag?.channels_open ?? 0);
 	const ordersSeen = $derived(orderbook.diag?.orders_recorded ?? 0);
+
+	// Web Push (settlement notifications) — real OS notifications via the VAPID
+	// dispatch Worker, so a closed wallet still surfaces a settled swap.
+	const supported = pushSupported();
+	let pushOn = $state(false);
+	let pushBusy = $state(false);
+	let pushNote = $state<string | null>(null);
+
+	onMount(async () => {
+		if (supported) pushOn = await isPushEnabled();
+	});
+
+	const togglePush = async () => {
+		pushBusy = true;
+		pushNote = null;
+		try {
+			if (pushOn) {
+				await disablePush();
+				pushOn = false;
+				pushNote = 'Notifications off.';
+			} else {
+				const r = await enablePush();
+				if (r.ok) {
+					pushOn = true;
+					pushNote = 'Notifications on — settled swaps will alert you.';
+				} else {
+					pushNote =
+						r.reason === 'denied'
+							? 'Permission denied in the browser.'
+							: r.reason === 'unsupported'
+								? 'This browser does not support push.'
+								: `Could not enable (${r.reason}${r.detail ? `: ${r.detail}` : ''}).`;
+				}
+			}
+		} finally {
+			pushBusy = false;
+		}
+	};
 </script>
 
 <div class="space-y-4">
@@ -54,6 +99,42 @@
 			Fetch order book
 		</button>
 	</div>
+
+	{#if supported}
+		<div class="rounded-2xl bg-muted/20 ring-1 ring-border/40 p-4 space-y-3">
+			<div class="flex items-center justify-between">
+				<span class="text-[13px] flex items-center gap-2">
+					{#if pushOn}
+						<Bell class="w-4 h-4 text-primary" />
+					{:else}
+						<BellOff class="w-4 h-4 text-muted-foreground" />
+					{/if}
+					Settlement notifications
+				</span>
+				<span
+					class="text-[11px] px-2 py-0.5 rounded-full {pushOn
+						? 'bg-primary/10 text-primary'
+						: 'bg-muted/50 text-muted-foreground'}">{pushOn ? 'On' : 'Off'}</span>
+			</div>
+			<button
+				onclick={togglePush}
+				disabled={pushBusy}
+				class="w-full h-11 rounded-full bg-muted/50 hover:bg-muted/80 flex items-center justify-center gap-2 text-[14px] font-medium active:scale-[0.97] transition-all duration-200 disabled:opacity-50">
+				{#if pushOn}
+					<BellOff class="w-4 h-4" /> Turn off
+				{:else}
+					<Bell class="w-4 h-4" /> Enable notifications
+				{/if}
+			</button>
+			{#if pushNote}
+				<p class="text-[11px] text-muted-foreground px-1 leading-relaxed">{pushNote}</p>
+			{/if}
+			<p class="text-[11px] text-muted-foreground/70 px-1 leading-relaxed">
+				A real OS notification when a swap settles — even with the wallet closed. Nothing secret
+				leaves the device; a subscription is just a delivery address.
+			</p>
+		</div>
+	{/if}
 
 	<div class="rounded-2xl bg-muted/20 ring-1 ring-border/40 p-4">
 		<p class="text-[13px] leading-relaxed">
