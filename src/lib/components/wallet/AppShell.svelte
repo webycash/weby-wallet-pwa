@@ -28,6 +28,8 @@
 	import RgbView from '../rgb/RgbView.svelte';
 	import VouchersView from '../vouchers/VouchersView.svelte';
 	import { initPushRouter, replayPushQueue, pushStatus } from '$lib/modules/webycash-exchange/push-store.svelte';
+	import { setReferee, HttpRefereeClient } from '$lib/modules/webycash-exchange';
+	import { REFEREE_URL, configuredAdapterMode } from '$lib/extro/config';
 
 	let { pendingWebcash = '', onLock = () => {}, onInstall }: {
 		pendingWebcash?: string;
@@ -183,6 +185,13 @@
 		// (e.g. a transient re-lock) and is a no-op otherwise.
 		initPushRouter(() => true);
 		void replayPushQueue();
+
+		// Inject the real HTTP referee (dev.weby.cash/api/referee) when running the
+		// bundled adapter against a configured backend. MockRefereeClient stays the
+		// default for tests / SSR / the mock adapter (per referee-client.ts).
+		if (configuredAdapterMode() !== 'mock' && /^https?:\/\//.test(REFEREE_URL)) {
+			setReferee(new HttpRefereeClient({ baseUrl: REFEREE_URL }));
+		}
 
 		(async () => {
 			const wasm = await getWasm();
