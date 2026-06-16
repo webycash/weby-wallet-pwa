@@ -215,13 +215,14 @@
 			<MobileMenu {canMineWallet} {network} onNetworkChange={handleNetworkChange} />
 		{/if}
 
-		<!-- Centered sidebar + content -->
-		<div class="{isDesktop ? 'flex justify-center max-w-4xl mx-auto' : ''}">
+		<!-- Centered sidebar + content. The Exchange is a full-width trading
+		     surface (multi-column on desktop); asset tabs stay a focused column. -->
+		<div class="{isDesktop ? (activeTab === 'exchange' ? 'flex justify-center max-w-[1440px] mx-auto' : 'flex justify-center max-w-4xl mx-auto') : ''}">
 			{#if isDesktop}
 				<Sidebar {canMineWallet} />
 			{/if}
 
-			<main class="px-5 py-4 md:py-6 flex-1 max-w-lg {isDesktop ? '' : 'mx-auto'}">
+			<main class="px-5 py-4 md:py-6 flex-1 {activeTab === 'exchange' ? 'max-w-none' : 'max-w-lg'} {isDesktop ? '' : 'mx-auto'}">
 				<!-- Wallet selector — asset tabs only (Exchange is a mode, not a family) -->
 				{#if isAssetTab(activeTab)}
 					<div class="flex justify-center mb-4">

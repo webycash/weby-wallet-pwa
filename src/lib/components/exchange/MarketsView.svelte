@@ -23,9 +23,9 @@
 	};
 </script>
 
-<div class="space-y-2">
-	<h2 class="text-[17px] font-semibold px-1">Markets</h2>
-	<div class="space-y-1.5">
+<div class="space-y-4">
+	<h2 class="text-xl font-semibold tracking-tight px-0.5">Markets</h2>
+	<div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
 		{#each orderbook.pairs as p (pairKey(p))}
 			{@const v = evaluatePair(p.base, p.quote)}
 			<button
