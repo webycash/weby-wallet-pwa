@@ -30,7 +30,11 @@ import {
 import type { RefereeClient } from './referee-client';
 import type { LimitOrder } from './types';
 
-/** Where the dev proving keys are served from (see static/circuits-dev/). */
+/**
+ * Where the development proving keys are served from. Release assembly runs
+ * `npm run install:zkp` with the ceremony output directory; the keys are never
+ * silently sourced from a sibling checkout or treated as production-safe.
+ */
 const BEARER_PK_URL = '/circuits-dev/pk_bearer_payload.bin';
 const CONDITIONAL_PK_URL = '/circuits-dev/pk_conditional_leg.bin';
 

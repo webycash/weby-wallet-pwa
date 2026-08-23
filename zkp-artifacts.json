@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "profile": "development-only",
+  "warning": "Deterministic toxic waste: never use for mainnet or public funds.",
+  "source": {
+    "repository": "git@github.com:extronet/extro-circuits.git",
+    "commit": "5a768cc51d5c51e1bab102acee0c5cad39507f73",
+    "command": "cargo run --release --locked --bin dev_ceremony"
+  },
+  "files": {
+    "pk_bearer_payload.bin": "15748a9e9908772a680b690053557ce6e84577545a6db7b7248412ac79c19353",
+    "pk_conditional_leg.bin": "100be69a5225c8bdf73f7349d4ed705d277e9b059ce789e29d8287dc099e59e4"
+  }
+}
