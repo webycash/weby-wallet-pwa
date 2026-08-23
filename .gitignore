@@ -41,3 +41,8 @@ dev-deploy/
 # against wasm-artifacts.json so builds never depend on a sibling checkout.
 !src/lib/node/pkg/
 !src/lib/node/pkg/**
+
+# Release-pinned master-wallet package built from this repository. Keep the
+# complete wasm-bindgen package so a clean checkout is immediately buildable.
+!crates/wallet-wasm/pkg/
+!crates/wallet-wasm/pkg/**
