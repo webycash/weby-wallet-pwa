@@ -5,6 +5,8 @@ build/
 # Playwright e2e harness artifacts
 playwright-report/
 test-results/
+e2e/.discover-loop/
+e2e/.validate-loop/
 .DS_Store
 *.swp
 *.swo
