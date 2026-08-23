@@ -91,8 +91,8 @@ export function railEndpoints(mode: NetworkMode): RailEndpoints {
 
 /**
  * Loader for the bundled extro-node WASM module. Dynamically imports the pkg
- * synced into `$node` (src/lib/node/pkg by scripts/sync-wasm.mjs) and runs its
- * wasm-bindgen `default()` init — mandatory before any export is callable. The
+ * committed in `$node` (src/lib/node/pkg) and runs its wasm-bindgen `default()`
+ * init — mandatory before any export is callable. The
  * returned module satisfies {@link ExtroNodeWasm} (boot/send + codec exports).
  *
  * Kept as a dynamic import so SSR/test builds never pull the WASM in: it is only

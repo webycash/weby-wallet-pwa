@@ -237,5 +237,12 @@ export class MockExtroAdapter implements ExtroAdapter {
 				}
 			}
 		}
+
+		return {
+			kind: 'Err',
+			request_id: command.request_id,
+			code: 'Unsupported',
+			message: 'mock command is not implemented'
+		};
 	}
 }

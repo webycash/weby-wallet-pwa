@@ -29,8 +29,8 @@ export default defineConfig({
 	resolve: {
 		alias: {
 			'$wasm': resolve(__dirname, 'crates/wallet-wasm/pkg'),
-			// Built extro-node WASM, synced from extro/extro-node/pkg by
-			// scripts/sync-wasm.mjs (pre{dev,build}). Backs the bundled adapter.
+			// Release-pinned extro-node WASM. Its source commit and hashes are
+			// recorded in wasm-artifacts.json and verified before every build.
 			'$node': resolve(__dirname, 'src/lib/node/pkg')
 		}
 	},

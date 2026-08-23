@@ -40,12 +40,12 @@ List the tests without running them (parse check):
 npx playwright test --list
 ```
 
-## Why `vite dev` directly and NOT `npm run dev`
+## Artifact verification
 
-`npm run dev` triggers the `predev` hook → `scripts/sync-wasm.mjs`, which touches
-the cargo/wasm toolchain and OOMs the machine when the cargo lane is busy. The
-Playwright `webServer.command` therefore runs `npx vite dev` **directly**,
-bypassing the pre-hook. The wasm artifact must already be synced by the operator.
+`npm run dev` first runs `scripts/verify-wasm.mjs`. That fast pre-hook checks
+the committed wallet and extro-node packages against `wasm-artifacts.json`; it
+does not invoke Cargo or read a sibling checkout. Playwright uses this same
+command, so a missing or stale binary fails before the browser starts.
 
 The server runs on **port 5183** (not 5174, which a live session may hold) and
 under `vite dev` so `import.meta.env.DEV` is true — required for the page to

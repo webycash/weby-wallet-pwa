@@ -10,10 +10,10 @@
 const PUSH_BASE = '/api/push';
 
 /** Decode a base64url VAPID key to the bytes `pushManager.subscribe` wants. */
-function base64urlToUint8Array(base64url: string): Uint8Array {
+function base64urlToUint8Array(base64url: string): Uint8Array<ArrayBuffer> {
 	const padded = base64url + '='.repeat((4 - (base64url.length % 4)) % 4);
 	const binary = atob(padded.replace(/-/g, '+').replace(/_/g, '/'));
-	const bytes = new Uint8Array(binary.length);
+	const bytes = new Uint8Array(new ArrayBuffer(binary.length));
 	for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
 	return bytes;
 }

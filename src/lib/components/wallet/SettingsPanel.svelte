@@ -155,7 +155,7 @@
 	const isDetail = $derived(!!section);
 	const sectionClass = 'rounded-2xl bg-card overflow-hidden';
 	const summaryClass = 'flex items-center gap-3 px-4 py-3.5 cursor-pointer select-none hover:bg-muted/40 transition-all duration-200 text-[15px] font-semibold';
-	const contentClass = isDetail ? 'space-y-3' : 'px-4 pb-4 space-y-3';
+	const contentClass = $derived(isDetail ? 'space-y-3' : 'px-4 pb-4 space-y-3');
 	const disabledClass = 'rounded-2xl bg-card opacity-30';
 </script>
 

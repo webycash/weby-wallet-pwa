@@ -36,3 +36,8 @@ crates/wallet-wasm/pkg/
 /target/
 static/circuits-dev/
 dev-deploy/
+
+# Release-pinned extro-node package. The exact bytes are committed and checked
+# against wasm-artifacts.json so builds never depend on a sibling checkout.
+!src/lib/node/pkg/
+!src/lib/node/pkg/**

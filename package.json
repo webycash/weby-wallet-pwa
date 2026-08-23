@@ -4,9 +4,9 @@
 	"version": "0.2.3",
 	"type": "module",
 	"scripts": {
-		"sync:wasm": "node scripts/sync-wasm.mjs",
-		"predev": "node scripts/sync-wasm.mjs",
-		"prebuild": "node scripts/sync-wasm.mjs",
+		"verify:wasm": "node scripts/verify-wasm.mjs",
+		"predev": "node scripts/verify-wasm.mjs",
+		"prebuild": "node scripts/verify-wasm.mjs",
 		"dev": "vite dev",
 		"build": "vite build",
 		"preview": "vite preview",

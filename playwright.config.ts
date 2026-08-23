@@ -6,11 +6,9 @@
 //
 // HARD CONSTRAINTS baked in here (see e2e/README.md):
 //
-//  * The dev server is started with `vite dev` DIRECTLY — NOT `npm run dev` —
-//    because `predev` runs scripts/sync-wasm.mjs (the forbidden wasm/cargo
-//    toolchain step). The wasm artifact in src/lib/node/pkg/ must already be
-//    synced by the operator BEFORE running this harness; the harness never
-//    builds or syncs it.
+//  * The dev server starts through `npm run dev`; its lightweight pre-hook
+//    verifies the committed WASM package against wasm-artifacts.json. It never
+//    invokes Cargo or reads a sibling checkout.
 //
 //  * A NON-default port (5183) is used so a live dev session on 5174 is never
 //    disturbed. Override with E2E_PORT / E2E_BASE_URL if 5183 is taken.
@@ -54,10 +52,10 @@ export default defineConfig({
 			]
 		}
 	},
-	// Start the REAL app (vite dev, NOT npm run dev — see note above). If the
+	// Start the REAL app through its artifact-verifying dev command. If the
 	// operator already has a server on BASE_URL, reuse it.
 	webServer: {
-		command: `npx vite dev --port ${PORT} --strictPort`,
+		command: `npm run dev -- --port ${PORT} --strictPort`,
 		url: BASE_URL,
 		reuseExistingServer: true,
 		timeout: 120_000,
