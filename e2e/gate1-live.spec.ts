@@ -29,7 +29,7 @@ async function command(node: LiveNode, cmd: unknown) {
 	}, cmd);
 }
 
-test('Gate 1 live: two isolated wallets pin, discover, and retain a real DataChannel', async ({
+test('Gates 1-2 live: two isolated wallets retain a DataChannel and propagate a signed DHTX order', async ({
 	browser
 }) => {
 	const config = await (await fetch(`${URL.replace(/\/$/, '')}/runtime-config.json`)).json();
@@ -103,6 +103,51 @@ test('Gate 1 live: two isolated wallets pin, discover, and retain a real DataCha
 			a.body.connected || b.body.connected || a.body.peers_connected > 0 || b.body.peers_connected > 0,
 			`no open DataChannel: A=${JSON.stringify(a.body)} B=${JSON.stringify(b.body)}`
 		).toBe(true);
+
+		const pair = { base: 'BitcoinArk', quote: 'Webcash' };
+		const published = (await command(nodes[0], {
+			kind: 'Dhtx',
+			cmd: {
+				op: 'PublishOrder',
+				slot: 0,
+				pair,
+				side: 'Sell',
+				price_atomic: 12_345n,
+				amount_atomic: 67n,
+				expires_at: Math.floor(Date.now() / 1000) + 300
+			}
+		})) as any;
+		expect(published.kind, JSON.stringify(published)).toBe('Ok');
+		expect(published.body.kind).toBe('OrderPublished');
+		expect(published.body.peers_broadcast, JSON.stringify(published.body)).toBeGreaterThan(0);
+		const publishedId = Array.from(published.body.order_id as Uint8Array).join(',');
+
+		let received: any = null;
+		for (let attempt = 0; attempt < 50; attempt += 1) {
+			const fetched = (await command(nodes[1], {
+				kind: 'Dhtx',
+				cmd: { op: 'FetchOrders', pair }
+			})) as any;
+			expect(fetched.kind).toBe('Ok');
+			expect(fetched.body.kind).toBe('Orders');
+			received = fetched.body.orders.find(
+				(order: any) => Array.from(order.order_id as Uint8Array).join(',') === publishedId
+			);
+			if (received) {
+				expect(fetched.body.diag.peers_connected).toBeGreaterThan(0);
+				expect(fetched.body.diag.channels_open).toBeGreaterThan(0);
+				expect(fetched.body.diag.total_frames_seen).toBeGreaterThan(0);
+				expect(fetched.body.diag.orders_recorded).toBeGreaterThan(0);
+				break;
+			}
+			await new Promise((resolve) => setTimeout(resolve, 100));
+		}
+		expect(received, 'peer B never recorded peer A\'s signed DHTX order').not.toBeNull();
+		expect(received.pair).toEqual(pair);
+		expect(received.side).toBe('Sell');
+		expect(received.price_atomic).toBe(12_345n);
+		expect(received.amount_atomic).toBe(67n);
+		expect((received.signed_commitment as Uint8Array).length).toBeGreaterThan(64);
 	} finally {
 		await Promise.all(nodes.map((node) => node.context.close()));
 	}
