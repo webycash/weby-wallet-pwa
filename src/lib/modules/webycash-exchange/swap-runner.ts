@@ -2,6 +2,8 @@
 //
 // Drives one swap end to end from the PWA, off the UI thread for the heavy part:
 //
+//   0. prepared   — require a non-expired, pinned-referee-verified allocation
+//                    created from byte-identical terms signed by both parties.
 //   1. proving    — fetch the two Groth16 proving keys (once, cached), derive
 //                    the bearer leg from the wallet, build the TwoProofFacts, and
 //                    run `proveSwapInitiate` in a Web Worker (tens of seconds of
@@ -25,6 +27,7 @@ import {
 	bearerLegFromWallet,
 	buildSwapInitiateFacts,
 	type BearerSellerIdentity,
+	type PreparedSwapBinding,
 	type ProviderMaterial
 } from './swap-facts';
 import type { RefereeClient } from './referee-client';
@@ -109,6 +112,8 @@ export interface ExecuteSwapInput {
 	bearerSeller: BearerSellerIdentity;
 	/** Genuine wallet-produced encryption of the bearer secret to the provider. */
 	encSecretForProvider: Uint8Array;
+	/** Dual-signed, referee-allocated session verified by extro-node. */
+	prepared: PreparedSwapBinding;
 	/**
 	 * Optional staging hook run AFTER `initiate` reaches `insert-pushed` and
 	 * BEFORE the first `advance`. This is where the bearer-rail spend (the
@@ -150,6 +155,7 @@ export async function executeSwap(input: ExecuteSwapInput): Promise<ExecuteSwapR
 		provider,
 		bearerSeller,
 		encSecretForProvider,
+		prepared,
 		afterInitiate,
 		referee,
 		onProgress,
@@ -161,6 +167,9 @@ export async function executeSwap(input: ExecuteSwapInput): Promise<ExecuteSwapR
 	const emit = (p: SwapProgress) => onProgress?.(p);
 
 	try {
+		if (prepared.expiresAtUnix <= BigInt(Math.floor(Date.now() / 1000))) {
+			throw new Error('prepared swap allocation has expired; prepare again before proving');
+		}
 		emit({ stage: 'fetching-keys' });
 		const [{ bearerPk, conditionalPk }, bearer] = await Promise.all([
 			loadProofKeys(fetchFn),
@@ -172,7 +181,8 @@ export async function executeSwap(input: ExecuteSwapInput): Promise<ExecuteSwapR
 			bearer,
 			provider,
 			bearerSeller,
-			encSecretForProvider
+			encSecretForProvider,
+			prepared
 		});
 
 		emit({ stage: 'proving' });

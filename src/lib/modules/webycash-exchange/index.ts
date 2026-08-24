@@ -12,6 +12,7 @@ export * from './publication-fee';
 export * from './publish';
 export * from './push-hooks';
 export * from './referee-client';
+export * from './swap-prepare';
 export * from './trade-timeline';
 export * from './swap-facts';
 export * from './swap-runner';

@@ -4,6 +4,7 @@
 //
 //   GET  /v1/health
 //   GET  /v1/pubkey
+//   POST /v1/swap/prepare          (rkyv PrepareRequest bytes, octet-stream)
 //   POST /v1/swap/initiate         (rkyv InitiateRequest bytes, octet-stream)
 //   POST /v1/swap/:id/advance
 //   POST /v1/swap/:id/ack
@@ -61,6 +62,12 @@ export interface RefereeClient {
 	health(): Promise<RefereeHealth>;
 	pubkey(): Promise<RefereePubkey>;
 	/**
+	 * Submit the dual-signed, value-free rkyv `PrepareRequest`. The returned
+	 * bytes are the referee's `Signed<PreparedSwap>` envelope and MUST be opened
+	 * by the pinned extro-node verifier before any Ark contract is constructed.
+	 */
+	prepare(envelope: Uint8Array): Promise<Uint8Array>;
+	/**
 	 * Submit the rkyv `InitiateRequest` envelope (built off-thread by the prover)
 	 * to `POST /v1/swap/initiate`. Returns the referee-assigned swap id + phase.
 	 */
@@ -112,6 +119,19 @@ export class HttpRefereeClient implements RefereeClient {
 			throw new Error('referee pubkey does not match the pinned key — refusing to trust');
 		}
 		return body;
+	}
+
+	async prepare(envelope: Uint8Array): Promise<Uint8Array> {
+		const r = await this.f(this.url('/v1/swap/prepare'), {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/octet-stream' },
+			body: envelope.slice()
+		});
+		if (!r.ok) {
+			const detail = await r.text().catch(() => '');
+			throw new Error(`referee /v1/swap/prepare ${r.status}: ${detail || r.statusText}`);
+		}
+		return new Uint8Array(await r.arrayBuffer());
 	}
 
 	async advance(swapId: string): Promise<AdvanceResult> {

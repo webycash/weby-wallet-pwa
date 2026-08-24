@@ -87,6 +87,25 @@ export type DhtxCommand =
 	 * identity + ARK conditional references to the taker.
 	 */
 	| { op: 'SendProviderMaterial'; slot: number; order_id: Uint8Array; taker_fp: Uint8Array }
+	/** Relay one verified canonical prepare signature to the other named party. */
+	| {
+			op: 'SendSwapPrepareSignature';
+			slot: number;
+			order_id: Uint8Array;
+			for_fp: Uint8Array;
+			role: 'Provider' | 'BearerSeller';
+			signed_prepare: Uint8Array;
+	  }
+	/** Relay a referee-signed prepare allocation after verifying its pin/binding. */
+	| {
+			op: 'SendSwapPrepared';
+			slot: number;
+			order_id: Uint8Array;
+			for_fp: Uint8Array;
+			signed_response: Uint8Array;
+			referee_vk: Uint8Array;
+			expected_request_commitment: Uint8Array;
+	  }
 	/**
 	 * Drain inbound swap messages, then read this node's swap inbox for an order:
 	 * the Accept received as the maker and/or the Provider material received as
@@ -177,11 +196,52 @@ export type ExpectedOutcome =
 	| { kind: 'Refund' }
 	| { kind: 'Custom'; label: string };
 
+/** Canonical `extrolib::exchange::PrepareTerms` shape consumed by WASM. */
+export interface ArkPrepareTerms {
+	order_id: Uint8Array; // 32 bytes: 16 zero bytes + 16-byte DHTX id
+	signed_order_commitment_sha256: Uint8Array; // 32 bytes
+	fill_amount_raw: bigint;
+	parties: {
+		provider_fp: string;
+		provider_pgp_pubkey_hex: string;
+		bearer_seller_fp: string;
+		bearer_seller_pgp_pubkey_hex: string;
+		provider_musig2_pubkey: string;
+		provider_cancel_pubkey_hex: string;
+		bearer_seller_cancel_pubkey_hex: string;
+	};
+	provider_nonces: {
+		settle_nonce_pub: string;
+		refund_nonce_pub: string;
+	};
+	ark_network: 'regtest' | 'signet' | 'bitcoin';
+	ark_operator_signer_pk: Uint8Array; // x-only, 32 bytes
+	provider_ark_destination: string;
+	bearer_seller_ark_destination: string;
+	idempotency_key: Uint8Array; // 16 bytes
+	nonce: Uint8Array; // 32 bytes
+	expires_at_unix: number;
+}
+
 // ── Scheme-402 commands ──────────────────────────────────────────────────────
 
 export type Scheme402Command =
 	/** Emit the provider's MuSig2 material (pubkey + settle/refund nonces) for a swap. */
 	| { op: 'ProviderMaterial'; slot: number; swap_id: string }
+	| { op: 'SignSwapPrepare'; slot: number; terms: ArkPrepareTerms }
+	| { op: 'CountersignSwapPrepare'; slot: number; counterparty_signed: Uint8Array }
+	| {
+			op: 'BuildSwapPrepareRequest';
+			provider_signed: Uint8Array;
+			bearer_seller_signed: Uint8Array;
+	  }
+	| {
+			op: 'VerifySwapPrepared';
+			signed_response: Uint8Array;
+			referee_vk: Uint8Array;
+			expected_request_commitment: Uint8Array;
+			now_unix: number;
+	  }
 	/** Cache the Groth16 proving keys for in-wasm SwapInitiate. */
 	| { op: 'InstallProofKeys'; bearer_pk: Uint8Array; conditional_pk: Uint8Array }
 	/** Build the two-proof /v1/swap/initiate envelope in-wasm. `facts` is TwoProofFacts. */
@@ -381,6 +441,17 @@ export type ResponseBody =
 	| { kind: 'Summaries'; families: FamilySummary[] }
 	| { kind: 'SignedRetry'; retry: Uint8Array; receipt_id: Uint8Array }
 	| { kind: 'ProviderMaterial'; musig2_pubkey: string; settle_nonce: string; refund_nonce: string }
+	| { kind: 'SwapPrepareSigned'; signed: Uint8Array; request_commitment: Uint8Array }
+	| { kind: 'SwapPrepareEnvelope'; bytes: Uint8Array }
+	| {
+			kind: 'SwapPrepared';
+			swap_id: string;
+			request_commitment: Uint8Array;
+			referee_musig2_pubshare: string;
+			referee_settle_nonce_pub: string;
+			referee_refund_nonce_pub: string;
+			expires_at_unix: bigint;
+	  }
 	| { kind: 'ProofKeysInstalled' }
 	| { kind: 'InitiateEnvelope'; bytes: Uint8Array }
 	// ── Dhtx orderbook response arms (mirrors extro-node ResponseBody) ──────────
@@ -411,6 +482,9 @@ export type ResponseBody =
 			kind: 'SwapMsgs';
 			accept: WireAccept | null;
 			provider: WireProviderMaterial | null;
+			provider_prepare: Uint8Array | null;
+			bearer_seller_prepare: Uint8Array | null;
+			prepared_response: Uint8Array | null;
 	  }
 	| { kind: 'KeyserverPinned' }
 	| { kind: 'Discovered'; fingerprint_hex: string; verified: boolean }

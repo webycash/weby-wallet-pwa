@@ -5,6 +5,7 @@ import {
 	buildSwapInitiateFacts,
 	type BearerLeg,
 	type BearerSellerIdentity,
+	type PreparedSwapBinding,
 	type ProviderMaterial
 } from './swap-facts';
 
@@ -60,6 +61,12 @@ const provider = (): ProviderMaterial => ({
 });
 
 const encryptedSecret = (): Uint8Array => new Uint8Array(80).fill(0xab);
+const prepared = (): PreparedSwapBinding => ({
+	swapId: 'prepared-fixture',
+	requestCommitment: new Uint8Array(32).fill(0x41),
+	idempotencyKey: new Uint8Array(16).fill(0x42),
+	expiresAtUnix: 4_000_000_000n
+});
 
 describe('buildSwapInitiateFacts fail-closed boundary', () => {
 	it('accepts a complete, internally consistent prepared-contract shape', () => {
@@ -68,9 +75,13 @@ describe('buildSwapInitiateFacts fail-closed boundary', () => {
 			bearer,
 			provider: provider(),
 			bearerSeller,
-			encSecretForProvider: encryptedSecret()
+			encSecretForProvider: encryptedSecret(),
+			prepared: prepared()
 		});
 
+		expect(facts.prepared_swap_id).toBe('prepared-fixture');
+		expect(facts.prepare_request_commitment).toEqual(new Uint8Array(32).fill(0x41));
+		expect(facts.idempotency_key).toBe('42'.repeat(16));
 		expect(facts.locked_ref).toBe(`${'ee'.repeat(32)}:0`);
 		expect(facts.provider_musig2_pubkey).toBe(providerPubkey);
 		expect(facts.conditional_payload).toHaveLength(128);
@@ -89,7 +100,8 @@ describe('buildSwapInitiateFacts fail-closed boundary', () => {
 				bearer,
 				provider: incomplete,
 				bearerSeller,
-				encSecretForProvider: encryptedSecret()
+				encSecretForProvider: encryptedSecret(),
+				prepared: prepared()
 			})
 		).toThrow(/provider_fp/);
 	});
@@ -105,7 +117,8 @@ describe('buildSwapInitiateFacts fail-closed boundary', () => {
 				bearer,
 				provider: provider(),
 				bearerSeller,
-				encSecretForProvider: publicSubstitute
+				encSecretForProvider: publicSubstitute,
+				prepared: prepared()
 			})
 		).toThrow(/not ciphertext/);
 	});
@@ -117,7 +130,8 @@ describe('buildSwapInitiateFacts fail-closed boundary', () => {
 				bearer,
 				provider: { ...provider(), locked_ref: 'v'.repeat(64) },
 				bearerSeller,
-				encSecretForProvider: encryptedSecret()
+				encSecretForProvider: encryptedSecret(),
+				prepared: prepared()
 			})
 		).toThrow(/locked_ref/);
 
@@ -130,8 +144,34 @@ describe('buildSwapInitiateFacts fail-closed boundary', () => {
 					conditional_payload: new Uint8Array(128).fill(0xdd)
 				},
 				bearerSeller,
-				encSecretForProvider: encryptedSecret()
+				encSecretForProvider: encryptedSecret(),
+				prepared: prepared()
 			})
 		).toThrow(/framed ciphertext length/);
+	});
+
+	it('rejects a missing or malformed prepare allocation before initiate', () => {
+		const base = {
+			order,
+			bearer,
+			provider: provider(),
+			bearerSeller,
+			encSecretForProvider: encryptedSecret()
+		};
+		expect(() =>
+			buildSwapInitiateFacts({ ...base, prepared: undefined as unknown as PreparedSwapBinding })
+		).toThrow(/prepared_swap_id/);
+		expect(() =>
+			buildSwapInitiateFacts({
+				...base,
+				prepared: { ...prepared(), requestCommitment: new Uint8Array(31) }
+			})
+		).toThrow(/prepare_request_commitment/);
+		expect(() =>
+			buildSwapInitiateFacts({
+				...base,
+				prepared: { ...prepared(), idempotencyKey: new Uint8Array(16) }
+			})
+		).toThrow(/idempotency_key.*zero/);
 	});
 });

@@ -91,8 +91,22 @@ export interface BearerLeg {
 	fillAmountRaw: bigint;
 }
 
+/**
+ * The verified `/v1/swap/prepare` allocation that every initiate MUST name.
+ * `requestCommitment` is SHA-256 of the byte-identical `PrepareTerms` body both
+ * parties signed; `idempotencyKey` is copied from those same terms.
+ */
+export interface PreparedSwapBinding {
+	swapId: string;
+	requestCommitment: Uint8Array; // 32
+	idempotencyKey: Uint8Array; // 16
+	expiresAtUnix: bigint;
+}
+
 /** The TwoProofFacts JS object the prover passes straight to `SwapInitiate`. */
 export interface TwoProofFacts {
+	prepared_swap_id: string;
+	prepare_request_commitment: Uint8Array; // 32
 	asset: { family: 'BitcoinArk' };
 	order_id: Uint8Array; // 32
 	fill_amount_raw: bigint;
@@ -113,7 +127,7 @@ export interface TwoProofFacts {
 	refund_nonce_pub: string;
 	bearer_amount: string;
 	circuit_version: string;
-	idempotency_key?: string;
+	idempotency_key: string;
 }
 
 const hexToBytes = (hex: string): Uint8Array => {
@@ -179,8 +193,8 @@ export interface BuildFactsInput {
 	bearerSeller: BearerSellerIdentity;
 	/** Wallet-produced encryption of the bearer secret to the provider's attested key. */
 	encSecretForProvider: Uint8Array;
-	/** Optional 16-byte idempotency key, hex; omit for a fresh swap. */
-	idempotencyKeyHex?: string;
+	/** Referee-signed allocation verified against the runtime-pinned referee key. */
+	prepared: PreparedSwapBinding;
 }
 
 const exactHexBytes = (value: string, n: number, name: string): Uint8Array => {
@@ -268,14 +282,23 @@ const validateConditionalPayload = (value: Uint8Array): Uint8Array => {
  * that separately before Gate 3 can be enabled.
  */
 export function buildSwapInitiateFacts(input: BuildFactsInput): TwoProofFacts {
-	const { order, bearer, provider, bearerSeller, encSecretForProvider, idempotencyKeyHex } = input;
+	const { order, bearer, provider, bearerSeller, encSecretForProvider, prepared } = input;
 	if (bearer.fillAmountRaw <= 0n) throw new Error('fill_amount_raw must be positive');
 	if (!/^[1-9][0-9]*$/.test(bearer.bearerAmount)) {
 		throw new Error('bearer_amount must be a positive decimal integer');
 	}
 	const publicTokenHash = exactBytes(bearer.publicTokenHash, 32, 'public_token_hash');
-	if (idempotencyKeyHex !== undefined) {
-		exactHexBytes(idempotencyKeyHex, 16, 'idempotency_key');
+	if (typeof prepared?.swapId !== 'string' || prepared.swapId.trim() === '') {
+		throw new Error('prepared_swap_id is required');
+	}
+	const prepareRequestCommitment = exactBytes(
+		prepared.requestCommitment,
+		32,
+		'prepare_request_commitment'
+	);
+	const idempotencyKey = exactBytes(prepared.idempotencyKey, 16, 'idempotency_key');
+	if (typeof prepared.expiresAtUnix !== 'bigint' || prepared.expiresAtUnix <= 0n) {
+		throw new Error('prepared expires_at_unix must be a positive bigint');
 	}
 
 	// The maker order id is a 16-byte hex; the circuit's `order_id` is a fixed
@@ -334,6 +357,8 @@ export function buildSwapInitiateFacts(input: BuildFactsInput): TwoProofFacts {
 	);
 
 	return {
+		prepared_swap_id: prepared.swapId,
+		prepare_request_commitment: prepareRequestCommitment,
 		asset: { family: 'BitcoinArk' },
 		order_id: orderId,
 		fill_amount_raw: bearer.fillAmountRaw,
@@ -364,6 +389,8 @@ export function buildSwapInitiateFacts(input: BuildFactsInput): TwoProofFacts {
 		refund_nonce_pub: exactPublicNonce(provider.refund_nonce, 'refund_nonce_pub'),
 		bearer_amount: bearer.bearerAmount,
 		circuit_version: BEARER_CIRCUIT_VERSION,
-		...(idempotencyKeyHex ? { idempotency_key: idempotencyKeyHex } : {})
+		idempotency_key: Array.from(idempotencyKey, (byte) => byte.toString(16).padStart(2, '0')).join(
+			''
+		)
 	};
 }

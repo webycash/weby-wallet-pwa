@@ -37,6 +37,10 @@ export class MockRefereeClient implements RefereeClient {
 		};
 	}
 
+	async prepare(_envelope: Uint8Array): Promise<Uint8Array> {
+		throw new Error('mock referee cannot produce a cryptographically signed prepare allocation');
+	}
+
 	async initiate(envelope: Uint8Array): Promise<InitiateResult> {
 		const tag = envelope.length
 			? `${envelope.length}-${envelope[0]}-${envelope[envelope.length - 1]}`
