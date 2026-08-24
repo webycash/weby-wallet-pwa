@@ -11,6 +11,14 @@ interface LiveNode {
 	page: Page;
 }
 
+function hexBytes(hex: string): Uint8Array {
+	const bytes = new Uint8Array(hex.length / 2);
+	for (let index = 0; index < bytes.length; index += 1) {
+		bytes[index] = Number.parseInt(hex.slice(index * 2, index * 2 + 2), 16);
+	}
+	return bytes;
+}
+
 async function openNode(browser: Browser): Promise<LiveNode> {
 	const context = await browser.newContext();
 	const page = await context.newPage();
@@ -34,6 +42,7 @@ test('Gates 1-2 live: two isolated wallets retain a DataChannel and propagate a 
 }) => {
 	const config = await (await fetch(`${URL.replace(/\/$/, '')}/runtime-config.json`)).json();
 	const nodes = await Promise.all([openNode(browser), openNode(browser)]);
+	const identityFingerprints: string[] = [];
 	try {
 		for (let index = 0; index < nodes.length; index += 1) {
 			const imported = (await command(nodes[index], {
@@ -52,6 +61,7 @@ test('Gates 1-2 live: two isolated wallets retain a DataChannel and propagate a 
 			})) as any;
 			expect(identity.kind, JSON.stringify(identity)).toBe('Ok');
 			expect(identity.body.kind).toBe('Identity');
+			identityFingerprints[index] = identity.body.fingerprint_hex;
 
 			const pinned = (await command(nodes[index], {
 				kind: 'Keyserver',
@@ -148,6 +158,66 @@ test('Gates 1-2 live: two isolated wallets retain a DataChannel and propagate a 
 		expect(received.price_atomic).toBe(12_345n);
 		expect(received.amount_atomic).toBe(67n);
 		expect((received.signed_commitment as Uint8Array).length).toBeGreaterThan(64);
+
+		const accepted = (await command(nodes[1], {
+			kind: 'Dhtx',
+			cmd: {
+				op: 'SendSwapAccept',
+				slot: 0,
+				order_id: published.body.order_id,
+				maker_fp: hexBytes(identityFingerprints[0])
+			}
+		})) as any;
+		expect(accepted.kind).toBe('Ok');
+		expect(accepted.body.kind).toBe('SwapMsgSent');
+		expect(accepted.body.delivered).toBe(true);
+
+		let receivedAccept: any = null;
+		for (let attempt = 0; attempt < 50; attempt += 1) {
+			const fetched = (await command(nodes[0], {
+				kind: 'Dhtx',
+				cmd: { op: 'FetchSwapMsgs', order_id: published.body.order_id }
+			})) as any;
+			expect(fetched.kind).toBe('Ok');
+			expect(fetched.body.kind).toBe('SwapMsgs');
+			receivedAccept = fetched.body.accept;
+			if (receivedAccept) break;
+			await new Promise((resolve) => setTimeout(resolve, 100));
+		}
+		expect(receivedAccept, 'maker A never received taker B\'s signed Accept').not.toBeNull();
+		expect(Array.from(receivedAccept.order_id as Uint8Array)).toEqual(
+			Array.from(published.body.order_id as Uint8Array)
+		);
+		expect(Array.from(receivedAccept.bearer_seller_fp as Uint8Array)).toEqual(
+			Array.from(hexBytes(identityFingerprints[1]))
+		);
+		expect((receivedAccept.bearer_seller_pgp_pubkey as Uint8Array).length).toBe(32);
+		expect(receivedAccept.bearer_seller_cancel_pubkey_hex).toMatch(/^[0-9a-f]{64}$/);
+
+		// Production safety boundary: no Provider frame may be emitted with the
+		// former fixed Ark locked_ref/settle/refund placeholders. Gate 3 replaces
+		// this named error with genuine browser-Ark references.
+		const provider = (await command(nodes[0], {
+			kind: 'Dhtx',
+			cmd: {
+				op: 'SendProviderMaterial',
+				slot: 0,
+				order_id: published.body.order_id,
+				taker_fp: hexBytes(identityFingerprints[1])
+			}
+		})) as any;
+		expect(provider.kind).toBe('Err');
+		expect(provider.code).toBe('Unsupported');
+		expect(provider.message).toContain('browser Ark');
+		expect(provider.message).toContain('genuine locked_ref');
+
+		const noProvider = (await command(nodes[1], {
+			kind: 'Dhtx',
+			cmd: { op: 'FetchSwapMsgs', order_id: published.body.order_id }
+		})) as any;
+		expect(noProvider.kind).toBe('Ok');
+		expect(noProvider.body.kind).toBe('SwapMsgs');
+		expect(noProvider.body.provider).toBeNull();
 	} finally {
 		await Promise.all(nodes.map((node) => node.context.close()));
 	}
