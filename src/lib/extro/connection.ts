@@ -135,7 +135,14 @@ async function connectOnce(
 		},
 		'Bootstrapped'
 	);
-	if (!joined.connected) throw new Error('bootstrap completed without an open keyserver DataChannel');
+	// The current keyserver returns a signed HTTPS rendezvous response with a
+	// stub server SDP, so its momentary KS channel may remain closed. The durable
+	// product transport is a roster-peer channel retained in RuntimeCtx. Require
+	// at least one real open channel of either kind; never treat counts-only
+	// rendezvous data as a connection.
+	if (!joined.connected && joined.peers_connected === 0) {
+		throw new Error('bootstrap completed without an open keyserver or roster-peer DataChannel');
+	}
 	record({
 		phase: 'connected',
 		message: 'Connected to Extro',

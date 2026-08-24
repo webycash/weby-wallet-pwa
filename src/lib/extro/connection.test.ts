@@ -40,7 +40,11 @@ const ok = (command: ExtroCommand, body: ResponseBody): ExtroResponse => ({
 class JoinAdapter implements ExtroAdapter {
 	readonly mode = 'bundled' as const;
 	readonly operations: string[] = [];
-	constructor(private readonly discoveredFingerprint = config.keyserver_fingerprint_hex) {}
+	constructor(
+		private readonly discoveredFingerprint = config.keyserver_fingerprint_hex,
+		private readonly keyserverConnected = true,
+		private readonly peersConnected = 1
+	) {}
 	async boot(): Promise<void> {}
 	async dispatch(command: ExtroCommand): Promise<ExtroResponse> {
 		const cmd = command.op.cmd;
@@ -67,8 +71,8 @@ class JoinAdapter implements ExtroAdapter {
 					roster_count: 2,
 					dhtx_seeds_count: 1,
 					interest_seeds_count: 0,
-					peers_connected: 1,
-					connected: true
+					peers_connected: this.peersConnected,
+					connected: this.keyserverConnected
 				});
 			default:
 				throw new Error(`unexpected ${cmd.op}`);
@@ -89,5 +93,17 @@ describe('Extro production bootstrap sequence', () => {
 		const connected = await joinExtroNetwork(new ExtroClient(adapter), config, { delaysMs: [0] });
 		expect(connected).toBe(false);
 		expect(adapter.operations).toEqual(['DeriveIdentity', 'Pin', 'Discover']);
+	});
+
+	it('accepts a retained roster-peer channel when the dev keyserver SDP is intentionally stubbed', async () => {
+		const adapter = new JoinAdapter(config.keyserver_fingerprint_hex, false, 1);
+		const connected = await joinExtroNetwork(new ExtroClient(adapter), config, { delaysMs: [0] });
+		expect(connected).toBe(true);
+	});
+
+	it('rejects rendezvous counts when no DataChannel is open', async () => {
+		const adapter = new JoinAdapter(config.keyserver_fingerprint_hex, false, 0);
+		const connected = await joinExtroNetwork(new ExtroClient(adapter), config, { delaysMs: [0] });
+		expect(connected).toBe(false);
 	});
 });
