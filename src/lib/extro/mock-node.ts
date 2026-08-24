@@ -216,6 +216,7 @@ export class MockExtroAdapter implements ExtroAdapter {
 							roster_count: 0,
 							dhtx_seeds_count: 0,
 							interest_seeds_count: 0,
+							peers_connected: 0,
 							connected: false
 						});
 				}

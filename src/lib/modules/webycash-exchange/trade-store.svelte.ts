@@ -1,5 +1,5 @@
 // Trade reactive store — a THIN wrapper over `trade-timeline` (pure) and the
-// referee client (mock by default). Holds the list of trades as runes; the
+// explicitly configured referee client. Holds the list of trades as runes; the
 // state-machine logic is unit-tested in `trade-timeline.test.ts`.
 //
 // SECRECY: a Trade holds public commitments + redaction-safe timeline notes
@@ -13,7 +13,7 @@ import {
 	cancelTrade,
 	type NewTradeInput
 } from './trade-timeline';
-import { MockRefereeClient, type RefereeClient } from './referee-client';
+import type { RefereeClient } from './referee-client';
 import { executeSwap, type SwapProgress, type ExecuteSwapInput } from './swap-runner';
 import { evaluatePair } from './pair-policy';
 import type { Trade } from './types';
@@ -31,12 +31,16 @@ const state = $state<TradeState>({
 	swapProgress: { stage: 'idle' }
 });
 
-// Default to a mock referee that drives any swap straight to settled. A real
-// HttpRefereeClient can be injected via `setReferee` once endpoints are live.
-let referee: RefereeClient = new MockRefereeClient();
+let referee: RefereeClient | null = null;
 
 export function setReferee(client: RefereeClient): void {
+	if (client.mode !== 'http') throw new Error('application referee must use the pinned HTTP adapter');
 	referee = client;
+}
+
+function configuredReferee(): RefereeClient {
+	if (!referee) throw new Error('referee is not configured; exchange settlement is unavailable');
+	return referee;
 }
 
 export const trades = {
@@ -80,7 +84,7 @@ const replace = (next: Trade) => {
 export async function settleTrade(swapId: string): Promise<Trade | null> {
 	const trade = state.trades.find((t) => t.swapId === swapId);
 	if (!trade) return null;
-	const final = await driveToTerminal(trade, referee);
+	const final = await driveToTerminal(trade, configuredReferee());
 	replace(final);
 	return final;
 }
@@ -110,7 +114,7 @@ export interface RunSwapInput extends Omit<ExecuteSwapInput, 'referee' | 'onProg
  * was assigned).
  */
 export async function runSwap(input: RunSwapInput): Promise<Trade | null> {
-	const client = input.referee ?? referee;
+	const client = input.referee ?? configuredReferee();
 	const order = input.order;
 	const verdict = evaluatePair(order.pair.base, order.pair.quote);
 

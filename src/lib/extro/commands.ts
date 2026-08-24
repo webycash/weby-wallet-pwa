@@ -427,6 +427,8 @@ export type ResponseBody =
 			dhtx_seeds_count: number;
 			/** Number of interest seeds the server returned. */
 			interest_seeds_count: number;
+			/** Number of roster/seed peers whose DataChannel reached Open. */
+			peers_connected: number;
 			/** Whether the key-server DataChannel reached the `Open` state. */
 			connected: boolean;
 	  }

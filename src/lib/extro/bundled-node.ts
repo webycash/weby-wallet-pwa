@@ -12,15 +12,14 @@
 // (`extro_encode_command` / `extro_decode_response`, see wasm/codec.rs), so this
 // adapter dispatches real typed commands, not a mock.
 //
-// The only remaining wiring point is the WASM artifact itself: the
-// Webycash-branded extro-node `pkg/` is built by `wasm-pack` from the extro-node
-// repo and is not vendored into this repo. The embedder supplies it via the
-// injectable `load` function (e.g. a dynamic `import()` of the built pkg). Once
-// `load` returns the module, encode → send → decode is fully live.
+// The Webycash-branded extro-node `pkg/` is rebuilt from the commit pinned in
+// wasm-artifacts.json and its byte hashes are verified before every build. The
+// loader remains injectable so tests can exercise the boundary independently.
 
 import type { ExtroAdapter } from './client';
 import type { ExtroCommand, ExtroResponse } from './commands';
 import { DISPATCH_ERR, decodeResponse, encodeCommand, type ExtroCodec } from './codec';
+import type { ExtroRuntimeConfig } from './runtime-config';
 
 /**
  * The JS-visible surface extro-node's WASM module exposes (see
@@ -29,35 +28,30 @@ import { DISPATCH_ERR, decodeResponse, encodeCommand, type ExtroCodec } from './
  * half, so the module satisfies it structurally.
  */
 export interface ExtroNodeWasm extends ExtroCodec {
+	extro_encode_boot_config(config: ExtroRuntimeConfig): Uint8Array;
 	extro_node_boot(config: Uint8Array): Promise<unknown>;
 	extro_node_send(msg: Uint8Array): Promise<Uint8Array>;
 }
 
 /**
- * Default loader. The Webycash-branded extro-node WASM `pkg/` (built by
- * `wasm-pack build --target web`) is NOT vendored into this repo, so the default
- * loader throws a clear, actionable error: callers wire a real artifact by
- * passing `load` in {@link BundledNodeOptions} (typically a dynamic import of the
- * built pkg, then `await mod.default()` to initialise it). The MOCK adapter
- * remains the tested default.
+ * A loader is mandatory in application configuration; this fallback exists
+ * only to turn an incomplete programmatic construction into a named error.
  */
 const defaultLoad = async (): Promise<ExtroNodeWasm> => {
 	throw new Error(
 		'extro-node WASM artifact is not bundled yet. Pass a `load` function that ' +
 			'imports the built extro-node pkg (exposing extro_node_boot / extro_node_send / ' +
-			'extro_encode_command / extro_decode_response), or use the mock adapter (default).'
+			'extro_encode_boot_config / extro_encode_command / extro_decode_response).'
 	);
 };
 
 export interface BundledNodeOptions {
 	/**
-	 * Loader for the extro-node WASM module. Injectable so a built artifact can
-	 * be wired without changing this file. Defaults to a loader that throws with
-	 * guidance (the pkg is not vendored here).
+	 * Loader for the release-pinned extro-node WASM module.
 	 */
 	load?: () => Promise<ExtroNodeWasm>;
-	/** rkyv-encoded boot Config bytes; extro-node currently boots a default. */
-	bootConfig?: Uint8Array;
+	/** Validated schema-v1 config. The WASM codec encodes and validates it again. */
+	bootConfig: ExtroRuntimeConfig;
 }
 
 export class BundledExtroAdapter implements ExtroAdapter {
@@ -65,7 +59,7 @@ export class BundledExtroAdapter implements ExtroAdapter {
 	private wasm: ExtroNodeWasm | null = null;
 	private readonly opts: BundledNodeOptions;
 
-	constructor(opts: BundledNodeOptions = {}) {
+	constructor(opts: BundledNodeOptions) {
 		this.opts = opts;
 	}
 
@@ -73,7 +67,8 @@ export class BundledExtroAdapter implements ExtroAdapter {
 		if (this.wasm) return;
 		const load = this.opts.load ?? defaultLoad;
 		this.wasm = await load();
-		await this.wasm.extro_node_boot(this.opts.bootConfig ?? new Uint8Array(0));
+		const bytes = this.wasm.extro_encode_boot_config(this.opts.bootConfig);
+		await this.wasm.extro_node_boot(bytes);
 	}
 
 	async dispatch(command: ExtroCommand): Promise<ExtroResponse> {

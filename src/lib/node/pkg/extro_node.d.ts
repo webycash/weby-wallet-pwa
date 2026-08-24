@@ -61,6 +61,12 @@ export class ExtroCall {
 export function extro_decode_response(bytes: Uint8Array): any;
 
 /**
+ * Build the versioned rkyv browser boot payload from a strict JS object.
+ * Unknown fields are rejected here instead of being silently ignored.
+ */
+export function extro_encode_boot_config(config: any): Uint8Array;
+
+/**
  * Build the rkyv `ExtroCommand` bytes for `extro_node_send` from a JS object.
  *
  * The JS shape mirrors `commands.ts::ExtroCommand`. A malformed object yields a
@@ -69,7 +75,7 @@ export function extro_decode_response(bytes: Uint8Array): any;
  */
 export function extro_encode_command(command: any): Uint8Array;
 
-export function extro_node_boot(_config: Uint8Array): Promise<any>;
+export function extro_node_boot(config: Uint8Array): Promise<any>;
 
 /**
  * Dispatch one rkyv-archived [`ExtroCommand`](crate::scheme402::ExtroCommand)
@@ -85,6 +91,7 @@ export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly __wbg_extrocall_free: (a: number, b: number) => void;
     readonly extro_decode_response: (a: number, b: number, c: number) => void;
+    readonly extro_encode_boot_config: (a: number, b: number) => void;
     readonly extro_encode_command: (a: number, b: number) => void;
     readonly extro_node_boot: (a: number, b: number) => number;
     readonly extro_node_send: (a: number, b: number) => number;
@@ -95,13 +102,13 @@ export interface InitOutput {
     readonly extrocall_dial: (a: number) => number;
     readonly extrocall_offer_sdp: (a: number, b: number) => void;
     readonly extrocall_remote_tracks: (a: number) => number;
-    readonly __wasm_bindgen_func_elem_2517: (a: number, b: number, c: number, d: number) => void;
-    readonly __wasm_bindgen_func_elem_2535: (a: number, b: number, c: number, d: number) => void;
-    readonly __wasm_bindgen_func_elem_704: (a: number, b: number, c: number) => void;
-    readonly __wasm_bindgen_func_elem_704_2: (a: number, b: number, c: number) => void;
-    readonly __wasm_bindgen_func_elem_704_3: (a: number, b: number, c: number) => void;
-    readonly __wasm_bindgen_func_elem_704_4: (a: number, b: number, c: number) => void;
-    readonly __wasm_bindgen_func_elem_704_5: (a: number, b: number, c: number) => void;
+    readonly __wasm_bindgen_func_elem_2550: (a: number, b: number, c: number, d: number) => void;
+    readonly __wasm_bindgen_func_elem_2568: (a: number, b: number, c: number, d: number) => void;
+    readonly __wasm_bindgen_func_elem_732: (a: number, b: number, c: number) => void;
+    readonly __wasm_bindgen_func_elem_732_2: (a: number, b: number, c: number) => void;
+    readonly __wasm_bindgen_func_elem_732_3: (a: number, b: number, c: number) => void;
+    readonly __wasm_bindgen_func_elem_732_4: (a: number, b: number, c: number) => void;
+    readonly __wasm_bindgen_func_elem_732_5: (a: number, b: number, c: number) => void;
     readonly __wbindgen_export: (a: number) => void;
     readonly __wbindgen_export2: (a: number, b: number) => number;
     readonly __wbindgen_export3: (a: number, b: number, c: number, d: number) => number;

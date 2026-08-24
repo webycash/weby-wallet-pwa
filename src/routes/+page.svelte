@@ -13,6 +13,7 @@
 	import { setupWallet, insertWebcash, resetDb } from '$lib/stores/wallet.svelte';
 	import { parseMigrationBundle, importMigrationBundle, readClipboardBundle, clearClipboard, type MigrationBundle } from '$lib/core/migration';
 	import { seedExtroWallet, resetExtroSeed } from '$lib/extro/seed';
+	import { extroConnection } from '$lib/extro/connection';
 	import { getMnemonic } from '$lib/core/persistence';
 	import type { NetworkMode } from '$lib/core/types';
 
@@ -200,6 +201,11 @@
 {:else if !unlocked}
 	<LockScreen onUnlock={() => { unlocked = true; }} />
 {:else}
+	{#if $extroConnection.phase === 'error'}
+		<div class="fixed inset-x-3 top-3 z-[100] rounded-xl border border-destructive/30 bg-background/95 px-4 py-3 text-[12px] text-destructive shadow-lg backdrop-blur" role="alert">
+			Extro network unavailable: {$extroConnection.message}
+		</div>
+	{/if}
 	<AppShell {pendingWebcash} onLock={() => { resetExtroSeed(); unlocked = false; }} onInstall={() => installPrompt?.show()} />
 	<InstallPrompt bind:this={installPrompt} />
 {/if}

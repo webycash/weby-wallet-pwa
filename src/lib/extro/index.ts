@@ -1,82 +1,50 @@
-// Extro client facade — public entry point for the exchange module.
-//
-// The exchange module talks ONLY to this facade; it never imports a generic
-// Extro wire type or touches `extro_node_send` directly. Three adapters back
-// the facade:
-//
-//   * mock         — deterministic in-memory; DEFAULT for dev/tests.
-//   * bundled      — same-realm Webycash-branded extro-node WASM; SHIPPING
-//                    default mode (codec + artifact wiring deferred).
-//   * cross-domain — extro.network bridge; NOT production-ready (blocked on the
-//                    H4 CapToken issuer-pin).
-//
-// All three are wrapped by {@link ExtroClient}, which enforces single-flight
-// dispatch (F-PWA-1): at most one `extro_node_send` is ever in flight, because
-// extro-node holds a `RefCell` borrow across the whole dispatch and a concurrent
-// send would panic.
+// Shipping Extro client facade. Application code has exactly one adapter: the
+// release-pinned, same-origin extro-node WASM. Mock and cross-domain adapters
+// remain isolated test/experimental modules and are not imported into this
+// entry point or the production bundle.
 
-import { ExtroClient, type AdapterMode } from './client';
-import { MockExtroAdapter } from './mock-node';
+import { ExtroClient } from './client';
 import { BundledExtroAdapter, type BundledNodeOptions } from './bundled-node';
-import { CrossDomainExtroAdapter, type CrossDomainOptions } from './cross-domain-node';
 
 export { ExtroClient } from './client';
 export type { ExtroAdapter, AdapterMode } from './client';
 export * from './commands';
-export { MockExtroAdapter, makeGate } from './mock-node';
 
-/**
- * Which adapter the app uses. `mock` is the dev/test default; `bundled`
- * (same-realm) is the shipping default. `cross-domain` is opt-in and
- * pre-production.
- */
-export type ExtroMode = AdapterMode;
+/** The sole application adapter. */
+export type ExtroMode = 'bundled';
 
 let singleton: ExtroClient | null = null;
 let singletonMode: ExtroMode | null = null;
 
 export interface ConfigureOptions {
-	mode: ExtroMode;
-	bundled?: BundledNodeOptions;
-	crossDomain?: CrossDomainOptions;
+	mode: 'bundled';
+	bundled: BundledNodeOptions;
 }
 
 /**
- * Build (or rebuild) the shared facade client for `mode`. Reconfiguring with a
- * different mode replaces the singleton.
+ * Build (or rebuild) the shared same-realm facade client.
  */
 export function configureExtro(options: ConfigureOptions): ExtroClient {
-	const adapter = (() => {
-		switch (options.mode) {
-			case 'mock':
-				return new MockExtroAdapter();
-			case 'bundled':
-				return new BundledExtroAdapter(options.bundled ?? {});
-			case 'cross-domain':
-				if (!options.crossDomain)
-					throw new Error('cross-domain mode requires crossDomain options');
-				return new CrossDomainExtroAdapter(options.crossDomain);
-		}
-	})();
+	const adapter = new BundledExtroAdapter(options.bundled);
 	singleton = new ExtroClient(adapter);
 	singletonMode = options.mode;
 	return singleton;
 }
 
 /**
- * The shared facade client. Defaults to the MOCK adapter the first time it is
- * requested, so the exchange module is always usable without explicit wiring
- * (the integration of the bundled/cross-domain transports is staged).
+ * The shared facade client. Application boot must configure it explicitly.
  */
 export function getExtroClient(): ExtroClient {
-	if (!singleton) configureExtro({ mode: 'mock' });
-	return singleton!;
+	if (!singleton) {
+		throw new Error('Extro client is not configured; application boot must load runtime-config.json first');
+	}
+	return singleton;
 }
 
-/** The currently configured adapter mode (`mock` until configured). */
+/** The currently configured adapter mode. */
 export function getExtroMode(): ExtroMode {
 	if (!singletonMode) getExtroClient();
-	return singletonMode!;
+	return singletonMode as ExtroMode;
 }
 
 /** Test helper: drop the singleton so the next call rebuilds it. */

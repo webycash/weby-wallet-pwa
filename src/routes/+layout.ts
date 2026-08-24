@@ -1,6 +1,7 @@
 import { browser } from '$app/environment';
 import { configureExtro } from '$lib/extro';
 import { configuredAdapterMode, loadBundledExtroNode } from '$lib/extro/config';
+import { loadRuntimeConfig } from '$lib/extro/runtime-config';
 
 export const ssr = false;
 export const prerender = true;
@@ -10,14 +11,16 @@ export const prerender = true;
 // seam); the MOCK adapter is the fallback for unbootable contexts (and is the
 // implicit default the facade uses if this never runs, e.g. tests). Honour
 // PUBLIC_EXTRO_ADAPTER to force mock/cross-domain when wanted.
-export const load = () => {
+export const load = async ({ fetch }) => {
 	if (browser) {
+		const config = await loadRuntimeConfig(fetch);
 		const mode = configuredAdapterMode();
 		let client: ReturnType<typeof configureExtro> | null = null;
 		if (mode === 'bundled') {
-			client = configureExtro({ mode: 'bundled', bundled: { load: loadBundledExtroNode } });
-		} else if (mode === 'mock') {
-			client = configureExtro({ mode: 'mock' });
+			client = configureExtro({
+				mode: 'bundled',
+				bundled: { load: loadBundledExtroNode, bootConfig: config }
+			});
 		}
 		// DEV diagnostic: expose the authoritative app client so it can be probed
 		// from the page console (dynamic `import('/src/lib/extro')` resolves to a

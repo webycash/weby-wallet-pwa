@@ -16,8 +16,10 @@
 // anything we keep. This keeps the extro-node wallet's lock state slaved to the
 // PWA's, with no second secret to manage.
 
-import { getExtroClient, getExtroMode } from './index';
+import { getExtroClient } from './index';
 import { newRequestId, isOk } from './commands';
+import { joinExtroNetwork, markExtroDisconnected } from './connection';
+import { getRuntimeConfig } from './runtime-config';
 
 // Throwaway seal passphrase (see module note): the envelope is never persisted
 // or re-opened, so this value guards nothing — it only satisfies `Import`'s
@@ -31,20 +33,22 @@ let seeded = false;
 /**
  * Seed + unlock the bundled extro-node wallet from `mnemonic`. No-op (returns
  * `false`) in mock mode — the mock adapter needs no seed — and a no-op once
- * seeded for this unlock cycle. Never throws: a failed Import returns `false`
- * and leaves the latch open so a later attempt can retry.
+ * seeded for this unlock cycle. Success includes a verified keyserver pin and
+ * open DataChannel; failures are published to the connection status store.
  */
 export async function seedExtroWallet(mnemonic: string | null): Promise<boolean> {
 	if (seeded) return true;
-	if (!mnemonic || getExtroMode() === 'mock') return false;
+	if (!mnemonic) return false;
 	try {
 		const res = await getExtroClient().send({
 			request_id: newRequestId(),
 			op: { kind: 'Wallet', cmd: { op: 'Import', mnemonic, passphrase: SESSION_PASSPHRASE } }
 		});
-		seeded = isOk(res);
+		if (!isOk(res)) throw new Error(`${res.code}: ${res.message}`);
+		seeded = await joinExtroNetwork(getExtroClient(), getRuntimeConfig());
 		return seeded;
-	} catch {
+	} catch (error) {
+		markExtroDisconnected(String(error instanceof Error ? error.message : error));
 		return false;
 	}
 }
@@ -52,4 +56,13 @@ export async function seedExtroWallet(mnemonic: string | null): Promise<boolean>
 /** Clear the per-load seed latch (call on PWA lock) so the next unlock re-seeds. */
 export function resetExtroSeed(): void {
 	seeded = false;
+	markExtroDisconnected();
+	try {
+		void getExtroClient().send({
+			request_id: newRequestId(),
+			op: { kind: 'Wallet', cmd: { op: 'Lock' } }
+		});
+	} catch {
+		// Application config may already be torn down during navigation.
+	}
 }

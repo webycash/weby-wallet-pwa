@@ -7,6 +7,35 @@ compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
 assets = { directory = "dev-deploy", binding = "ASSETS" }
 
+# Public, versioned release configuration served by dev-worker.js at
+# /wallet/runtime-config.json. Trust values are explicit; no PWA fallback is
+# used. The dev ceremony and public relay credentials are intentionally
+# testnet-only and are rejected by the production validator.
+[vars]
+PUBLIC_BOOT_SCHEMA_VERSION = "1"
+PUBLIC_DEPLOYMENT = "development"
+PUBLIC_EXTRO_DB_NAME = "extro-node-dev"
+PUBLIC_EXTRO_ADAPTER = "bundled"
+PUBLIC_KEYSERVER_URL = "https://dev.extro.network"
+PUBLIC_KEYSERVER_DOMAIN = "dev.extro.network"
+PUBLIC_KEYSERVER_FINGERPRINT = "fe812c12f3ab4ce6ac5db69ac352f906cb1b11ef"
+PUBLIC_KEYSERVER_VK = "ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c"
+PUBLIC_REFEREE_URL = "https://dev.weby.cash/api/referee"
+PUBLIC_REFEREE_VK = "a4af4b046664378c0d7a69a31be38be6dd0c8fce10a74273ea044c2b5cc8c11c"
+PUBLIC_WEBCASH_SERVER_URL = "https://dev.weby.cash/api/webcash"
+PUBLIC_VOUCHER_SERVER_URL = "https://dev.weby.cash/api/voucher"
+PUBLIC_RGB_SERVER_URL = "https://dev.weby.cash/api/rgb"
+PUBLIC_RGB_COLLECTIBLE_SERVER_URL = "https://dev.weby.cash/api/rgb-collectible"
+PUBLIC_ARK_ENABLED = "false"
+PUBLIC_ARK_NETWORK = "signet"
+PUBLIC_ARK_ASP_URL = ""
+PUBLIC_ARK_OWNER_PK_HEX = ""
+PUBLIC_ZKP_PROFILE = "development-only"
+PUBLIC_ZKP_BEARER_VK_SHA256 = "ecd299b3326e682106a31a39decf1fb43c0d5b960eb40baa2975691f406f77c1"
+PUBLIC_ZKP_CONDITIONAL_VK_SHA256 = "8efdd75f738658f3da0308fac3cbf6912c1324e815d863548c7e82ba39d07f1d"
+PUBLIC_ICE_SERVERS_JSON = '["stun:stun.l.google.com:19302","stun:stun.cloudflare.com:3478"]'
+PUBLIC_TURN_SERVERS_JSON = '[{"url":"turn:openrelay.metered.ca:443","username":"openrelayproject","credential":"openrelayproject"}]'
+
 # More specific than the marketing site's dev.weby.cash/* — this wins for /wallet*.
 [[routes]]
 pattern = "dev.weby.cash/wallet*"

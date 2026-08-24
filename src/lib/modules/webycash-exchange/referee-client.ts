@@ -12,12 +12,10 @@
 //
 // The module does NOT implement the referee state machine — it only calls it,
 // and treats the referee as a MEDIATOR, never as custody (per the security
-// invariants). The DEFAULT adapter is a MOCK so dev/tests need no live referee;
-// the real HTTP adapter targets the routes above. `initiate` POSTs the
-// two-proof envelope the off-thread prover built; the mock returns a
-// deterministic, scriptable swap id.
-
-import type { TradePhase } from './types';
+// invariants). Application code has no default or fallback referee: the strict
+// runtime config installs the pinned HTTP client before exchange actions run.
+// Test doubles live in `mock-referee-client.ts`, which production code never
+// imports.
 
 /** A redaction-safe audit entry as served by GET /v1/swap/:id/audit. */
 export interface AuditEntry {
@@ -74,73 +72,6 @@ export interface RefereeClient {
 	audit(swapId: string): Promise<AuditEntry[]>;
 }
 
-// ── Mock referee (default) ────────────────────────────────────────────────────
-
-/**
- * Scripted referee for dev/tests. The `script` maps a swap id to the ordered
- * sequence of phases the referee will report on successive `advance` calls. The
- * last phase in a script is treated as terminal.
- */
-export interface MockRefereeScript {
-	[swapId: string]: TradePhase[];
-}
-
-export class MockRefereeClient implements RefereeClient {
-	readonly mode = 'mock' as const;
-	private readonly script: MockRefereeScript;
-	private readonly cursor = new Map<string, number>();
-	private readonly auditLog = new Map<string, AuditEntry[]>();
-	private now: () => number;
-
-	constructor(script: MockRefereeScript = {}, now: () => number = () => Math.floor(Date.now() / 1000)) {
-		this.script = script;
-		this.now = now;
-	}
-
-	async health(): Promise<RefereeHealth> {
-		return { status: 'ok', version: 'mock' };
-	}
-
-	async pubkey(): Promise<RefereePubkey> {
-		return {
-			ed25519_pubkey_hex: '00'.repeat(32),
-			musig2_pubshare_hex: '00'.repeat(33),
-			referee_version: 'mock'
-		};
-	}
-
-	/**
-	 * Deterministic stub: derives a swap id from the envelope bytes (length +
-	 * first/last byte) so tests get a stable, scriptable id without a live
-	 * referee, and reports the opening `request-sent` phase.
-	 */
-	async initiate(envelope: Uint8Array): Promise<InitiateResult> {
-		const tag = envelope.length
-			? `${envelope.length}-${envelope[0]}-${envelope[envelope.length - 1]}`
-			: '0';
-		return { swap_id: `mock-${tag}`, phase: 'request-sent' };
-	}
-
-	async advance(swapId: string): Promise<AdvanceResult> {
-		const phases = this.script[swapId] ?? ['settled'];
-		const i = this.cursor.get(swapId) ?? 0;
-		const phase = phases[Math.min(i, phases.length - 1)];
-		const terminal = i >= phases.length - 1;
-		this.cursor.set(swapId, Math.min(i + 1, phases.length - 1));
-		const entry: AuditEntry = { swap_id: swapId, phase, at: this.now(), note: `advance → ${phase}` };
-		this.auditLog.set(swapId, [...(this.auditLog.get(swapId) ?? []), entry]);
-		return { swapId, phase, terminal };
-	}
-
-	async ack(swapId: string, ack: WalletAck): Promise<{ swap_id: string; verdict: string }> {
-		return { swap_id: swapId, verdict: `Acked(${ack.outcome})` };
-	}
-
-	async audit(swapId: string): Promise<AuditEntry[]> {
-		return this.auditLog.get(swapId) ?? [];
-	}
-}
-
 // ── HTTP referee (targets the real routes) ────────────────────────────────────
 
 export interface HttpRefereeOptions {
@@ -169,11 +100,13 @@ export class HttpRefereeClient implements RefereeClient {
 
 	async health(): Promise<RefereeHealth> {
 		const r = await this.f(this.url('/v1/health'));
+		if (!r.ok) throw new Error(`referee /v1/health ${r.status}`);
 		return (await r.json()) as RefereeHealth;
 	}
 
 	async pubkey(): Promise<RefereePubkey> {
 		const r = await this.f(this.url('/v1/pubkey'));
+		if (!r.ok) throw new Error(`referee /v1/pubkey ${r.status}`);
 		const body = (await r.json()) as RefereePubkey;
 		if (this.opts.pinnedPubkeyHex && body.ed25519_pubkey_hex !== this.opts.pinnedPubkeyHex) {
 			throw new Error('referee pubkey does not match the pinned key — refusing to trust');
@@ -185,6 +118,7 @@ export class HttpRefereeClient implements RefereeClient {
 		const r = await this.f(this.url(`/v1/swap/${encodeURIComponent(swapId)}/advance`), {
 			method: 'POST'
 		});
+		if (!r.ok) throw new Error(`referee advance ${r.status}`);
 		const body = (await r.json()) as { swap_id: string; phase: string; terminal: boolean };
 		return { swapId: body.swap_id, phase: body.phase, terminal: body.terminal };
 	}
@@ -195,11 +129,13 @@ export class HttpRefereeClient implements RefereeClient {
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(ack)
 		});
+		if (!r.ok) throw new Error(`referee ack ${r.status}`);
 		return (await r.json()) as { swap_id: string; verdict: string };
 	}
 
 	async audit(swapId: string): Promise<AuditEntry[]> {
 		const r = await this.f(this.url(`/v1/swap/${encodeURIComponent(swapId)}/audit`));
+		if (!r.ok) throw new Error(`referee audit ${r.status}`);
 		return (await r.json()) as AuditEntry[];
 	}
 

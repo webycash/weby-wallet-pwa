@@ -7,7 +7,7 @@ import {
 	isTerminal,
 	phaseFromReferee
 } from './trade-timeline';
-import { MockRefereeClient } from './referee-client';
+import { MockRefereeClient } from './mock-referee-client';
 import type { TradingPair } from './types';
 
 const PAIR: TradingPair = { base: 'BitcoinArk', quote: 'Webcash' };

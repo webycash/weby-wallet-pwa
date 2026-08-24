@@ -29,7 +29,8 @@
 	import VouchersView from '../vouchers/VouchersView.svelte';
 	import { initPushRouter, replayPushQueue, pushStatus } from '$lib/modules/webycash-exchange/push-store.svelte';
 	import { setReferee, HttpRefereeClient } from '$lib/modules/webycash-exchange';
-	import { REFEREE_URL, configuredAdapterMode } from '$lib/extro/config';
+	import { configuredAdapterMode } from '$lib/extro/config';
+	import { getRuntimeConfig } from '$lib/extro/runtime-config';
 
 	let { pendingWebcash = '', onLock = () => {}, onInstall }: {
 		pendingWebcash?: string;
@@ -186,11 +187,16 @@
 		initPushRouter(() => true);
 		void replayPushQueue();
 
-		// Inject the real HTTP referee (dev.weby.cash/api/referee) when running the
-		// bundled adapter against a configured backend. MockRefereeClient stays the
-		// default for tests / SSR / the mock adapter (per referee-client.ts).
-		if (configuredAdapterMode() !== 'mock' && /^https?:\/\//.test(REFEREE_URL)) {
-			setReferee(new HttpRefereeClient({ baseUrl: REFEREE_URL }));
+		// Install the pinned HTTP referee from the validated runtime config. There
+		// is no application fallback; missing/mismatched trust disables settlement.
+		if (configuredAdapterMode() === 'bundled') {
+			const runtime = getRuntimeConfig();
+			setReferee(
+				new HttpRefereeClient({
+					baseUrl: runtime.referee_url,
+					pinnedPubkeyHex: runtime.referee_vk_hex
+				})
+			);
 		}
 
 		(async () => {

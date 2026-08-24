@@ -24,6 +24,7 @@ const loadRealPkg = async (): Promise<ExtroNodeWasm> => {
 	const mod = (await import(/* @vite-ignore */ pathToFileURL(PKG_JS).href)) as {
 		default: (opts: { module_or_path: BufferSource }) => Promise<unknown>;
 		extro_encode_command: (command: unknown) => Uint8Array;
+		extro_encode_boot_config: (config: unknown) => Uint8Array;
 		extro_decode_response: (bytes: Uint8Array) => unknown;
 		extro_node_boot: (config: Uint8Array) => Promise<unknown>;
 		extro_node_send: (msg: Uint8Array) => Promise<Uint8Array>;
@@ -31,6 +32,7 @@ const loadRealPkg = async (): Promise<ExtroNodeWasm> => {
 	const wasmBytes = readFileSync(PKG_WASM);
 	await mod.default({ module_or_path: wasmBytes });
 	return {
+		extro_encode_boot_config: mod.extro_encode_boot_config,
 		extro_encode_command: mod.extro_encode_command,
 		extro_decode_response: mod.extro_decode_response,
 		extro_node_boot: mod.extro_node_boot,
