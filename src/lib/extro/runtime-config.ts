@@ -9,7 +9,7 @@ export interface RuntimeTurnServer {
 
 /** Exact JS shape accepted by extro-node's `extro_encode_boot_config`. */
 export interface ExtroRuntimeConfig {
-	schema_version: 1;
+	schema_version: 2;
 	deployment: DeploymentTier;
 	db_name: string;
 	adapter_mode: 'bundled';
@@ -26,7 +26,14 @@ export interface ExtroRuntimeConfig {
 	ark_enabled: boolean;
 	ark_network: ArkNetwork;
 	ark_asp_url: string;
-	ark_owner_pk_hex: string;
+	/** Pinned x-only Arkade operator signer key from `/v1/info`; never a wallet key. */
+	ark_signer_pk_hex: string;
+	/** Pinned `/v1/info` policy digest for this immutable release. */
+	ark_info_digest_hex: string;
+	/** Pinned checkpoint tapscript advertised by the operator. */
+	ark_checkpoint_tapscript_hex: string;
+	/** Exact unilateral-exit delay advertised by the operator. */
+	ark_unilateral_exit_delay: number;
 	zkp_profile: string;
 	zkp_bearer_vk_sha256: string;
 	zkp_conditional_vk_sha256: string;
@@ -52,7 +59,10 @@ const FIELDS = [
 	'ark_enabled',
 	'ark_network',
 	'ark_asp_url',
-	'ark_owner_pk_hex',
+	'ark_signer_pk_hex',
+	'ark_info_digest_hex',
+	'ark_checkpoint_tapscript_hex',
+	'ark_unilateral_exit_delay',
 	'zkp_profile',
 	'zkp_bearer_vk_sha256',
 	'zkp_conditional_vk_sha256',
@@ -101,6 +111,17 @@ const hex = (source: Record<string, unknown>, name: string, length: number): str
 	return value.toLowerCase();
 };
 
+const variableHex = (source: Record<string, unknown>, name: string): string => {
+	const value = string(source, name);
+	if (value.length % 2 !== 0 || !/^[0-9a-f]+$/i.test(value)) {
+		throw new RuntimeConfigError(
+			`field \`${name}\` must be non-empty, even-length hexadecimal data`
+		);
+	}
+	if (/^0+$/.test(value)) throw new RuntimeConfigError(`field \`${name}\` must not be all zero`);
+	return value.toLowerCase();
+};
+
 const url = (
 	source: Record<string, unknown>,
 	name: string,
@@ -116,13 +137,18 @@ const url = (
 		throw new RuntimeConfigError(`field \`${name}\` is not a valid URL`);
 	}
 	if (parsed.username || parsed.password || parsed.search || parsed.hash) {
-		throw new RuntimeConfigError(`field \`${name}\` must not contain credentials, query, or fragment`);
+		throw new RuntimeConfigError(
+			`field \`${name}\` must not contain credentials, query, or fragment`
+		);
 	}
 	if (deployment === 'production') {
 		if (parsed.protocol !== 'https:') {
 			throw new RuntimeConfigError(`field \`${name}\` must use https in production`);
 		}
-		if (/^(localhost|127\.0\.0\.1|\[?::1\]?)$/i.test(parsed.hostname) || parsed.hostname.endsWith('.local')) {
+		if (
+			/^(localhost|127\.0\.0\.1|\[?::1\]?)$/i.test(parsed.hostname) ||
+			parsed.hostname.endsWith('.local')
+		) {
 			throw new RuntimeConfigError(`field \`${name}\` points to a local host in production`);
 		}
 	} else if (!['http:', 'https:'].includes(parsed.protocol)) {
@@ -141,7 +167,7 @@ export function parseRuntimeConfig(input: unknown): ExtroRuntimeConfig {
 	for (const field of FIELDS) {
 		if (!(field in source)) throw new RuntimeConfigError(`missing field \`${field}\``);
 	}
-	if (source.schema_version !== 1) {
+	if (source.schema_version !== 2) {
 		throw new RuntimeConfigError(`unsupported schema_version \`${String(source.schema_version)}\``);
 	}
 	if (source.deployment !== 'development' && source.deployment !== 'production') {
@@ -149,7 +175,9 @@ export function parseRuntimeConfig(input: unknown): ExtroRuntimeConfig {
 	}
 	const deployment = source.deployment;
 	if (source.adapter_mode !== 'bundled') {
-		throw new RuntimeConfigError('adapter_mode must be `bundled`; mock/cross-domain are prohibited');
+		throw new RuntimeConfigError(
+			'adapter_mode must be `bundled`; mock/cross-domain are prohibited'
+		);
 	}
 	if (typeof source.ark_enabled !== 'boolean') {
 		throw new RuntimeConfigError('field `ark_enabled` must be a boolean');
@@ -200,9 +228,38 @@ export function parseRuntimeConfig(input: unknown): ExtroRuntimeConfig {
 	const arkEnabled = source.ark_enabled;
 	const arkNetwork = source.ark_network as ArkNetwork;
 	const arkAspUrl = url(source, 'ark_asp_url', deployment, !arkEnabled);
-	const arkOwnerPkHex = arkEnabled
-		? hex(source, 'ark_owner_pk_hex', 64)
-		: string(source, 'ark_owner_pk_hex', true);
+	const arkSignerPkHex = arkEnabled
+		? hex(source, 'ark_signer_pk_hex', 64)
+		: string(source, 'ark_signer_pk_hex', true);
+	const arkInfoDigestHex = arkEnabled
+		? hex(source, 'ark_info_digest_hex', 64)
+		: string(source, 'ark_info_digest_hex', true);
+	const arkCheckpointTapscriptHex = arkEnabled
+		? variableHex(source, 'ark_checkpoint_tapscript_hex')
+		: string(source, 'ark_checkpoint_tapscript_hex', true);
+	if (
+		typeof source.ark_unilateral_exit_delay !== 'number' ||
+		!Number.isSafeInteger(source.ark_unilateral_exit_delay) ||
+		source.ark_unilateral_exit_delay < 0
+	) {
+		throw new RuntimeConfigError(
+			'field `ark_unilateral_exit_delay` must be a non-negative integer'
+		);
+	}
+	const arkUnilateralExitDelay = source.ark_unilateral_exit_delay;
+	if (arkEnabled && arkUnilateralExitDelay === 0) {
+		throw new RuntimeConfigError('ark_unilateral_exit_delay must be positive when Ark is enabled');
+	}
+	if (
+		!arkEnabled &&
+		(arkAspUrl !== '' ||
+			arkSignerPkHex !== '' ||
+			arkInfoDigestHex !== '' ||
+			arkCheckpointTapscriptHex !== '' ||
+			arkUnilateralExitDelay !== 0)
+	) {
+		throw new RuntimeConfigError('Ark trust fields must be empty/zero when ark_enabled is false');
+	}
 	const zkpProfile = string(source, 'zkp_profile');
 	const zkpBearer = hex(source, 'zkp_bearer_vk_sha256', 64);
 	const zkpConditional = hex(source, 'zkp_conditional_vk_sha256', 64);
@@ -216,7 +273,9 @@ export function parseRuntimeConfig(input: unknown): ExtroRuntimeConfig {
 			throw new RuntimeConfigError('development-only ZKP profile is prohibited in production');
 		}
 		if (DEV_VK_HASHES.has(zkpBearer) || DEV_VK_HASHES.has(zkpConditional)) {
-			throw new RuntimeConfigError('known forgeable development-ceremony VK is prohibited in production');
+			throw new RuntimeConfigError(
+				'known forgeable development-ceremony VK is prohibited in production'
+			);
 		}
 		if (turnServers.length === 0) {
 			throw new RuntimeConfigError('managed TURN credentials are required in production');
@@ -236,7 +295,7 @@ export function parseRuntimeConfig(input: unknown): ExtroRuntimeConfig {
 	}
 
 	return {
-		schema_version: 1,
+		schema_version: 2,
 		deployment,
 		db_name: string(source, 'db_name'),
 		adapter_mode: 'bundled',
@@ -253,7 +312,10 @@ export function parseRuntimeConfig(input: unknown): ExtroRuntimeConfig {
 		ark_enabled: arkEnabled,
 		ark_network: arkNetwork,
 		ark_asp_url: arkAspUrl,
-		ark_owner_pk_hex: arkOwnerPkHex,
+		ark_signer_pk_hex: arkSignerPkHex,
+		ark_info_digest_hex: arkInfoDigestHex,
+		ark_checkpoint_tapscript_hex: arkCheckpointTapscriptHex,
+		ark_unilateral_exit_delay: arkUnilateralExitDelay,
 		zkp_profile: zkpProfile,
 		zkp_bearer_vk_sha256: zkpBearer,
 		zkp_conditional_vk_sha256: zkpConditional,
@@ -267,11 +329,19 @@ export function parseRuntimeConfig(input: unknown): ExtroRuntimeConfig {
  * may use the explicit PUBLIC_* mapping below; deployed builds never receive a
  * silent default.
  */
-export async function loadRuntimeConfig(fetcher: typeof fetch = fetch): Promise<ExtroRuntimeConfig> {
+export async function loadRuntimeConfig(
+	fetcher: typeof fetch = fetch
+): Promise<ExtroRuntimeConfig> {
 	if (active) return active;
-	const [{ base }, { env }] = await Promise.all([import('$app/paths'), import('$env/dynamic/public')]);
+	const [{ base }, { env }] = await Promise.all([
+		import('$app/paths'),
+		import('$env/dynamic/public')
+	]);
 	const endpoint = `${base}/runtime-config.json` || '/runtime-config.json';
-	const response = await fetcher(endpoint, { cache: 'no-store', credentials: 'same-origin' });
+	const response = await fetcher(endpoint, {
+		cache: 'no-store',
+		credentials: 'same-origin'
+	});
 	if (response.ok) {
 		active = parseRuntimeConfig(await response.json());
 		return active;
@@ -318,7 +388,10 @@ function configFromPublicEnv(source: Record<string, string | undefined>): unknow
 		ark_enabled: source.PUBLIC_ARK_ENABLED === 'true',
 		ark_network: source.PUBLIC_ARK_NETWORK,
 		ark_asp_url: source.PUBLIC_ARK_ASP_URL ?? '',
-		ark_owner_pk_hex: source.PUBLIC_ARK_OWNER_PK_HEX ?? '',
+		ark_signer_pk_hex: source.PUBLIC_ARK_SIGNER_PK_HEX ?? '',
+		ark_info_digest_hex: source.PUBLIC_ARK_INFO_DIGEST_HEX ?? '',
+		ark_checkpoint_tapscript_hex: source.PUBLIC_ARK_CHECKPOINT_TAPSCRIPT_HEX ?? '',
+		ark_unilateral_exit_delay: Number(source.PUBLIC_ARK_UNILATERAL_EXIT_DELAY ?? '0'),
 		zkp_profile: source.PUBLIC_ZKP_PROFILE,
 		zkp_bearer_vk_sha256: source.PUBLIC_ZKP_BEARER_VK_SHA256,
 		zkp_conditional_vk_sha256: source.PUBLIC_ZKP_CONDITIONAL_VK_SHA256,

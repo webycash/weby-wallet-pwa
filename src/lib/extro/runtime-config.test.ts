@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { parseRuntimeConfig } from './runtime-config';
 
 const development = () => ({
-	schema_version: 1,
+	schema_version: 2,
 	deployment: 'development',
 	db_name: 'extro-node-test',
 	adapter_mode: 'bundled',
@@ -20,7 +20,10 @@ const development = () => ({
 	ark_enabled: false,
 	ark_network: 'signet',
 	ark_asp_url: '',
-	ark_owner_pk_hex: '',
+	ark_signer_pk_hex: '',
+	ark_info_digest_hex: '',
+	ark_checkpoint_tapscript_hex: '',
+	ark_unilateral_exit_delay: 0,
 	zkp_profile: 'development-only',
 	zkp_bearer_vk_sha256: 'ecd299b3326e682106a31a39decf1fb43c0d5b960eb40baa2975691f406f77c1',
 	zkp_conditional_vk_sha256: '8efdd75f738658f3da0308fac3cbf6912c1324e815d863548c7e82ba39d07f1d',
@@ -52,9 +55,18 @@ describe('strict runtime configuration', () => {
 		expect(() => parseRuntimeConfig({ ...development(), adapter_mode: 'mock' })).toThrow(
 			'adapter_mode must be `bundled`'
 		);
-		expect(() => parseRuntimeConfig({ ...development(), keyserver_vk_hex: '0'.repeat(64) })).toThrow(
-			'must not be all zero'
-		);
+		expect(() =>
+			parseRuntimeConfig({
+				...development(),
+				keyserver_vk_hex: '0'.repeat(64)
+			})
+		).toThrow('must not be all zero');
+	});
+
+	it('rejects dormant Ark trust material when Ark is disabled', () => {
+		expect(() =>
+			parseRuntimeConfig({ ...development(), ark_info_digest_hex: '44'.repeat(32) })
+		).toThrow('Ark trust fields must be empty/zero');
 	});
 
 	it('rejects dev ceremony and public TURN in production', () => {
@@ -64,7 +76,10 @@ describe('strict runtime configuration', () => {
 			ark_enabled: true,
 			ark_network: 'bitcoin',
 			ark_asp_url: 'https://ark.example.com',
-			ark_owner_pk_hex: '44'.repeat(32)
+			ark_signer_pk_hex: '44'.repeat(32),
+			ark_info_digest_hex: '45'.repeat(32),
+			ark_checkpoint_tapscript_hex: '46'.repeat(32),
+			ark_unilateral_exit_delay: 605184
 		};
 		expect(() => parseRuntimeConfig(production)).toThrow('development-only ZKP');
 
@@ -83,11 +98,20 @@ describe('strict runtime configuration', () => {
 			ark_enabled: true,
 			ark_network: 'bitcoin',
 			ark_asp_url: 'https://ark.example.com',
-			ark_owner_pk_hex: '44'.repeat(32),
+			ark_signer_pk_hex: '44'.repeat(32),
+			ark_info_digest_hex: '45'.repeat(32),
+			ark_checkpoint_tapscript_hex: '46'.repeat(32),
+			ark_unilateral_exit_delay: 605184,
 			zkp_profile: 'mpc-2026',
 			zkp_bearer_vk_sha256: '55'.repeat(32),
 			zkp_conditional_vk_sha256: '66'.repeat(32),
-			turn_servers: [{ url: 'turns:turn.example.com:443', username: 'short', credential: 'lived' }]
+			turn_servers: [
+				{
+					url: 'turns:turn.example.com:443',
+					username: 'short',
+					credential: 'lived'
+				}
+			]
 		};
 		expect(() => parseRuntimeConfig(production)).toThrow('must use https in production');
 	});

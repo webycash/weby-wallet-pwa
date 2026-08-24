@@ -6,7 +6,7 @@ import type { ExtroCommand, ExtroResponse, ResponseBody } from './commands';
 import type { ExtroRuntimeConfig } from './runtime-config';
 
 const config: ExtroRuntimeConfig = {
-	schema_version: 1,
+	schema_version: 2,
 	deployment: 'development',
 	db_name: 'test',
 	adapter_mode: 'bundled',
@@ -23,7 +23,10 @@ const config: ExtroRuntimeConfig = {
 	ark_enabled: false,
 	ark_network: 'signet',
 	ark_asp_url: '',
-	ark_owner_pk_hex: '',
+	ark_signer_pk_hex: '',
+	ark_info_digest_hex: '',
+	ark_checkpoint_tapscript_hex: '',
+	ark_unilateral_exit_delay: 0,
 	zkp_profile: 'development-only',
 	zkp_bearer_vk_sha256: '44'.repeat(32),
 	zkp_conditional_vk_sha256: '55'.repeat(32),
@@ -83,27 +86,35 @@ class JoinAdapter implements ExtroAdapter {
 describe('Extro production bootstrap sequence', () => {
 	it('derives, pins, verifies discovery, then opens the DataChannel', async () => {
 		const adapter = new JoinAdapter();
-		const connected = await joinExtroNetwork(new ExtroClient(adapter), config, { delaysMs: [0] });
+		const connected = await joinExtroNetwork(new ExtroClient(adapter), config, {
+			delaysMs: [0]
+		});
 		expect(connected).toBe(true);
 		expect(adapter.operations).toEqual(['DeriveIdentity', 'Pin', 'Discover', 'Bootstrap']);
 	});
 
 	it('fails closed when discovery does not match the configured pin', async () => {
 		const adapter = new JoinAdapter('aa'.repeat(20));
-		const connected = await joinExtroNetwork(new ExtroClient(adapter), config, { delaysMs: [0] });
+		const connected = await joinExtroNetwork(new ExtroClient(adapter), config, {
+			delaysMs: [0]
+		});
 		expect(connected).toBe(false);
 		expect(adapter.operations).toEqual(['DeriveIdentity', 'Pin', 'Discover']);
 	});
 
 	it('accepts a retained roster-peer channel when the dev keyserver SDP is intentionally stubbed', async () => {
 		const adapter = new JoinAdapter(config.keyserver_fingerprint_hex, false, 1);
-		const connected = await joinExtroNetwork(new ExtroClient(adapter), config, { delaysMs: [0] });
+		const connected = await joinExtroNetwork(new ExtroClient(adapter), config, {
+			delaysMs: [0]
+		});
 		expect(connected).toBe(true);
 	});
 
 	it('rejects rendezvous counts when no DataChannel is open', async () => {
 		const adapter = new JoinAdapter(config.keyserver_fingerprint_hex, false, 0);
-		const connected = await joinExtroNetwork(new ExtroClient(adapter), config, { delaysMs: [0] });
+		const connected = await joinExtroNetwork(new ExtroClient(adapter), config, {
+			delaysMs: [0]
+		});
 		expect(connected).toBe(false);
 	});
 });

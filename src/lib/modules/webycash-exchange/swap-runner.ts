@@ -106,7 +106,9 @@ export interface ExecuteSwapInput {
 	/** The provider's published MuSig2/ARK material for this swap (over DHTX). */
 	provider: ProviderMaterial;
 	/** The taker's OWN bearer-seller identity (conditional recipient, self-owned). */
-	bearerSeller?: BearerSellerIdentity;
+	bearerSeller: BearerSellerIdentity;
+	/** Genuine wallet-produced encryption of the bearer secret to the provider. */
+	encSecretForProvider: Uint8Array;
 	/**
 	 * Optional staging hook run AFTER `initiate` reaches `insert-pushed` and
 	 * BEFORE the first `advance`. This is where the bearer-rail spend (the
@@ -147,6 +149,7 @@ export async function executeSwap(input: ExecuteSwapInput): Promise<ExecuteSwapR
 		mnemonic,
 		provider,
 		bearerSeller,
+		encSecretForProvider,
 		afterInitiate,
 		referee,
 		onProgress,
@@ -164,7 +167,13 @@ export async function executeSwap(input: ExecuteSwapInput): Promise<ExecuteSwapR
 			bearerLegFromWallet(slot, index, fillAmountRaw)
 		]);
 
-		const facts = buildSwapInitiateFacts({ order, bearer, provider, bearerSeller });
+		const facts = buildSwapInitiateFacts({
+			order,
+			bearer,
+			provider,
+			bearerSeller,
+			encSecretForProvider
+		});
 
 		emit({ stage: 'proving' });
 		const envelope = await proveSwapInitiate({ mnemonic, bearerPk, conditionalPk, facts });

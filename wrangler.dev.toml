@@ -12,7 +12,7 @@ assets = { directory = "dev-deploy", binding = "ASSETS" }
 # used. The dev ceremony and public relay credentials are intentionally
 # testnet-only and are rejected by the production validator.
 [vars]
-PUBLIC_BOOT_SCHEMA_VERSION = "1"
+PUBLIC_BOOT_SCHEMA_VERSION = "2"
 PUBLIC_DEPLOYMENT = "development"
 PUBLIC_EXTRO_DB_NAME = "extro-node-dev"
 PUBLIC_EXTRO_ADAPTER = "bundled"
@@ -29,7 +29,10 @@ PUBLIC_RGB_COLLECTIBLE_SERVER_URL = "https://dev.weby.cash/api/rgb-collectible"
 PUBLIC_ARK_ENABLED = "false"
 PUBLIC_ARK_NETWORK = "signet"
 PUBLIC_ARK_ASP_URL = ""
-PUBLIC_ARK_OWNER_PK_HEX = ""
+PUBLIC_ARK_SIGNER_PK_HEX = ""
+PUBLIC_ARK_INFO_DIGEST_HEX = ""
+PUBLIC_ARK_CHECKPOINT_TAPSCRIPT_HEX = ""
+PUBLIC_ARK_UNILATERAL_EXIT_DELAY = "0"
 PUBLIC_ZKP_PROFILE = "development-only"
 PUBLIC_ZKP_BEARER_VK_SHA256 = "ecd299b3326e682106a31a39decf1fb43c0d5b960eb40baa2975691f406f77c1"
 PUBLIC_ZKP_CONDITIONAL_VK_SHA256 = "8efdd75f738658f3da0308fac3cbf6912c1324e815d863548c7e82ba39d07f1d"

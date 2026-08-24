@@ -36,7 +36,8 @@ export const BEARER_CIRCUIT_VERSION = 'bearer_payload.v2';
  * The provider's published MuSig2 / ARK material for one swap — exactly the
  * shape `Op::Scheme402::ProviderMaterial` returns (`musig2_pubkey`,
  * `settle_nonce`, `refund_nonce`, all hex). The provider's settling secp256k1
- * material; placeholder dev values are rejected by the referee's real signer.
+ * material. Every field is required; this boundary rejects the former dev
+ * placeholders before a proof or referee request can be created.
  */
 export interface ProviderMaterial {
 	/** 33-byte compressed secp256k1 pubkey, hex. */
@@ -45,23 +46,20 @@ export interface ProviderMaterial {
 	settle_nonce: string;
 	/** 66-byte MuSig2 public refund nonce, hex. */
 	refund_nonce: string;
-	/**
-	 * The provider's (maker's) 20-byte PGP/identity fingerprint, hex. The bearer
-	 * leg's recipient — `provider_fp`. Sourced over DHTX from the maker's
-	 * `SwapMsgBody::Provider`. When omitted (legacy callers), falls back to the
-	 * order's `makerFingerprint`.
-	 */
-	provider_fp?: string;
+	/** Provider (maker) 20-byte PGP/identity fingerprint from authenticated DHTX. */
+	provider_fp: string;
 	/** The provider's raw PGP public-key bytes, hex (bearer recipient commitment). */
-	provider_pgp_pubkey?: string;
+	provider_pgp_pubkey: string;
 	/** The provider's 2-of-2 cancel-path pubkey, hex. */
-	provider_cancel_pubkey_hex?: string;
-	/** The ARK conditional leg's locked-output reference (64-hex). */
-	locked_ref?: string;
+	provider_cancel_pubkey_hex: string;
+	/** The ARK conditional leg's real VTXO outpoint (`txid:vout`). */
+	locked_ref: string;
 	/** Settlement tx hash the conditional binding pins (32-byte hex). */
-	tx_settle_hash_hex?: string;
+	tx_settle_hash_hex: string;
 	/** Refund tx hash (32-byte hex). */
-	tx_refund_hash_hex?: string;
+	tx_refund_hash_hex: string;
+	/** Length-framed encryption of the provider's genuine settle partial. */
+	conditional_payload: Uint8Array;
 }
 
 /**
@@ -126,9 +124,6 @@ const hexToBytes = (hex: string): Uint8Array => {
 	return out;
 };
 
-/** A fixed-length byte field of `n` bytes filled with `fill` (dev placeholder). */
-const placeholderBytes = (n: number, fill: number): Uint8Array => new Uint8Array(n).fill(fill);
-
 /**
  * Parse a Webcash family-handle address `e{amount}:public:{H}` into its decimal
  * amount + the 32-byte `H`. Throws if the address is not a Webcash public handle.
@@ -171,114 +166,202 @@ export async function bearerLegFromWallet(
 }
 
 export interface BuildFactsInput {
-	/** The selected (mock/dev or, later, real) maker order being filled. */
+	/** The selected, signature-verified maker order being filled. */
 	order: LimitOrder;
 	/** The taker's bearer leg (from {@link bearerLegFromWallet}). */
 	bearer: BearerLeg;
 	/** The provider's published MuSig2/ARK material for this swap. */
 	provider: ProviderMaterial;
 	/**
-	 * The taker's OWN bearer-seller identity (conditional recipient). When present
-	 * (the real two-node path), the bearer-seller party fields are filled from it
-	 * instead of placeholders. Sourced from the taker's wallet — never pasted.
+	 * The taker's required bearer-seller identity (conditional recipient),
+	 * sourced from the taker's wallet and authenticated Accept — never pasted.
 	 */
-	bearerSeller?: BearerSellerIdentity;
+	bearerSeller: BearerSellerIdentity;
+	/** Wallet-produced encryption of the bearer secret to the provider's attested key. */
+	encSecretForProvider: Uint8Array;
 	/** Optional 16-byte idempotency key, hex; omit for a fresh swap. */
 	idempotencyKeyHex?: string;
 }
 
-/** Right-pad/truncate a hex string's bytes to exactly `n` bytes. */
-const hexToFixedBytes = (hex: string | undefined, n: number, fill: number): Uint8Array => {
-	if (!hex) return placeholderBytes(n, fill);
-	const b = hexToBytes(hex);
-	const out = new Uint8Array(n).fill(0);
-	out.set(b.subarray(0, n));
-	return out;
+const exactHexBytes = (value: string, n: number, name: string): Uint8Array => {
+	if (typeof value !== 'string') {
+		throw new Error(`${name} must be exactly ${n} bytes of hexadecimal data`);
+	}
+	const clean = value.startsWith('0x') ? value.slice(2) : value;
+	if (clean.length !== n * 2 || !/^[0-9a-f]+$/i.test(clean)) {
+		throw new Error(`${name} must be exactly ${n} bytes of hexadecimal data`);
+	}
+	const bytes = hexToBytes(clean);
+	if (bytes.every((byte) => byte === 0)) throw new Error(`${name} must not be all zero`);
+	return bytes;
+};
+
+const exactBytes = (value: Uint8Array, n: number, name: string): Uint8Array => {
+	if (!(value instanceof Uint8Array) || value.length !== n) {
+		throw new Error(`${name} must be exactly ${n} bytes`);
+	}
+	if (value.every((byte) => byte === 0)) throw new Error(`${name} must not be all zero`);
+	return value.slice();
+};
+
+const exactCompressedKey = (value: string, name: string): string => {
+	if (typeof value !== 'string') {
+		throw new Error(`${name} must be a 33-byte compressed secp256k1 public key`);
+	}
+	const clean = value.toLowerCase();
+	if (!/^0[23][0-9a-f]{64}$/.test(clean)) {
+		throw new Error(`${name} must be a 33-byte compressed secp256k1 public key`);
+	}
+	return clean;
+};
+
+const exactPublicNonce = (value: string, name: string): string => {
+	if (typeof value !== 'string') {
+		throw new Error(`${name} must be a 66-byte MuSig2 public nonce`);
+	}
+	const clean = value.toLowerCase();
+	if (!/^[0-9a-f]{132}$/.test(clean)) {
+		throw new Error(`${name} must be a 66-byte MuSig2 public nonce`);
+	}
+	if (/^0+$/.test(clean)) throw new Error(`${name} must not be all zero`);
+	return clean;
+};
+
+const validateLockedRef = (value: string): string => {
+	if (typeof value !== 'string') {
+		throw new Error('locked_ref must be a real Ark VTXO outpoint (`txid:vout`)');
+	}
+	const match = /^([0-9a-f]{64}):(\d+)$/i.exec(value);
+	if (!match) throw new Error('locked_ref must be a real Ark VTXO outpoint (`txid:vout`)');
+	const vout = Number(match[2]);
+	if (!Number.isSafeInteger(vout) || vout < 0 || vout > 0xffffffff) {
+		throw new Error('locked_ref vout is outside the u32 range');
+	}
+	return `${match[1].toLowerCase()}:${vout}`;
+};
+
+const validateConditionalPayload = (value: Uint8Array): Uint8Array => {
+	if (!(value instanceof Uint8Array) || value.length !== CONDITIONAL_WITNESS_LEN) {
+		throw new Error(`conditional_payload must be exactly ${CONDITIONAL_WITNESS_LEN} bytes`);
+	}
+	const rawLength = new DataView(value.buffer, value.byteOffset, 4).getUint32(0, false);
+	if (rawLength === 0 || rawLength > CONDITIONAL_WITNESS_LEN - 4) {
+		throw new Error('conditional_payload has an invalid framed ciphertext length');
+	}
+	if (value.subarray(4, 4 + rawLength).every((byte) => byte === 0)) {
+		throw new Error('conditional_payload ciphertext must not be all zero');
+	}
+	if (!value.subarray(4 + rawLength).every((byte) => byte === 0)) {
+		throw new Error('conditional_payload has non-zero bytes after the framed ciphertext');
+	}
+	return value.slice();
 };
 
 /**
  * Assemble {@link TwoProofFacts} from a selected order, the wallet bearer leg,
  * and the provider's MuSig2 material.
  *
- * REAL (sourced from a live order / wallet / provider):
- *   - `asset` (ARK), `order_id` (the maker order id), `fill_amount_raw` +
- *     `bearer_amount` + `public_token_hash` (the wallet's Webcash handle),
- *     `provider_fp` + `bearer_seller_fp` (the order's maker fingerprint / the
- *     taker's own fingerprint), and the provider MuSig2 material
- *     (`provider_musig2_pubkey` / `settle_nonce_pub` / `refund_nonce_pub`).
- *
- * PLACEHOLDER (until a real order/peer channel supplies them — see TODOs):
- *   - `provider_pgp_pubkey` / `bearer_seller_pgp_pubkey`: the parties' PGP
- *     public keys (from a keyserver Discover / the order envelope).
- *   - `enc_secret_for_provider`: the taker's webcash secret encrypted to the
- *     provider's PGP key (sealed by the wallet at request time).
- *   - `conditional_payload`: the provider's ARK settle partial-sig encrypted to
- *     the taker, framed to CONDITIONAL_WITNESS_LEN (the maker-response payload).
- *   - `locked_ref` / `tx_settle_hash` / `tx_refund_hash`: the ARK vtxo lock ref
- *     and the settle/refund tx hashes (from the provider's ARK material).
- *   - `provider_cancel_pubkey_hex` / `bearer_seller_cancel_pubkey_hex`: the
- *     2-of-2 cancel-path pubkeys.
+ * All fields must come from the authenticated order/Accept exchange, the two
+ * wallets, and the prepared Ark contract. This function checks wire shape and
+ * cross-field identity binding. It cannot establish that opaque bytes are a
+ * decryptable ciphertext; the wallet encryption API and ZKP must establish
+ * that separately before Gate 3 can be enabled.
  */
 export function buildSwapInitiateFacts(input: BuildFactsInput): TwoProofFacts {
-	const { order, bearer, provider, bearerSeller, idempotencyKeyHex } = input;
+	const { order, bearer, provider, bearerSeller, encSecretForProvider, idempotencyKeyHex } = input;
+	if (bearer.fillAmountRaw <= 0n) throw new Error('fill_amount_raw must be positive');
+	if (!/^[1-9][0-9]*$/.test(bearer.bearerAmount)) {
+		throw new Error('bearer_amount must be a positive decimal integer');
+	}
+	const publicTokenHash = exactBytes(bearer.publicTokenHash, 32, 'public_token_hash');
+	if (idempotencyKeyHex !== undefined) {
+		exactHexBytes(idempotencyKeyHex, 16, 'idempotency_key');
+	}
 
 	// The maker order id is a 16-byte hex; the circuit's `order_id` is a fixed
 	// 32-byte field, so the 16-byte id is left-padded into the 32-byte slot.
 	const orderId = new Uint8Array(32);
-	orderId.set(hexToBytes(order.id).subarray(0, 32), 32 - 16);
+	orderId.set(exactHexBytes(order.id, 16, 'order.id'), 16);
 
-	// REAL provider fp: prefer the DHTX-sourced provider_fp; fall back to the
-	// order's maker fingerprint (the maker IS the provider, so they agree).
-	const providerFp = hexToFixedBytes(provider.provider_fp ?? order.makerFingerprint, 20, 0xbb);
+	// The DHTX provider must be the same maker whose order signature was accepted.
+	const providerFp = exactHexBytes(provider.provider_fp, 20, 'provider_fp');
+	const orderMakerFp = exactHexBytes(order.makerFingerprint, 20, 'order.makerFingerprint');
+	if (!providerFp.every((byte, index) => byte === orderMakerFp[index])) {
+		throw new Error('provider_fp does not match the signed order maker fingerprint');
+	}
 	// REAL provider pgp pubkey: the maker's identity key bytes over DHTX.
-	const providerPgp = hexToFixedBytes(provider.provider_pgp_pubkey, 32, 0xbb);
+	const providerPgp = exactHexBytes(provider.provider_pgp_pubkey, 32, 'provider_pgp_pubkey');
 
 	// REAL bearer-seller identity: the taker's OWN wallet identity (self-owned).
-	const sellerFp = hexToFixedBytes(bearerSeller?.bearer_seller_fp, 20, 0xaa);
-	const sellerPgp = hexToFixedBytes(bearerSeller?.bearer_seller_pgp_pubkey, 32, 0xaa);
+	const sellerFp = exactHexBytes(bearerSeller.bearer_seller_fp, 20, 'bearer_seller_fp');
+	const sellerPgp = exactHexBytes(
+		bearerSeller.bearer_seller_pgp_pubkey,
+		32,
+		'bearer_seller_pgp_pubkey'
+	);
 
-	// The bearer "encrypted secret to the provider": a real, party-bound blob =
-	// SHA-256(public_token_hash ‖ provider_pgp_pubkey) — keyed to BOTH parties so
-	// it is not a constant placeholder. The referee re-hashes these exact wire
-	// bytes for the bearer binding (it never decrypts), so a real ECIES seal is
-	// the ARK-hardening follow-up; this binds the actual parties today.
-	const encSecret = (() => {
-		const blob = new Uint8Array(bearer.publicTokenHash.length + providerPgp.length);
-		blob.set(bearer.publicTokenHash, 0);
-		blob.set(providerPgp, bearer.publicTokenHash.length);
-		return blob; // referee hashes these bytes; proof binds SHA-256(blob)
-	})();
+	// Reject missing/obviously public substitutes. The caller still has to create
+	// this with the canonical wallet encryption API; byte length is not proof of
+	// correct encryption and must never be presented as one.
+	if (!(encSecretForProvider instanceof Uint8Array) || encSecretForProvider.length < 48) {
+		throw new Error(
+			'enc_secret_for_provider must be a genuine encrypted envelope (at least 48 bytes)'
+		);
+	}
+	const formerHashSubstitute = new Uint8Array(bearer.publicTokenHash.length + providerPgp.length);
+	formerHashSubstitute.set(bearer.publicTokenHash, 0);
+	formerHashSubstitute.set(providerPgp, bearer.publicTokenHash.length);
+	if (
+		encSecretForProvider.length === formerHashSubstitute.length &&
+		encSecretForProvider.every((byte, index) => byte === formerHashSubstitute[index])
+	) {
+		throw new Error('enc_secret_for_provider is a public hash concatenation, not ciphertext');
+	}
+
+	const conditionalPayload = validateConditionalPayload(provider.conditional_payload);
+	const lockedRef = validateLockedRef(provider.locked_ref);
+	const settleHash = exactHexBytes(provider.tx_settle_hash_hex, 32, 'tx_settle_hash_hex');
+	const refundHash = exactHexBytes(provider.tx_refund_hash_hex, 32, 'tx_refund_hash_hex');
+	const providerCancel = exactHexBytes(
+		provider.provider_cancel_pubkey_hex,
+		32,
+		'provider_cancel_pubkey_hex'
+	);
+	const sellerCancel = exactHexBytes(
+		bearerSeller.bearer_seller_cancel_pubkey_hex,
+		32,
+		'bearer_seller_cancel_pubkey_hex'
+	);
 
 	return {
 		asset: { family: 'BitcoinArk' },
 		order_id: orderId,
 		fill_amount_raw: bearer.fillAmountRaw,
-		public_token_hash: bearer.publicTokenHash,
+		public_token_hash: publicTokenHash,
 		// REAL: the maker (provider) PGP fingerprint + pubkey, over DHTX.
 		provider_fp: providerFp,
 		provider_pgp_pubkey: providerPgp,
 		// REAL: the taker's own bearer-seller identity (self-owned).
 		bearer_seller_fp: sellerFp,
 		bearer_seller_pgp_pubkey: sellerPgp,
-		// Party-bound bearer ciphertext (see above) — not a constant placeholder.
-		enc_secret_for_provider: encSecret,
-		// The conditional payload (the maker's ARK settle partial-sig framed to
-		// CONDITIONAL_WITNESS_LEN). The current commitment-only scope (the rail
-		// post-check is the settlement authority) frames a deterministic
-		// party-bound payload the conditional binding stays self-consistent over;
-		// a real in-circuit MuSig2 partial-sig is the ARK-hardening follow-up.
-		conditional_payload: placeholderBytes(CONDITIONAL_WITNESS_LEN, 0xdd),
-		// REAL (when present over DHTX): the ARK conditional-leg references.
-		locked_ref: provider.locked_ref ?? 'v'.repeat(64),
-		tx_settle_hash: hexToFixedBytes(provider.tx_settle_hash_hex, 32, 0xab),
-		tx_refund_hash: hexToFixedBytes(provider.tx_refund_hash_hex, 32, 0xcf),
+		enc_secret_for_provider: encSecretForProvider.slice(),
+		// The provider's encrypted Ark settle partial, length-framed to the
+		// conditional circuit's fixed witness size.
+		conditional_payload: conditionalPayload,
+		// Prepared Ark contract and deterministic transaction references.
+		locked_ref: lockedRef,
+		tx_settle_hash: settleHash,
+		tx_refund_hash: refundHash,
 		// REAL: the provider's MuSig2 settling identity + nonces (over DHTX).
-		provider_musig2_pubkey: provider.musig2_pubkey,
-		provider_cancel_pubkey_hex: provider.provider_cancel_pubkey_hex ?? '11'.repeat(32),
-		bearer_seller_cancel_pubkey_hex:
-			bearerSeller?.bearer_seller_cancel_pubkey_hex ?? '22'.repeat(32),
-		settle_nonce_pub: provider.settle_nonce,
-		refund_nonce_pub: provider.refund_nonce,
+		provider_musig2_pubkey: exactCompressedKey(provider.musig2_pubkey, 'provider_musig2_pubkey'),
+		provider_cancel_pubkey_hex: Array.from(providerCancel, (byte) =>
+			byte.toString(16).padStart(2, '0')
+		).join(''),
+		bearer_seller_cancel_pubkey_hex: Array.from(sellerCancel, (byte) =>
+			byte.toString(16).padStart(2, '0')
+		).join(''),
+		settle_nonce_pub: exactPublicNonce(provider.settle_nonce, 'settle_nonce_pub'),
+		refund_nonce_pub: exactPublicNonce(provider.refund_nonce, 'refund_nonce_pub'),
 		bearer_amount: bearer.bearerAmount,
 		circuit_version: BEARER_CIRCUIT_VERSION,
 		...(idempotencyKeyHex ? { idempotency_key: idempotencyKeyHex } : {})
