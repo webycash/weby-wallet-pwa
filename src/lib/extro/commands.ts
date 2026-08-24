@@ -223,13 +223,29 @@ export interface ArkPrepareTerms {
 	expires_at_unix: number;
 }
 
+/** User/runtime facts that a counterparty proposal must match before signing. */
+export interface ArkPrepareExpectation {
+	order_id: Uint8Array; // 32 bytes
+	signed_order_commitment_sha256: Uint8Array; // 32 bytes
+	fill_amount_raw: bigint;
+	provider_fp: string;
+	ark_network: 'regtest' | 'signet' | 'bitcoin';
+	ark_operator_signer_pk: Uint8Array; // 32 bytes
+	bearer_seller_ark_destination: string;
+}
+
 // ── Scheme-402 commands ──────────────────────────────────────────────────────
 
 export type Scheme402Command =
 	/** Emit the provider's MuSig2 material (pubkey + settle/refund nonces) for a swap. */
 	| { op: 'ProviderMaterial'; slot: number; swap_id: string }
 	| { op: 'SignSwapPrepare'; slot: number; terms: ArkPrepareTerms }
-	| { op: 'CountersignSwapPrepare'; slot: number; counterparty_signed: Uint8Array }
+	| {
+			op: 'CountersignSwapPrepare';
+			slot: number;
+			counterparty_signed: Uint8Array;
+			expected: ArkPrepareExpectation;
+	  }
 	| {
 			op: 'BuildSwapPrepareRequest';
 			provider_signed: Uint8Array;

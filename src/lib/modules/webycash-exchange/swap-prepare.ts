@@ -6,7 +6,11 @@
 // trusted only after extro-node opens it with the runtime-pinned referee key.
 
 import { getExtroClient } from '$lib/extro';
-import { newRequestId, type ArkPrepareTerms } from '$lib/extro/commands';
+import {
+	newRequestId,
+	type ArkPrepareExpectation,
+	type ArkPrepareTerms
+} from '$lib/extro/commands';
 import type { RefereeClient } from './referee-client';
 import type { PreparedSwapBinding } from './swap-facts';
 
@@ -59,13 +63,19 @@ export async function signSwapPrepare(
 /** Verify the other named party's signature and sign the exact same body. */
 export async function countersignSwapPrepare(
 	counterpartySigned: Uint8Array,
+	expected: ArkPrepareExpectation,
 	slot = 0
 ): Promise<SignedSwapPrepare> {
 	const response = await getExtroClient().send({
 		request_id: newRequestId(),
 		op: {
 			kind: 'Scheme402',
-			cmd: { op: 'CountersignSwapPrepare', slot, counterparty_signed: counterpartySigned }
+			cmd: {
+				op: 'CountersignSwapPrepare',
+				slot,
+				counterparty_signed: counterpartySigned,
+				expected
+			}
 		}
 	});
 	if (response.kind === 'Err') throw new Error(`CountersignSwapPrepare: ${response.message}`);
