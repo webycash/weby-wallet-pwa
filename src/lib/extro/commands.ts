@@ -216,6 +216,9 @@ export interface ArkPrepareTerms {
 	};
 	ark_network: 'regtest' | 'signet' | 'bitcoin';
 	ark_operator_signer_pk: Uint8Array; // x-only, 32 bytes
+	ark_operator_info_digest: Uint8Array; // SHA-256, 32 bytes
+	ark_unilateral_exit_delay: bigint;
+	ark_amount_sats: bigint;
 	provider_ark_destination: string;
 	bearer_seller_ark_destination: string;
 	idempotency_key: Uint8Array; // 16 bytes
@@ -231,6 +234,9 @@ export interface ArkPrepareExpectation {
 	provider_fp: string;
 	ark_network: 'regtest' | 'signet' | 'bitcoin';
 	ark_operator_signer_pk: Uint8Array; // 32 bytes
+	ark_operator_info_digest: Uint8Array; // 32 bytes
+	ark_unilateral_exit_delay: bigint;
+	ark_amount_sats: bigint;
 	bearer_seller_ark_destination: string;
 }
 
@@ -256,6 +262,13 @@ export type Scheme402Command =
 			signed_response: Uint8Array;
 			referee_vk: Uint8Array;
 			expected_request_commitment: Uint8Array;
+			now_unix: number;
+	  }
+	| {
+			op: 'DeriveArkContractPlan';
+			terms: ArkPrepareTerms;
+			signed_response: Uint8Array;
+			referee_vk: Uint8Array;
 			now_unix: number;
 	  }
 	/** Cache the Groth16 proving keys for in-wasm SwapInitiate. */
@@ -466,6 +479,21 @@ export type ResponseBody =
 			referee_musig2_pubshare: string;
 			referee_settle_nonce_pub: string;
 			referee_refund_nonce_pub: string;
+			expires_at_unix: bigint;
+	  }
+	| {
+			kind: 'ArkContractPlan';
+			swap_id: string;
+			request_commitment: Uint8Array;
+			aggregate_owner_key: Uint8Array;
+			provider_recovery_key: Uint8Array;
+			ark_operator_signer_pk: Uint8Array;
+			ark_operator_info_digest: Uint8Array;
+			ark_unilateral_exit_delay: bigint;
+			ark_amount_sats: bigint;
+			ark_network: 'regtest' | 'signet' | 'bitcoin';
+			provider_ark_destination: string;
+			bearer_seller_ark_destination: string;
 			expires_at_unix: bigint;
 	  }
 	| { kind: 'ProofKeysInstalled' }

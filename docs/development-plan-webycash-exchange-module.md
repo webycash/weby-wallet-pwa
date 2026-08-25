@@ -233,6 +233,8 @@ Migration from current `harmoniis-wallet` JSON state:
 
 Required before production:
 
+- deterministic Ark settle and timeout-recovery transaction/signature tests;
+- two-wallet Ark regtest and signet balance/outpoint evidence;
 - unit tests for pair policy;
 - orderbook sorting tests;
 - market order walking tests;

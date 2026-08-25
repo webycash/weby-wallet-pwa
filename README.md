@@ -113,7 +113,9 @@ The Cloudflare Worker (`worker/`) generates OpenGraph images for shared payment 
 
 ### v0.3.0 — Bitcoin, RGB, and Vouchers
 - [ ] Transaction history with timestamps
-- [ ] Bitcoin ARK protocol (off-chain VTXOs via Arkade ASP)
+- [ ] Bitcoin Ark protocol: signed V2 prepare, request-unique contract funding,
+  and exact VTXO recheck are implemented; deterministic settle/refund signing
+  and two-wallet signet evidence still block release
 - [ ] On-chain Bitcoin receive/send (BIP86 Taproot)
 - [ ] RGB smart contracts (client-side validated, multiple witness backends)
 - [ ] Voucher wallet (bearer credits via `webycash-voucher-server`)

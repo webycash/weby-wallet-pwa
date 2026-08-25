@@ -24,6 +24,11 @@
 
 import { proveSwapInitiate } from '$lib/extro/prover';
 import {
+	confirmArkSwapFunding,
+	type ArkFundingReader,
+	type ArkSwapContract
+} from '$lib/ark/swap-contract';
+import {
 	bearerLegFromWallet,
 	buildSwapInitiateFacts,
 	type BearerSellerIdentity,
@@ -44,6 +49,7 @@ const CONDITIONAL_PK_URL = '/circuits-dev/pk_conditional_leg.bin';
 /** Coarse phase of the runner, surfaced to the UI alongside the Trade timeline. */
 export type SwapStage =
 	| 'idle'
+	| 'verifying-ark'
 	| 'fetching-keys'
 	| 'proving'
 	| 'initiating'
@@ -114,6 +120,10 @@ export interface ExecuteSwapInput {
 	encSecretForProvider: Uint8Array;
 	/** Dual-signed, referee-allocated session verified by extro-node. */
 	prepared: PreparedSwapBinding;
+	/** Contract derived from the exact signed V2 prepare response. */
+	arkContract: ArkSwapContract;
+	/** Indexer-backed reader used to re-check `locked_ref` immediately before proving. */
+	arkFundingReader: ArkFundingReader;
 	/**
 	 * Optional staging hook run AFTER `initiate` reaches `insert-pushed` and
 	 * BEFORE the first `advance`. This is where the bearer-rail spend (the
@@ -156,6 +166,8 @@ export async function executeSwap(input: ExecuteSwapInput): Promise<ExecuteSwapR
 		bearerSeller,
 		encSecretForProvider,
 		prepared,
+		arkContract,
+		arkFundingReader,
 		afterInitiate,
 		referee,
 		onProgress,
@@ -170,6 +182,17 @@ export async function executeSwap(input: ExecuteSwapInput): Promise<ExecuteSwapR
 		if (prepared.expiresAtUnix <= BigInt(Math.floor(Date.now() / 1000))) {
 			throw new Error('prepared swap allocation has expired; prepare again before proving');
 		}
+		if (
+			arkContract.plan.swapId !== prepared.swapId ||
+			arkContract.plan.requestCommitment.length !== prepared.requestCommitment.length ||
+			!arkContract.plan.requestCommitment.every(
+				(byte, index) => byte === prepared.requestCommitment[index]
+			)
+		) {
+			throw new Error('Ark contract is not bound to the prepared swap allocation');
+		}
+		emit({ stage: 'verifying-ark' });
+		await confirmArkSwapFunding(arkFundingReader, arkContract, provider.locked_ref);
 		emit({ stage: 'fetching-keys' });
 		const [{ bearerPk, conditionalPk }, bearer] = await Promise.all([
 			loadProofKeys(fetchFn),
