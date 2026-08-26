@@ -1,7 +1,7 @@
 # Weby Wallet PWA
 
 <p align="center">
-<em>Private webcash wallet that runs entirely in your browser. No server-side logic, no proxies, no tracking. Your keys never leave your device.</em>
+<em>Browser-held Webcash identity/wallet and value-free Extro exchange client. Private keys stay on the device; configured rails, keyserver and referee remain external trust boundaries.</em>
 </p>
 
 <p align="center">
@@ -9,7 +9,17 @@
 <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
 </p>
 
-**Live app:** [https://weby.cash/wallet/](https://weby.cash/wallet/)
+**Verified development candidate:** [https://dev.weby.cash/wallet/](https://dev.weby.cash/wallet/)
+
+**Public production URL:** [https://weby.cash/wallet/](https://weby.cash/wallet/)
+is an older, unpromoted deployment and must not be treated as the verified Ark
+candidate.
+
+Release status: the development wallet can form a real Extro DataChannel,
+propagate a signed `BitcoinArk/Webcash` order and exchange an authenticated
+acceptance. `ark_enabled=false`; genuine ProviderMaterial, Ark funding,
+settlement and recovery remain production blockers. No mainnet value is
+authorized.
 
 ---
 
@@ -62,7 +72,10 @@ src/
 └── service-worker.ts   Offline precaching strategy
 ```
 
-All cryptographic operations (wallet state, mining, server communication) are delegated to Rust compiled to WASM via `harmoniis-wallet`. The TypeScript layer handles UI, persistence, and user interaction only.
+Wallet/mining operations use Rust compiled to WASM via `harmoniis-wallet`. The
+Extro identity, keyserver bootstrap, WebRTC/DHTX order plane and prepare
+protocol use the separately pinned `extro-node` WASM package. The TypeScript
+layer owns UI, persistence, strict runtime configuration and orchestration.
 
 ## WASM Engine
 
@@ -96,13 +109,45 @@ The wallet snapshot (JSON export of all state) is encrypted before storing in lo
 
 ## Deployment
 
-Deployed automatically to GitHub Pages on every push to `main`. CI builds the WASM module, runs svelte-check, and produces a static site.
+Development is an explicit Cloudflare Worker/static-assets release. It is not a
+GitHub Pages promotion. Build once, copy that exact directory to the Worker
+asset root, record the previous version, deploy, and test the same bytes:
 
-```bash
-npm run build   # produces static site in build/
+```sh
+npm ci
+npm run verify:wasm
+npm test -- --run
+npm run check
+npm audit
+BASE_PATH=/wallet npm run build
+npm run scan:release
+
+rsync -a --delete build/ dev-deploy/wallet/
+diff -qr build dev-deploy/wallet
+npx wrangler deployments list --config wrangler.dev.toml
+npx wrangler deploy --config wrangler.dev.toml \
+  --message "SOURCE_COMMIT; Ark disabled; rollback PREVIOUS_VERSION"
+
+E2E_BASE_URL=https://dev.weby.cash/wallet \
+  npx playwright test e2e/gate1-live.spec.ts \
+  --repeat-each=10 --workers=1 --reporter=line
 ```
 
-The Cloudflare Worker (`worker/`) generates OpenGraph images for shared payment links.
+The live `/wallet/runtime-config.json` and `index.html` must match the candidate
+manifest. Development must retain `PUBLIC_ARK_ENABLED="false"` until the
+runbook's deterministic settle/refund, disposable regtest, signet balance,
+restart/replay, referee durability and cryptographic ceremony gates all pass.
+
+Production requires a separate Wrangler configuration, database/state names,
+operator/referee/keyserver pins, TURN credentials and non-development ZKP
+artifacts. The production boot validator rejects development, signet, empty Ark
+pins, public relay defaults and the development ceremony. Promote an already
+tested immutable version; do not rebuild for production.
+
+Rollback immediately on a trust-pin mismatch, mock/placeholder detection,
+failed DataChannel reconnect, unexpected chain, balance disagreement, missing
+refund or unexplained 5xx. Record both the candidate and last-known-good Worker
+version before deployment; never guess a rollback target.
 
 ## Roadmap
 
