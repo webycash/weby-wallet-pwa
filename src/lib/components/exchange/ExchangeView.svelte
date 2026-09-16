@@ -1,28 +1,31 @@
 <script lang="ts">
 	/**
-	 * Exchange — a thin router over the four exchange views (`nav.activeView`):
-	 * Markets · Trade · Orders · Network. It owns only the cross-view trade-action
-	 * state + handlers (which need component state) and passes them down; the
-	 * orderbook/trade DATA lives in the module stores (persists across views). All
-	 * settlement logic is reused untouched from the module — this is presentation.
+	 * Exchange — thin router over Markets · Trade · Orders · Network.
+	 * Step 7: user fills against DHTX orders call Accept → runSwap boundary
+	 * (not synthetic local trade ids). Settlement claims stop at named Ark gates
+	 * while ark_enabled=false / ProviderMaterial Unsupported.
 	 */
 	import { onMount } from 'svelte';
+	import { get } from 'svelte/store';
 	import {
 		orderbook,
 		refreshBook,
 		publishOrder,
-		openTrade,
 		settleTrade,
 		selectTrade,
 		cancelTradeAction,
 		trades,
 		type MarketWalk,
 		type Seeder,
-		type Side
+		type Side,
+		type LimitOrder
 	} from '$lib/modules/webycash-exchange';
 	import { publishOrderFee } from '$lib/modules/webycash-exchange/publish';
 	import { pushStatus } from '$lib/modules/webycash-exchange/push-store.svelte';
+	import { discoverSeedersFromDhtx } from '$lib/modules/webycash-exchange/seeder-discovery';
+	import { attemptAcceptAndRunSwap } from '$lib/modules/webycash-exchange/accept-run-swap';
 	import { getExtroClient } from '$lib/extro';
+	import { extroConnection } from '$lib/extro/connection';
 	import { nav } from '$lib/stores/navigation.svelte';
 	import MarketsView from './MarketsView.svelte';
 	import TradeView from './TradeView.svelte';
@@ -32,75 +35,120 @@
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	let { isDesktop = false }: { isDesktop?: boolean } = $props();
 
-	// Real seeders are the DHTX peers that relay the order; until peer-level
-	// seeder discovery lands there are none (honest — no fabricated seeders).
 	let seeders = $state<Seeder[]>([]);
 	let banner = $state<{ text: string; kind: 'info' | 'warn' | 'error' } | null>(null);
 	let busySwap = $state<string | null>(null);
+	let lastGate = $state<string | null>(null);
 	const view = $derived(nav.activeView);
 
-	const randHex = (n: number) => {
-		const b = new Uint8Array(n);
-		crypto.getRandomValues(b);
-		return [...b].map((x) => x.toString(16).padStart(2, '0')).join('');
-	};
 	const flash = (text: string, kind: 'info' | 'warn' | 'error' = 'info') => {
 		banner = { text, kind };
-		if (kind !== 'error') setTimeout(() => (banner = null), 5000);
+		if (kind !== 'error') setTimeout(() => (banner = null), 6000);
 	};
 
-	// Fetch the book once; views switch without re-fetching (data is in the store).
+	const refreshSeeders = () => {
+		const conn = get(extroConnection);
+		const peers = conn.peers_connected || orderbook.diag?.peers_connected || 0;
+		const live = [...orderbook.bids, ...orderbook.asks];
+		seeders = discoverSeedersFromDhtx({ orders: live, peersConnected: peers });
+	};
+
+	const refreshAll = async () => {
+		await refreshBook();
+		refreshSeeders();
+	};
+
 	onMount(() => {
-		if (!orderbook.lastUpdated) void refreshBook();
+		void refreshAll();
 	});
 
-	const openMediated = (side: Side, price: number, amount: number) => {
-		const v = orderbook.verdict;
-		if (!v.allowed) {
-			flash(`Pair blocked: ${v.label}`, 'error');
-			return null;
-		}
-		return openTrade({
-			swapId: randHex(16),
-			pair: orderbook.pair,
-			side,
-			amount,
-			price,
-			settlementModel: v.settlementModel,
-			requiresReferee: v.requiresReferee
-		});
+	const oppositeSide = (side: Side): Side => (side === 'buy' ? 'sell' : 'buy');
+
+	/** Resolve a DHTX book order for a fill (never invent a local order id). */
+	const orderForFill = (fill: {
+		orderId: string;
+		makerFingerprint: string;
+		price: number;
+		fillAmount: number;
+		side: Side;
+	}): LimitOrder | null => {
+		const live = [...orderbook.bids, ...orderbook.asks];
+		return (
+			live.find(
+				(o) =>
+					o.id === fill.orderId &&
+					o.makerFingerprint.toLowerCase() === fill.makerFingerprint.toLowerCase()
+			) ?? null
+		);
 	};
 
-	const onLimit = (a: { side: Side; price: number; amount: number; expiry: number }) => {
-		const t = openMediated(a.side, a.price, a.amount);
-		if (t) flash(`Limit ${a.side} opened — ${t.swapId.slice(0, 8)}…`);
+	const runAcceptPath = async (order: LimitOrder, takerSide: Side) => {
+		busySwap = order.id;
+		lastGate = null;
+		try {
+			const result = await attemptAcceptAndRunSwap({
+				order: { ...order, side: order.side },
+				onProgress: (p) => {
+					if (p.gate) lastGate = p.gate;
+				}
+			});
+			if (result.gate) {
+				lastGate = result.gate;
+				flash(
+					`Accept→runSwap stopped at named gate (reachedRunSwap=${result.reachedRunSwap}): ${result.gate}`,
+					'warn'
+				);
+				return;
+			}
+			flash(`Swap advanced for ${order.id.slice(0, 8)}… (${takerSide})`);
+		} catch (e) {
+			flash(e instanceof Error ? e.message : String(e), 'error');
+		} finally {
+			busySwap = null;
+		}
 	};
-	const onMarket = (a: { side: Side; walk: MarketWalk }) => {
+
+	const onLimit = async (a: { side: Side; price: number; amount: number; expiry: number }) => {
+		// Limit against the book: take the best opposite DHTX order if present.
+		const bookSide = a.side === 'buy' ? orderbook.asks : orderbook.bids;
+		const target = bookSide.find((o) => o.source === 'dhtx' || o.source === 'peer');
+		if (!target) {
+			flash(
+				'No DHTX order to Accept. Publish/discover a network order first — local preview ids are disabled.',
+				'warn'
+			);
+			return;
+		}
+		await runAcceptPath(target, a.side);
+	};
+
+	const onMarket = async (a: { side: Side; walk: MarketWalk }) => {
 		if (a.walk.fills.length === 0) {
 			flash('No fills available for this market order.', 'warn');
 			return;
 		}
-		for (const f of a.walk.fills) openMediated(a.side, f.price, f.fillAmount);
-		const avg = a.walk.filledAmount > 0 ? a.walk.totalQuote / a.walk.filledAmount : 0;
-		flash(
-			`Market ${a.side}: ${a.walk.fills.length} fill(s), ${a.walk.filledAmount} @ ~${avg.toFixed(2)}` +
-				(a.walk.remainingAmount > 0 ? ` (${a.walk.remainingAmount} unfilled)` : '')
-		);
+		for (const f of a.walk.fills) {
+			const order = orderForFill(f);
+			if (!order) {
+				flash(`Fill ${f.orderId.slice(0, 8)}… missing from DHTX book — skipped.`, 'warn');
+				continue;
+			}
+			await runAcceptPath(order, a.side);
+		}
 	};
+
 	const onPublish = async (a: { side: Side; price: number; amount: number }) => {
+		refreshSeeders();
 		const orderValue = Math.round(a.price * a.amount);
-		// Leg 1: pay the 0.1% publication (seeder) fee over an allowed rail.
 		const res = await publishOrderFee(getExtroClient(), { orderValue, seeders, slot: 0 });
 		if (!res.ok) {
-			if (res.reason === 'no-active-seeders') flash('Publishing blocked: no active seeders.', 'error');
-			else if (res.reason === 'unsupported-fee-rail') flash('Publishing blocked: unsupported fee rail.', 'error');
+			if (res.reason === 'no-active-seeders')
+				flash('Publishing blocked: no active DHTX seeders (connect a peer / refresh book).', 'error');
+			else if (res.reason === 'unsupported-fee-rail')
+				flash('Publishing blocked: unsupported fee rail.', 'error');
 			else flash('Publishing failed during fee payment.', 'error');
 			return;
 		}
-		// Leg 2: sign + broadcast the signed limit order into the node network over
-		// DHTX (the WASM signs inside the wallet; the key never crosses JS). A
-		// connected peer's recv-loop verifies + records it; their FetchOrders then
-		// returns it with `source: 'dhtx'`.
 		const pub = await publishOrder({
 			slot: 0,
 			side: a.side,
@@ -108,16 +156,44 @@
 			amountAtomic: BigInt(Math.max(0, Math.trunc(a.amount))),
 			expiresAt: Math.floor(Date.now() / 1000) + 3600
 		});
-		if (pub.ok)
+		if (pub.ok) {
 			flash(
 				`Order published to ${pub.peersBroadcast} peer(s) — fee paid to ${res.shares.length} seeder(s).`
 			);
-		else flash(`Fee paid, but order broadcast failed: ${pub.error}`, 'error');
+			refreshSeeders();
+		} else flash(`Fee paid, but order broadcast failed: ${pub.error}`, 'error');
 	};
+
+	/**
+	 * Advance via referee only for trades that already have a real runner /
+	 * referee swap id. Local synthetic ids must not pretend to settle.
+	 */
 	const onSettle = async (id: string) => {
 		busySwap = id;
+		lastGate = null;
 		try {
-			await settleTrade(id);
+			const trade = trades.all.find((t) => t.swapId === id);
+			const live = [...orderbook.bids, ...orderbook.asks].find((o) => o.id === id);
+			if (live && (live.source === 'dhtx' || live.source === 'peer')) {
+				await runAcceptPath(live, oppositeSide(live.side));
+				return;
+			}
+			if (trade && trade.timeline.some((e) => /referee|initiate|runSwap|prove/i.test(e.note))) {
+				await settleTrade(id);
+				return;
+			}
+			// No DHTX order and no referee-backed trade: hit runSwap boundary, stop named.
+			const { attemptRunSwapBoundary } = await import(
+				'$lib/modules/webycash-exchange/accept-run-swap'
+			);
+			const result = await attemptRunSwapBoundary(undefined, id);
+			if (result.gate) {
+				lastGate = result.gate;
+				flash(
+					`Advance stopped at named gate (reachedRunSwap=${result.reachedRunSwap}): ${result.gate}`,
+					'warn'
+				);
+			}
 		} finally {
 			busySwap = null;
 		}
@@ -126,15 +202,24 @@
 	const onSelectTrade = (id: string | null) => selectTrade(id);
 </script>
 
-<div class="animate-fade-in space-y-4">
+<div class="animate-fade-in space-y-4" data-testid="exchange-view">
 	{#if banner}
 		<div
+			data-testid="exchange-banner"
 			class="rounded-xl px-3 py-2 text-[12px] {banner.kind === 'error'
 				? 'bg-destructive/10 text-destructive'
 				: banner.kind === 'warn'
 					? 'bg-warning/10 text-warning'
 					: 'bg-primary/8 text-primary'}">
 			{banner.text}
+		</div>
+	{/if}
+
+	{#if lastGate}
+		<div
+			data-testid="named-ark-gate"
+			class="rounded-xl bg-warning/10 px-3 py-2 text-[11px] text-warning font-mono break-all">
+			{lastGate}
 		</div>
 	{/if}
 
@@ -154,7 +239,7 @@
 	{:else if view === 'orders'}
 		<OrdersView {onSettle} {onCancel} {onSelectTrade} {busySwap} />
 	{:else if view === 'network'}
-		<NetworkView onRefresh={() => refreshBook()} />
+		<NetworkView onRefresh={() => refreshAll()} />
 	{:else}
 		<MarketsView />
 	{/if}

@@ -137,6 +137,8 @@ const handler: ContractHandler<StoredContractParams, VtxoScript> = {
 		return null;
 	},
 	getAllSpendingPaths() {
+		// Named settle/refund templates live in swap-spend.ts. The generic SDK
+		// spender must see an empty path set until dedicated signers bind a VTXO.
 		return [];
 	},
 	getSpendablePaths() {
