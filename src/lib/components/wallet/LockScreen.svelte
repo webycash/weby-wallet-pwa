@@ -2,9 +2,16 @@
 	import { onMount } from 'svelte';
 	import { encryptionType } from '$lib/stores/settings.svelte';
 	import { resetWallet } from '$lib/core/reset';
-	import { decryptWithPasskey, decryptWithPassword } from '$lib/core/encryption';
+	import {
+		assertEncryptedWalletBlob,
+		clearSessionSecrets,
+		decryptCustodyVaultWithPasskey,
+		decryptCustodyVaultWithPassword,
+		setSessionPassword,
+		CustodyError
+	} from '$lib/core/custody';
 	import { importWalletSnapshot } from '$lib/stores/wallet.svelte';
-	import type { WalletSnapshot } from '$lib/core/types';
+	import * as Persistence from '$lib/core/persistence';
 	import { Lock, Fingerprint, KeyRound } from '@lucide/svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import * as Card from '$lib/components/ui/card';
@@ -20,12 +27,10 @@
 	let autofilled = $state(false);
 	let passwordEl = $state<HTMLInputElement>();
 
-	const tryLoadSnapshot = (encrypted: string): WalletSnapshot | null => {
-		try {
-			const parsed = JSON.parse(encrypted);
-			if (parsed.master_secret) return parsed as WalletSnapshot;
-		} catch {}
-		return null;
+	const restoreVault = async (vault: { mnemonic: string; snapshot: import('$lib/core/types').WalletSnapshot }) => {
+		Persistence.setMnemonic(vault.mnemonic);
+		const result = await importWalletSnapshot(vault.snapshot);
+		if (!result.ok) throw new Error(result.error);
 	};
 
 	const unlockPasskey = async () => {
@@ -33,44 +38,44 @@
 		error = '';
 		try {
 			const encrypted = localStorage.getItem('weby_encrypted_wallet');
-			if (!encrypted) { onUnlock(); return; }
-
-			const plain = tryLoadSnapshot(encrypted);
-			if (plain) { await importWalletSnapshot(plain); onUnlock(); return; }
-
-			const credentialId = localStorage.getItem('weby_passkey_credential');
-			if (credentialId) {
-				try {
-					const snapshot = await decryptWithPassword(encrypted, credentialId);
-					await importWalletSnapshot(snapshot); onUnlock(); return;
-				} catch {}
+			if (!encrypted) {
+				error = 'Encrypted wallet missing';
+				loading = false;
+				return;
 			}
-
-			const snapshot = await decryptWithPasskey(encrypted);
-			await importWalletSnapshot(snapshot); onUnlock();
+			assertEncryptedWalletBlob(encrypted);
+			const vault = await decryptCustodyVaultWithPasskey(encrypted);
+			await restoreVault(vault);
+			onUnlock();
 		} catch (e: any) {
-			error = e.message || 'Authentication failed';
+			clearSessionSecrets();
+			error = e instanceof CustodyError ? e.message : (e.message || 'Authentication failed');
 		}
 		loading = false;
 	};
 
 	const unlockWithPassword = async () => {
-		// Read value directly from DOM in case of autofill that didn't trigger bind
 		const pwd = passwordEl?.value || password;
 		if (!pwd) return;
 		loading = true;
 		error = '';
 		try {
 			const encrypted = localStorage.getItem('weby_encrypted_wallet');
-			if (!encrypted) { onUnlock(); return; }
-
-			const plain = tryLoadSnapshot(encrypted);
-			if (plain) { await importWalletSnapshot(plain); onUnlock(); return; }
-
-			const snapshot = await decryptWithPassword(encrypted, pwd);
-			await importWalletSnapshot(snapshot); onUnlock();
+			if (!encrypted) {
+				error = 'Encrypted wallet missing';
+				loading = false;
+				return;
+			}
+			assertEncryptedWalletBlob(encrypted);
+			const vault = await decryptCustodyVaultWithPassword(encrypted, pwd);
+			setSessionPassword(pwd);
+			await restoreVault(vault);
+			onUnlock();
 		} catch (e: any) {
-			error = 'Wrong password';
+			clearSessionSecrets();
+			error = e instanceof CustodyError && e.message === 'plaintext_under_weby_encrypted_wallet'
+				? 'plaintext_under_weby_encrypted_wallet'
+				: 'Wrong password';
 		}
 		loading = false;
 	};
@@ -82,12 +87,12 @@
 			danger: true,
 		});
 		if (!ok) return;
+		clearSessionSecrets();
 		await resetWallet();
 		setTimeout(() => { window.location.href = window.location.pathname; }, 100);
 	};
 
 	const detectAutofill = () => {
-		// Browsers apply :-webkit-autofill; check after a short delay
 		setTimeout(() => {
 			if (passwordEl) {
 				try {
@@ -95,7 +100,6 @@
 						autofilled = true;
 					}
 				} catch {}
-				// Fallback: if the field has a value we didn't set
 				if (!autofilled && passwordEl.value && !password) {
 					autofilled = true;
 				}

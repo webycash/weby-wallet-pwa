@@ -1,6 +1,15 @@
 <script lang="ts">
 	import { encryptionType, setEncryptionType, type EncryptionType } from '$lib/stores/settings.svelte';
-	import { isWebAuthnAvailable, encryptWithPasskey, encryptWithPassword } from '$lib/core/encryption';
+	import { isWebAuthnAvailable } from '$lib/core/encryption';
+	import {
+		assertEncryptedWalletBlob,
+		buildCustodyVault,
+		clearSessionSecrets,
+		encryptCustodyVaultWithPasskey,
+		encryptCustodyVaultWithPassword,
+		setSessionPassword
+	} from '$lib/core/custody';
+	import * as Persistence from '$lib/core/persistence';
 	import { exportWalletSnapshot } from '$lib/stores/wallet.svelte';
 	import { Lock, Fingerprint, ShieldOff } from '@lucide/svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
@@ -20,6 +29,7 @@
 		loading = true; error = '';
 		localStorage.removeItem('weby_encrypted_wallet');
 		localStorage.removeItem('weby_passkey_credential');
+		clearSessionSecrets();
 		setEncryptionType('none');
 		current = 'none'; showPasswordForm = false;
 		success = 'Encryption disabled';
@@ -35,9 +45,15 @@
 		loading = true; error = '';
 		try {
 			const snapshot = await exportWalletSnapshot();
-			const encrypted = await encryptWithPassword(snapshot, password);
+			const mnemonic = Persistence.getMnemonic();
+			if (!mnemonic) throw new Error('custody_vault_missing_mnemonic');
+			const vault = buildCustodyVault(mnemonic, snapshot);
+			const encrypted = await encryptCustodyVaultWithPassword(vault, password);
+			assertEncryptedWalletBlob(encrypted);
 			localStorage.setItem('weby_encrypted_wallet', encrypted);
 			localStorage.removeItem('weby_passkey_credential');
+			setSessionPassword(password);
+			Persistence.clearMnemonic();
 			setEncryptionType('password');
 			current = 'password'; showPasswordForm = false; password = ''; passwordConfirm = '';
 			success = 'Wallet encrypted with password';
@@ -50,9 +66,14 @@
 		loading = true; error = '';
 		try {
 			const snapshot = await exportWalletSnapshot();
-			const result = await encryptWithPasskey(snapshot);
+			const mnemonic = Persistence.getMnemonic();
+			if (!mnemonic) throw new Error('custody_vault_missing_mnemonic');
+			const vault = buildCustodyVault(mnemonic, snapshot);
+			const result = await encryptCustodyVaultWithPasskey(vault);
+			assertEncryptedWalletBlob(result.encrypted);
 			localStorage.setItem('weby_encrypted_wallet', result.encrypted);
 			localStorage.setItem('weby_passkey_credential', result.credentialId);
+			Persistence.clearMnemonic();
 			setEncryptionType('passkey');
 			current = 'passkey'; showPasswordForm = false;
 			success = 'Wallet encrypted with passkey';

@@ -1,0 +1,32 @@
+{
+  "name": "extro-node",
+  "type": "module",
+  "collaborators": [
+    "Extro Contributors"
+  ],
+  "description": "Extro canonical client runtime — master wallet (BIP39 + SLIP-39 Shamir), multi-identity, unified x402, modules, mining, thin CLI + WASM cdylib. See docs/architecture.md.",
+  "version": "0.1.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/extronet/extro-node"
+  },
+  "files": [
+    "extro_node_bg.wasm",
+    "extro_node.js",
+    "extro_node.d.ts"
+  ],
+  "main": "extro_node.js",
+  "homepage": "https://extro.network",
+  "types": "extro_node.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ],
+  "keywords": [
+    "extro",
+    "webrtc",
+    "p2p",
+    "wallet",
+    "node"
+  ]
+}

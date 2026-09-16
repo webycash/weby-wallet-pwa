@@ -1,0 +1,26 @@
+# weby.cash Web Push dispatch Worker — dev.weby.cash/api/push/*
+# Web Push the Cloudflare-specified way: VAPID + the `web-push` npm package
+# under nodejs_compat. Subscriptions persist in D1. The Rust workers-rs
+# backends can't run `web-push` (Node crypto), so push lives in this small
+# dedicated JS Worker, proxied under /api/push/* like every other backend.
+name = "webycash-push-dev"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "webycash-push-dev"
+database_id = "aa967df5-5ae4-44a3-9a47-4714b9371fcf"
+
+[vars]
+# VAPID subject — a mailto/URL the push service can reach the operator at.
+VAPID_SUBJECT = "mailto:admin@weby.cash"
+# VAPID public key is non-secret (it is handed to every browser that
+# subscribes). The private key + send token are `wrangler secret put`.
+VAPID_PUBLIC_KEY = "BJfDTZ9SLyuWsA2JnAe8pCCh_FnCNIDUuckhjWLe9pqodGccNb2Gk1HcKGNTuUJ-GUh0tyC1Y-tqo940dNIYkl0"
+
+[[routes]]
+pattern = "dev.weby.cash/api/push/*"
+zone_name = "weby.cash"
