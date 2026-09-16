@@ -1,0 +1,12 @@
+{
+  "gate": "TWO_BROWSER_RUNSWAP",
+  "status": "OPEN",
+  "timestamp_europe_berlin": "2026-09-16T23:33:50+02:00",
+  "named_gate": "RUNSWAP_UI_NOT_RUN_E2E",
+  "unit_evidence": {
+    "file": "src/lib/modules/webycash-exchange/accept-run-swap.test.ts",
+    "result": "2 passed",
+    "note": "Accept\u2192runSwap boundary unit coverage only; full Playwright exchange-two-node Accept\u2192runSwap not executed this slice"
+  },
+  "cf_ark_enabled": false
+}

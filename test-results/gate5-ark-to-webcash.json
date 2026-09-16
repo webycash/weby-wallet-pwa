@@ -1,0 +1,10 @@
+{
+  "gate": "ARK_TO_WEBCASH",
+  "status": "OPEN",
+  "timestamp_europe_berlin": "2026-09-16T23:33:50+02:00",
+  "reason": "No reverse-direction harness exercised this session after ARK_CLAIM_REAL closed. Need Ark-funded provider leg with webcash payout + before/after both rails.",
+  "blocked_on": [
+    "reverse swap prepare/initiate path",
+    "Ark funding as seller asset"
+  ]
+}
