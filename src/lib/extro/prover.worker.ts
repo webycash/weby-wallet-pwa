@@ -16,6 +16,7 @@ import type { ExtroCommand, ExtroResponse } from './commands';
 /** The wasm surface this worker drives — same exports the bundled adapter uses. */
 interface NodeWasm {
 	default: (init?: unknown) => Promise<unknown>;
+	extro_encode_boot_config(config: unknown): Uint8Array;
 	extro_node_boot(config: Uint8Array): Promise<unknown>;
 	extro_node_send(msg: Uint8Array): Promise<Uint8Array>;
 	extro_encode_command(command: unknown): Uint8Array;
@@ -24,19 +25,21 @@ interface NodeWasm {
 
 let wasm: NodeWasm | null = null;
 
-/** Boot a dedicated wasm instance once per worker. */
-async function ensure(): Promise<NodeWasm> {
+/** Boot a dedicated wasm instance once per worker with encoded strict config. */
+async function ensure(bootConfig: unknown): Promise<NodeWasm> {
 	if (wasm) return wasm;
 	// Inline loader (do NOT import ./config — it pulls $env, unavailable here).
 	const mod = (await import('$node/extro_node.js')) as unknown as NodeWasm;
 	await mod.default();
-	await mod.extro_node_boot(new Uint8Array(0));
+	const bytes = mod.extro_encode_boot_config(bootConfig);
+	await mod.extro_node_boot(bytes);
 	wasm = mod;
 	return mod;
 }
 
 async function dispatch(cmd: ExtroCommand): Promise<ExtroResponse> {
-	const w = await ensure();
+	if (!wasm) throw new Error('prover worker wasm not booted');
+	const w = wasm;
 	const bytes = encodeCommand(w, cmd);
 	const framed = await w.extro_node_send(bytes);
 	const status = framed[0];
@@ -56,11 +59,14 @@ export interface ProveJob {
 	conditionalPk: Uint8Array;
 	/** The TwoProofFacts JS object (see extro-node command.rs::SwapInitiate). */
 	facts: unknown;
+	/** Schema-v2 boot config — required; empty boot bytes are rejected. */
+	bootConfig: unknown;
 }
 
 self.onmessage = async (e: MessageEvent<ProveJob>) => {
-	const { id, mnemonic, bearerPk, conditionalPk, facts } = e.data;
+	const { id, mnemonic, bearerPk, conditionalPk, facts, bootConfig } = e.data;
 	try {
+		await ensure(bootConfig);
 		// Seed this worker's wallet, cache the proving keys, then prove.
 		const imp = await dispatch({
 			request_id: rid(),
