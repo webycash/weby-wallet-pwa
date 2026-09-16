@@ -5,7 +5,7 @@
     "Extro Contributors"
   ],
   "description": "Extro canonical client runtime — master wallet (BIP39 + SLIP-39 Shamir), multi-identity, unified x402, modules, mining, thin CLI + WASM cdylib. See docs/architecture.md.",
-  "version": "0.1.0",
+  "version": "0.2.3",
   "license": "MIT",
   "repository": {
     "type": "git",
