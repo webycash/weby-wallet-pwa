@@ -132,10 +132,10 @@ export interface InitOutput {
     readonly verify_webcash: (a: number, b: number, c: number, d: number) => number;
     readonly wallet_balance: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly wallet_stats: (a: number, b: number, c: number, d: number, e: number) => void;
-    readonly __wasm_bindgen_func_elem_1767: (a: number, b: number, c: number, d: number) => void;
-    readonly __wasm_bindgen_func_elem_1830: (a: number, b: number, c: number, d: number) => void;
-    readonly __wasm_bindgen_func_elem_4049: (a: number, b: number, c: number) => void;
-    readonly __wasm_bindgen_func_elem_2918: (a: number, b: number) => void;
+    readonly __wasm_bindgen_func_elem_1786: (a: number, b: number, c: number, d: number) => void;
+    readonly __wasm_bindgen_func_elem_1846: (a: number, b: number, c: number, d: number) => void;
+    readonly __wasm_bindgen_func_elem_4065: (a: number, b: number, c: number) => void;
+    readonly __wasm_bindgen_func_elem_2968: (a: number, b: number) => void;
     readonly __wbindgen_export: (a: number, b: number) => number;
     readonly __wbindgen_export2: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_export3: (a: number) => void;

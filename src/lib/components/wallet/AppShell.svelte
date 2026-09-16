@@ -6,8 +6,14 @@
 		lockWallet, getRawState, isRoaming, canMine, type WalletInfo } from '$lib/stores/wallet.svelte';
 	import { getNetwork, setNetwork } from '$lib/stores/network.svelte';
 	import { encryptionType } from '$lib/stores/settings.svelte';
-	import { encryptWithPassword } from '$lib/core/encryption';
 	import * as Persistence from '$lib/core/persistence';
+	import {
+		assertEncryptedWalletBlob,
+		buildCustodyVault,
+		clearSessionSecrets,
+		encryptCustodyVaultWithPassword,
+		getSessionPassword
+	} from '$lib/core/custody';
 	import { getWasm } from '$lib/core/wasm';
 	import type { SecretWebcash, WalletStats, NetworkMode } from '$lib/core/types';
 	import { nav, selectTab, closeSettings, isAssetTab } from '$lib/stores/navigation.svelte';
@@ -76,13 +82,25 @@
 		if (encType === 'none') return;
 		try {
 			const snapshot = await exportWalletSnapshot();
+			const mnemonic = Persistence.getMnemonic();
+			if (!mnemonic) throw new Error('custody_save_missing_mnemonic');
+			const vault = buildCustodyVault(mnemonic, snapshot);
 			if (encType === 'passkey') {
 				const cid = localStorage.getItem('weby_passkey_credential');
-				if (cid) Persistence.setEncryptedState(await encryptWithPassword(snapshot, cid));
+				if (!cid) throw new Error('passkey_credential_missing');
+				const encrypted = await encryptCustodyVaultWithPassword(vault, cid);
+				assertEncryptedWalletBlob(encrypted);
+				Persistence.setEncryptedState(encrypted);
 			} else if (encType === 'password') {
-				Persistence.setEncryptedState(JSON.stringify(snapshot));
+				const password = getSessionPassword();
+				if (!password) throw new Error('session_password_missing_for_reencrypt');
+				const encrypted = await encryptCustodyVaultWithPassword(vault, password);
+				assertEncryptedWalletBlob(encrypted);
+				Persistence.setEncryptedState(encrypted);
 			}
-		} catch { /* best-effort */ }
+			// Fail closed: never leave mnemonic in localStorage while encryption is on.
+			Persistence.clearMnemonic();
+		} catch { /* best-effort background save — lock still proceeds */ }
 	};
 
 	const refresh = async () => {
@@ -125,7 +143,14 @@
 	};
 
 	const handleNetworkChange = (n: NetworkMode) => {
-		network = n; setNetwork(n); resetDb(); refresh();
+		try {
+			setNetwork(n);
+			network = n;
+			resetDb();
+			refresh();
+		} catch (e) {
+			showMessage(`${e}`, 'error');
+		}
 	};
 
 	const handleInsert = async (s: string) => { loading = true; const r = await insertWebcash(s); if (r.ok) { showMessage('Webcash inserted'); await refresh(); } else showMessage(r.error, 'error'); loading = false; };
@@ -134,11 +159,17 @@
 	const handleMerge = async () => { loading = true; const r = await mergeOutputs(50); if (r.ok) { showMessage(r.value); await refresh(); } else showMessage(r.error, 'error'); loading = false; };
 	const handleRecover = async () => { loading = true; const r = await recoverWallet(20); if (r.ok) { showMessage(`Recovered ${r.value.recoveredCount} outputs`); await refresh(); } else showMessage(r.error, 'error'); loading = false; };
 
-	const handleVisibility = () => {
+	const handleVisibility = async () => {
 		if (document.visibilityState === 'hidden') {
-			saveEncryptedState();
+			await saveEncryptedState();
+			if (encryptionType() !== 'none') {
+				lockWallet();
+				clearSessionSecrets();
+				Persistence.clearMnemonic();
+			}
 		} else if (encryptionType() !== 'none') {
 			lockWallet();
+			clearSessionSecrets();
 			onLock();
 		}
 	};

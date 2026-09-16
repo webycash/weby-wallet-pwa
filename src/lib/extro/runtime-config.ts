@@ -404,3 +404,8 @@ function configFromPublicEnv(source: Record<string, string | undefined>): unknow
 export function resetRuntimeConfigForTests(): void {
 	active = null;
 }
+
+/** Test-only inject; application code must load via `loadRuntimeConfig`. */
+export function setRuntimeConfigForTests(config: ExtroRuntimeConfig): void {
+	active = config;
+}

@@ -8,11 +8,29 @@
 import { getWasm } from '$lib/core/wasm';
 import * as Persistence from '$lib/core/persistence';
 import { getNetwork } from './network.svelte';
+import { getRuntimeConfig } from '$lib/extro/runtime-config';
+import { resolveWebcashWasmNetwork } from '$lib/core/webcash-routing';
 import type { NetworkMode, CheckResult, Result, WalletSnapshot } from '$lib/core/types';
 import { ok, err } from '$lib/core/types';
 import { parseWebcasa, decryptWebcasa, isEncrypted, toWebcasaJson } from '$lib/core/webcasa';
 
 type Wasm = Awaited<ReturnType<typeof getWasm>>;
+
+const wasmNetwork = (): string => resolveWebcashWasmNetwork(getRuntimeConfig());
+
+/** Create a webylib MemStore for a family/label using its derived secret (not slot zero). */
+const createLabeledWalletState = async (
+	wasm: Wasm,
+	master: string,
+	family: string,
+	label: string
+): Promise<string> => {
+	const secret = wasm.derive_wallet_secret(master, family, label);
+	if (!secret || typeof secret !== 'string') {
+		throw new Error(`derive_wallet_secret_failed:${family}:${label}`);
+	}
+	return wasm.create_roaming_wallet(wasmNetwork(), secret, '[]', '{}');
+};
 
 const MASTER_KEY = 'master';
 
@@ -94,11 +112,8 @@ const ensureState = async (): Promise<{ wasm: Wasm; state: string; master: strin
 		}
 	}
 
-	// Create fresh wallet state for this slot (deterministic only)
-	const secret = wasm.derive_wallet_secret(master!, activeFamily, activeLabel);
-	const createJson = await wasm.create_wallet(network, Persistence.getMnemonic() ?? undefined);
-	const created = JSON.parse(createJson);
-	walletState = created.state;
+	// Create fresh wallet state for this labeled slot using its derived secret.
+	walletState = await createLabeledWalletState(wasm, master!, activeFamily, activeLabel);
 	stateNetwork = network;
 	await Persistence.saveState(network, walletState!, key);
 	return { wasm, state: walletState!, master: master!, network };
@@ -146,13 +161,10 @@ export const setupWallet = async (): Promise<Result<string>> => {
 		activeFamily = 'webcash';
 		activeLabel = 'main';
 
-		// Create webylib wallet for the main webcash slot
 		const secret = wasm.derive_wallet_secret(result.master_state, 'webcash', 'main');
-		const walletJson = await wasm.create_wallet(network, result.mnemonic);
-		const wallet = JSON.parse(walletJson);
-		walletState = wallet.state;
+		walletState = await createLabeledWalletState(wasm, result.master_state, 'webcash', 'main');
 		stateNetwork = network;
-		await Persistence.saveState(network, wallet.state, walletKey());
+		await Persistence.saveState(network, walletState, walletKey());
 		return ok(secret);
 	} catch (e) { return err(`Setup failed: ${e}`); }
 };
@@ -171,11 +183,9 @@ export const setupFromMnemonic = async (mnemonic: string): Promise<Result<string
 		activeFamily = 'webcash';
 		activeLabel = 'main';
 
-		const walletJson = await wasm.create_wallet(network, mnemonic);
-		const wallet = JSON.parse(walletJson);
-		walletState = wallet.state;
+		walletState = await createLabeledWalletState(wasm, result.master_state, 'webcash', 'main');
 		stateNetwork = network;
-		await Persistence.saveState(network, wallet.state, walletKey());
+		await Persistence.saveState(network, walletState, walletKey());
 		return ok(wasm.derive_wallet_secret(result.master_state, 'webcash', 'main'));
 	} catch (e) { return err(`Setup failed: ${e}`); }
 };
@@ -210,14 +220,9 @@ export const addWallet = async (family: string, label: string) => {
 	const newMaster = wasm.add_wallet(master, family, label);
 	await saveMaster(network, newMaster);
 
-	// Create webylib wallet state for the new slot
-	const mnemonic = Persistence.getMnemonic();
-	if (mnemonic) {
-		const walletJson = await wasm.create_wallet(network, mnemonic);
-		const wallet = JSON.parse(walletJson);
-		const key = Persistence.walletStateKey(family, label);
-		await Persistence.saveState(network, wallet.state, key);
-	}
+	const key = Persistence.walletStateKey(family, label);
+	const labeled = await createLabeledWalletState(wasm, newMaster, family, label);
+	await Persistence.saveState(network, labeled, key);
 };
 
 export const removeWallet = async (family: string, label: string) => {
@@ -282,7 +287,7 @@ export const listWallets = async (family: string): Promise<WalletInfo[]> => {
 		let output_count = 0;
 		if (state) {
 			try {
-				balance = Number(wasm.wallet_balance(state, network));
+				balance = Number(wasm.wallet_balance(state, wasmNetwork()));
 				const parsed = JSON.parse(state);
 				output_count = parsed.outputs?.filter((o: { spent: boolean }) => !o.spent).length ?? 0;
 			} catch { /* skip */ }
@@ -300,7 +305,7 @@ export const listWallets = async (family: string): Promise<WalletInfo[]> => {
 		let output_count = 0;
 		if (state) {
 			try {
-				balance = Number(wasm.wallet_balance(state, network));
+				balance = Number(wasm.wallet_balance(state, wasmNetwork()));
 				const parsed = JSON.parse(state);
 				output_count = parsed.outputs?.filter((o: { spent: boolean }) => !o.spent).length ?? 0;
 			} catch { /* skip */ }
@@ -326,12 +331,12 @@ export const getActiveLabel = async (): Promise<string> => {
 
 export const getBalance = async (): Promise<number> => {
 	const { wasm, state, network } = await ensureState();
-	return Number(wasm.wallet_balance(state, network));
+	return Number(wasm.wallet_balance(state, wasmNetwork()));
 };
 
 export const getStats = async () => {
 	const { wasm, state, network } = await ensureState();
-	const result = wasm.wallet_stats(state, network);
+	const result = wasm.wallet_stats(state, wasmNetwork());
 	if (typeof result === 'string') return JSON.parse(result);
 	if ((result as any) instanceof Map) return Object.fromEntries(result as any);
 	return result;
@@ -352,7 +357,7 @@ export const getWebcash = async () => {
 export const getMasterSecret = async (): Promise<string | undefined> => {
 	try {
 		const { wasm, state, network } = await ensureState();
-		return wasm.master_secret_hex(state, network);
+		return wasm.master_secret_hex(state, wasmNetwork());
 	} catch { return undefined; }
 };
 
@@ -384,7 +389,7 @@ export const exportMasterBackup = async (): Promise<string> => {
 export const insertWebcash = async (webcashStr: string): Promise<Result<void>> => {
 	try {
 		const { wasm, state, network } = await ensureState();
-		const newState = await wasm.insert_webcash(state, network, webcashStr);
+		const newState = await wasm.insert_webcash(state, wasmNetwork(), webcashStr);
 		await updateWalletState(newState);
 		return ok(undefined);
 	} catch (e) { return err(`Insert failed: ${e}`); }
@@ -393,7 +398,7 @@ export const insertWebcash = async (webcashStr: string): Promise<Result<void>> =
 export const payWebcash = async (amountWats: number): Promise<Result<string>> => {
 	try {
 		const { wasm, state, network } = await ensureState();
-		const resultJson = await wasm.pay_webcash(state, network, BigInt(amountWats));
+		const resultJson = await wasm.pay_webcash(state, wasmNetwork(), BigInt(amountWats));
 		const result = JSON.parse(resultJson);
 		await updateWalletState(result.state);
 		return ok(result.payment_webcash);
@@ -403,7 +408,7 @@ export const payWebcash = async (amountWats: number): Promise<Result<string>> =>
 export const checkWallet = async (): Promise<Result<CheckResult>> => {
 	try {
 		const { wasm, state, network } = await ensureState();
-		const resultJson = await wasm.check_wallet(state, network);
+		const resultJson = await wasm.check_wallet(state, wasmNetwork());
 		const result = JSON.parse(resultJson);
 		await updateWalletState(result.state);
 		return ok({ validCount: result.valid_count, spentCount: result.spent_count, unknownCount: 0 });
@@ -413,7 +418,7 @@ export const checkWallet = async (): Promise<Result<CheckResult>> => {
 export const mergeOutputs = async (maxOutputs: number): Promise<Result<string>> => {
 	try {
 		const { wasm, state, network } = await ensureState();
-		const resultJson = await wasm.merge_outputs(state, network, maxOutputs);
+		const resultJson = await wasm.merge_outputs(state, wasmNetwork(), maxOutputs);
 		const result = JSON.parse(resultJson);
 		await updateWalletState(result.state);
 		return ok(result.message || 'Merge complete');
@@ -423,7 +428,7 @@ export const mergeOutputs = async (maxOutputs: number): Promise<Result<string>> 
 export const recoverWallet = async (gapLimit: number = 20): Promise<Result<{ recoveredCount: number; totalAmount: number }>> => {
 	try {
 		const { wasm, state, network } = await ensureState();
-		const resultJson = await wasm.recover_wallet(state, network, gapLimit);
+		const resultJson = await wasm.recover_wallet(state, wasmNetwork(), gapLimit);
 		const result = JSON.parse(resultJson);
 		await updateWalletState(result.state);
 		return ok({ recoveredCount: result.recovered_count, totalAmount: Number(result.total_amount) });
@@ -438,7 +443,7 @@ export const scanDeterministicSlots = async (maxSlots: number = 10, gapLimit: nu
 		const network = getNetwork();
 		let master = await loadMaster(network);
 		if (!master) return err('No master wallet');
-		const resultJson = await wasm.scan_webcash_slots(master, network, maxSlots, gapLimit);
+		const resultJson = await wasm.scan_webcash_slots(master, wasmNetwork(), maxSlots, gapLimit);
 		const result = JSON.parse(resultJson);
 		// Persist updated master (slots registered)
 		await saveMaster(network, result.master_state);
@@ -461,7 +466,7 @@ export const scanDeterministicSlots = async (maxSlots: number = 10, gapLimit: nu
 
 export const exportWalletSnapshot = async (): Promise<WalletSnapshot> => {
 	const { wasm, state, network } = await ensureState();
-	return JSON.parse(wasm.export_snapshot(state, network));
+	return JSON.parse(wasm.export_snapshot(state, wasmNetwork()));
 };
 
 export const importWalletSnapshot = async (snapshot: WalletSnapshot): Promise<Result<void>> => {
@@ -476,7 +481,7 @@ export const importWalletSnapshot = async (snapshot: WalletSnapshot): Promise<Re
 		// Re-import the snapshot's outputs into the main webcash wallet
 		const paddedSecret = snapshot.master_secret.padStart(64, '0');
 		const state = await wasm.create_roaming_wallet(
-			network, paddedSecret,
+			wasmNetwork(), paddedSecret,
 			JSON.stringify(snapshot.unspent_outputs.map((o: { secret: string; amount: number }) =>
 				wasm.format_webcash(o.secret, BigInt(o.amount))
 			)),
@@ -573,7 +578,7 @@ export const importRoamingFromFile = async (file: File, label: string, password?
 			: parseWebcasa(raw);
 		const paddedSecret = wallet.master_secret.padStart(64, '0');
 		const state = await wasm.create_roaming_wallet(
-			network, paddedSecret,
+			wasmNetwork(), paddedSecret,
 			JSON.stringify(wallet.webcash),
 			JSON.stringify(wallet.walletdepths),
 		);
@@ -594,7 +599,7 @@ export const importRoamingFromSecret = async (masterSecretHex: string, label: st
 		const paddedHex = masterSecretHex.padStart(64, '0');
 		const wasm = await getWasm();
 		const network = getNetwork();
-		const state = await wasm.create_roaming_wallet(network, paddedHex, '[]', '{}');
+		const state = await wasm.create_roaming_wallet(wasmNetwork(), paddedHex, '[]', '{}');
 		const key = Persistence.walletStateKey('webcash', label);
 		await Persistence.saveState(network, state, key);
 		const registry = Persistence.getRegistry(network);
@@ -612,8 +617,8 @@ export const importRoamingFromSecret = async (masterSecretHex: string, label: st
 
 export const exportWebcasaFile = async (): Promise<void> => {
 	const { wasm, state, network } = await ensureState();
-	const masterSecret = wasm.master_secret_hex(state, network);
-	const snap = JSON.parse(wasm.export_snapshot(state, network));
+	const masterSecret = wasm.master_secret_hex(state, wasmNetwork());
+	const snap = JSON.parse(wasm.export_snapshot(state, wasmNetwork()));
 	const webcash: string[] = snap.unspent_outputs.map((o: { secret: string; amount: number }) =>
 		wasm.format_webcash(o.secret, BigInt(o.amount)),
 	);

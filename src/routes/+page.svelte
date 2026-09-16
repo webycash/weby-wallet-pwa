@@ -9,7 +9,7 @@
 	import InstallPrompt from '$lib/components/wallet/InstallPrompt.svelte';
 	import Loader from '$lib/components/ui/Loader.svelte';
 	import { licenseAccepted, walletExists, encryptionType, acceptLicense, markWalletCreated } from '$lib/stores/settings.svelte';
-	import { setNetwork } from '$lib/stores/network.svelte';
+	import { setNetwork, allowedNetwork } from '$lib/stores/network.svelte';
 	import { setupWallet, insertWebcash, resetDb } from '$lib/stores/wallet.svelte';
 	import { parseMigrationBundle, importMigrationBundle, readClipboardBundle, clearClipboard, type MigrationBundle } from '$lib/core/migration';
 	import { seedExtroWallet, resetExtroSeed } from '$lib/extro/seed';
@@ -28,7 +28,7 @@
 	});
 	let installPrompt = $state<ReturnType<typeof InstallPrompt>>();
 	let pendingWebcash = $state('');
-	let pendingNetwork = $state<NetworkMode>('production');
+	let pendingNetwork = $state<NetworkMode>('testnet');
 	let pendingAmount = $state('');
 	let pendingMemo = $state('');
 	let receiving = $state(false);
@@ -69,7 +69,11 @@
 
 		if (wc) {
 			pendingWebcash = wc;
-			pendingNetwork = net === 'testnet' ? 'testnet' : 'production';
+			try {
+				pendingNetwork = allowedNetwork();
+			} catch {
+				pendingNetwork = net === 'production' ? 'production' : 'testnet';
+			}
 			pendingAmount = amt || '';
 			pendingMemo = memo || '';
 			// Don't clean URL yet — keep params until license accepted

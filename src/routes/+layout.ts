@@ -3,6 +3,7 @@ import { attestConfiguredArkOperator } from '$lib/ark/operator';
 import { configureExtro } from '$lib/extro';
 import { configuredAdapterMode, loadBundledExtroNode } from '$lib/extro/config';
 import { loadRuntimeConfig } from '$lib/extro/runtime-config';
+import { syncNetworkFromRuntimeConfig } from '$lib/stores/network.svelte';
 
 export const ssr = false;
 export const prerender = true;
@@ -15,6 +16,7 @@ export const prerender = true;
 export const load = async ({ fetch }) => {
 	if (browser) {
 		const config = await loadRuntimeConfig(fetch);
+		syncNetworkFromRuntimeConfig();
 		// Money-moving Ark code is reachable only after the live operator matches
 		// every network, identity and safety-policy pin in this immutable release.
 		await attestConfiguredArkOperator(config);
