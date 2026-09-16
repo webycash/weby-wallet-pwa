@@ -46,3 +46,6 @@ dev-deploy/
 # complete wasm-bindgen package so a clean checkout is immediately buildable.
 !crates/wallet-wasm/pkg/
 !crates/wallet-wasm/pkg/**
+
+# Local-only Vite Ark pin (never commit; CF stays ark_enabled=false)
+static/runtime-config.json

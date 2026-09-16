@@ -1,10 +1,78 @@
 {
   "gate": "ARK_TO_WEBCASH",
-  "status": "OPEN",
-  "timestamp_europe_berlin": "2026-09-16T23:33:50+02:00",
-  "reason": "No reverse-direction harness exercised this session after ARK_CLAIM_REAL closed. Need Ark-funded provider leg with webcash payout + before/after both rails.",
-  "blocked_on": [
-    "reverse swap prepare/initiate path",
-    "Ark funding as seller asset"
+  "status": "PASS",
+  "timestamp_europe_berlin": "2026-09-16T23:45:41+02:00",
+  "direction": "Ark\u2192Webcash",
+  "prepared_swap_id": "32ba967b-7faa-4b3f-8410-a7017bb63577",
+  "locked_ref": "82dc3f9eeb4d6ed5945b207dfd224fb2c76f8e2a8f46f16fc3453eeeaa3da612:0",
+  "settle_sighash_hex": "e04228da76b0b29d696c3b8030affd3e798c2b572f715a420ac16cd2fccc000d",
+  "claim_txid": "175f411befc4285e14d692ddc7e0c2004b0b7591d5cf2bb046120a6913a2d574",
+  "asp_vtxo_ref": "asp:Regtest:82dc3f9eeb4d6ed5945b207dfd224fb2c76f8e2a8f46f16fc3453eeeaa3da612:0:Settle:Present:partial=0f23da7b06c63634",
+  "seller_offchain_dest": "tark1qr340xg400jtxat9hdd0ungyu6s05zjtdf85uj9smyzxshf98ndakcf2kc00mrlk7pusy3yghn9sh6hvcu8t32n2hvml6mcj83ejj6fjjnwm8t",
+  "asp_digest": "3c8c619f7c512d6d070ab4377d5781d11c78d6a73796b9a70dea7d59c37bc07d",
+  "cf_ark_enabled": false,
+  "ark_balances": {
+    "provider_before_total_sats": 100000,
+    "provider_after_fund_total_sats": 75000,
+    "provider_after_claim_total_sats": 75000,
+    "provider_fund_delta_sats": -25000,
+    "seller_before_total_sats": 0,
+    "seller_after_claim_total_sats": 25000,
+    "seller_claim_delta_sats": 25000,
+    "note": "Provider locks Ark into 2-of-2; seller receives claim. Provider receives webcash e0.4+e0.6 payout."
+  },
+  "webcash_balances": {
+    "seller_bearer_before": {
+      "status": "success",
+      "results": {
+        "e1:public:21bc996ead55f46b81965ff2e6b78569ee8f4c93dcb1114d3ffbd541ed0a2161": {
+          "spent": false,
+          "amount": "1"
+        }
+      }
+    },
+    "seller_bearer_after": {
+      "status": "success",
+      "results": {
+        "e1:public:21bc996ead55f46b81965ff2e6b78569ee8f4c93dcb1114d3ffbd541ed0a2161": {
+          "spent": true,
+          "amount": null
+        }
+      }
+    },
+    "provider_payout_after": {
+      "status": "success",
+      "results": {
+        "e0.4:public:7c2699086432e65373932d0886dd55fcc6f08d599963254dfcd3e7380def177f": {
+          "spent": false,
+          "amount": "0.4"
+        },
+        "e0.6:public:239a8b2413b406e52253d5f505ad600103e08df633e4545a00c8145c49739e19": {
+          "spent": false,
+          "amount": "0.6"
+        }
+      }
+    },
+    "provider_payout_secrets": {
+      "e0.4": "1a3a062e6efdeefe840f8ec1a0ba4327e7c1b6add0928f7fbd63ed58e9a12b2c",
+      "e0.6": "0388a44dc743524e8e9cbd6b3ee7d9714b6d3d3e76ca08f00ce28909c05b98b7"
+    },
+    "provider_payout_delta": "+1.0 webcash (e0.4+e0.6 unspent)"
+  },
+  "claim": {
+    "claimTxid": "175f411befc4285e14d692ddc7e0c2004b0b7591d5cf2bb046120a6913a2d574",
+    "amountSats": 25000,
+    "beforeTotal": 75000,
+    "afterTotal": 75000,
+    "delta": 0
+  },
+  "release": {
+    "asp_vtxo_ref": "asp:Regtest:82dc3f9eeb4d6ed5945b207dfd224fb2c76f8e2a8f46f16fc3453eeeaa3da612:0:Settle:Present:partial=0f23da7b06c63634",
+    "provider_enc_partial_sig_b64": "AAAAIK758VqMfHSnO4lm7tgLWbgiwiY7By9TrJhjKnI8kWZwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+    "referee_partial_sig": "0f23da7b06c63634f2b2f78b54dd61447e3e9c61db60c5219fd431be23c87014"
+  },
+  "edge_release": "gate5-ark-to-webcash-v1",
+  "named_gates_closed": [
+    "ARK_TO_WEBCASH"
   ]
 }
