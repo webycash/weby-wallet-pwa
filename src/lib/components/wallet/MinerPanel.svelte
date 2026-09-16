@@ -3,6 +3,8 @@
 	import { isMining, setMining, stopMining, type MinerStats } from '$lib/core/miner';
 	import { getMasterSecret, getRawState, setRawState } from '$lib/stores/wallet.svelte';
 	import { getWasm } from '$lib/core/wasm';
+	import { getRuntimeConfig } from '$lib/extro/runtime-config';
+	import { resolveWebcashWasmNetwork } from '$lib/core/webcash-routing';
 	import type { NetworkMode } from '$lib/core/types';
 	import { acquireWakeLock, releaseWakeLock, reacquireWakeLock, startAudioKeepAlive, stopAudioKeepAlive } from '$lib/core/keep-alive';
 	import { Pickaxe, Square, Zap, Clock, Target, Hash, Trophy, Cpu, Monitor } from '@lucide/svelte';
@@ -171,7 +173,7 @@
 				const freshState = await getRawState();
 				if (!freshState) break;
 
-				const rawResult = await wasm.gpu_mine(freshState, network);
+				const rawResult = await wasm.gpu_mine(freshState, resolveWebcashWasmNetwork(getRuntimeConfig()));
 				let res: any;
 				if (typeof rawResult === 'string') {
 					res = JSON.parse(rawResult);
