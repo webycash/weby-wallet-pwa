@@ -32,7 +32,12 @@ vi.mock('./trade-store.svelte', () => ({
 		createdAt: 1,
 		updatedAt: 1
 	})),
-	runSwap: vi.fn(async () => null)
+	runSwap: vi.fn(async () => null),
+	trades: {
+		get swapProgress() {
+			return { stage: 'failed', error: 'mock runSwap returned null' };
+		}
+	}
 }));
 
 const sampleOrder = (): LimitOrder => ({

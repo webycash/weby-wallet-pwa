@@ -1,9 +1,10 @@
 /**
  * Gate5 two-browser Accept→ProviderMaterial→runSwap against LIVE local stack.
  *
- * Closes RUNSWAP_STOPPED_NO_PROVIDER by delivering genuine maker ProviderMaterial
- * (locked_ref + settle/refund hashes) over DHTX into the taker Accept path, then
- * aligning settle with the harness that already settles both directions.
+ * Closes RUNSWAP_STOPPED_NO_PROVIDER + RUNSWAP_NEED_PREPARE, then drives the
+ * in-browser Accept→runSwap→prove→advance path to a terminal phase observable
+ * in the app (settled/refunded) — not harness-stdout-only. Harness may still
+ * supply both-rail Ark/Webcash deltas after the UI terminal is proven.
  *
  * Never fakes settled. CF ark_enabled remains false (this BASE is local Vite).
  */
@@ -179,6 +180,31 @@ function fundGenuineVtxo(): {
 		AMOUNT_SATS: '25000',
 		EXIT_DELAY: '512'
 	};
+	// Ensure confirmed boarding balance before fund (preconfirmed-only wallets fail select coins).
+	try {
+		const balRaw = execFileSync(CLAIM_BIN, ['balance'], { env: fundEnv, encoding: 'utf8' });
+		const bal = JSON.parse(balRaw.trim().split('\n').filter(Boolean).at(-1) || balRaw);
+		if (Number(bal.confirmedSats || 0) < 25_000) {
+			const addrJson = JSON.parse(
+				execFileSync(CLAIM_BIN, ['board-address'], { env: fundEnv, encoding: 'utf8' })
+			);
+			const boarding = String(addrJson.boardingAddress);
+			execFileSync(
+				'docker',
+				['exec', 'bitcoin', 'bitcoin-cli', '-regtest', '-rpcuser=admin1', '-rpcpassword=123', 'sendtoaddress', boarding, '0.01'],
+				{ encoding: 'utf8' }
+			);
+			execFileSync(
+				'docker',
+				['exec', 'bitcoin', 'bitcoin-cli', '-regtest', '-rpcuser=admin1', '-rpcpassword=123', '-generate', '6'],
+				{ encoding: 'utf8' }
+			);
+			execFileSync('sleep', ['3']);
+			execFileSync(CLAIM_BIN, ['board'], { env: fundEnv, encoding: 'utf8' });
+		}
+	} catch (e) {
+		console.warn('[fundGenuineVtxo] balance ensure skipped:', e instanceof Error ? e.message : e);
+	}
 	const fundRaw = execFileSync(CLAIM_BIN, ['fund'], { env: fundEnv, encoding: 'utf8' });
 	const fund = JSON.parse(fundRaw.trim().split('\n').filter(Boolean).at(-1) || fundRaw);
 	const lockedRef = String(fund.lockedRef);
@@ -483,6 +509,37 @@ test('two-browser Accept→ProviderMaterial→runSwap closes NO_PROVIDER', async
 						const mnemonic = (window as unknown as { __mnemonic?: string }).__mnemonic;
 						if (!mnemonic) throw new Error('window.__mnemonic missing for prove');
 
+						// Mint via window.__extro (same seeded wasm instance as Import/DeriveIdentity).
+						const { newRequestId } = await import('/src/lib/extro/commands.ts');
+						const extro = (window as unknown as { __extro: any }).__extro;
+						if (!extro) throw new Error('window.__extro missing for MintWebcash');
+						const mintRes = await extro.send({
+							request_id: newRequestId(),
+							op: {
+								kind: 'Rail',
+								cmd: {
+									op: 'MintWebcash',
+									index: 0,
+									amount: '1',
+									server_url: cfg.webcash_server_url
+								}
+							}
+						});
+						if (mintRes.kind !== 'Ok' || mintRes.body.kind !== 'WebcashMinted') {
+							const detail =
+								mintRes.kind === 'Err'
+									? `${mintRes.code}: ${mintRes.message}`
+									: `unexpected ${mintRes.kind}/${(mintRes as any).body?.kind}`;
+							throw new Error(`MintWebcash failed: ${detail}`);
+						}
+						const bearerSecret = String(mintRes.body.secret);
+						const bearerPublic = String(mintRes.body.public_token);
+						(window as unknown as { __gate5Bearer?: unknown }).__gate5Bearer = {
+							secret: bearerSecret.slice(0, 12) + '…',
+							public_token: bearerPublic,
+							unspent: mintRes.body.unspent
+						};
+
 						const conditional = new Uint8Array(128);
 						conditional[0] = 0x00;
 						conditional[1] = 0x00;
@@ -493,6 +550,11 @@ test('two-browser Accept→ProviderMaterial→runSwap closes NO_PROVIDER', async
 						crypto.getRandomValues(encSecret);
 
 						const providerMat = swap.providerMaterialFromWire(provider, conditional);
+						const lockedMatch = /^([0-9a-f]{64}):(\d+)$/i.exec(provider.locked_ref);
+						if (!lockedMatch) throw new Error(`bad locked_ref ${provider.locked_ref}`);
+						const lockedTxid = lockedMatch[1].toLowerCase();
+						const lockedVout = Number(lockedMatch[2]);
+
 						return {
 							order: ord,
 							mnemonic,
@@ -513,22 +575,60 @@ test('two-browser Accept→ProviderMaterial→runSwap closes NO_PROVIDER', async
 							arkFundingReader: {
 								async refreshVtxos(_opts: { scripts: string[] }) {},
 								async getContractsWithVtxos(filter: { script: string }) {
+									// confirmArkSwapFunding matches on vtxo.txid + vtxo.vout (not outpoint).
 									return [
 										{
 											contract: { script: arkContract.pkScriptHex },
 											vtxos: [
 												{
-													outpoint: provider.locked_ref,
+													txid: lockedTxid,
+													vout: lockedVout,
 													script: arkContract.pkScriptHex,
 													value: Number(plan.amountSats),
-													createdAt: new Date()
+													createdAt: new Date(),
+													isSpent: false,
+													isSwept: false,
+													isUnrolled: false
 												}
 											]
 										}
 									].filter((c) => c.contract.script === filter.script);
 								}
 							},
-							referee
+							referee,
+							// Front-run guard: spend H between initiate (Unspent) and advance (Spent).
+							afterInitiate: async (_swapId: string) => {
+								const out1 = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+									.map((b) => b.toString(16).padStart(2, '0'))
+									.join('');
+								const out2 = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+									.map((b) => b.toString(16).padStart(2, '0'))
+									.join('');
+								const body = {
+									webcashes: [bearerSecret],
+									new_webcashes: [`e0.4:secret:${out1}`, `e0.6:secret:${out2}`],
+									legalese: { terms: true }
+								};
+								const r = await fetch(`${cfg.webcash_server_url}/api/v1/replace`, {
+									method: 'POST',
+									headers: { 'content-type': 'application/json' },
+									body: JSON.stringify(body)
+								});
+								if (!r.ok) {
+									const t = await r.text();
+									throw new Error(`afterInitiate replace HTTP ${r.status}: ${t.slice(0, 200)}`);
+								}
+								const hc = await fetch(`${cfg.webcash_server_url}/api/v1/health_check`, {
+									method: 'POST',
+									headers: { 'content-type': 'application/json' },
+									body: JSON.stringify([bearerPublic])
+								});
+								const hcJson = await hc.json();
+								(window as unknown as { __gate5Replace?: unknown }).__gate5Replace = {
+									ok: true,
+									health: hcJson
+								};
+							}
 						} as never;
 						} catch (err) {
 							(window as unknown as { __gate5Prepare?: unknown }).__gate5Prepare = {
@@ -637,12 +737,30 @@ test('two-browser Accept→ProviderMaterial→runSwap closes NO_PROVIDER', async
 		
 		const acceptResult = await acceptPromise;
 		const prepareOnB = await nodeB.page.evaluate(() => (window as unknown as { __gate5Prepare?: any }).__gate5Prepare ?? null);
+		const uiProbe = await nodeB.page.evaluate(async () => {
+			const { trades } = await import('/src/lib/modules/webycash-exchange/trade-store.svelte.ts');
+			const selected = trades.selected;
+			return {
+				swapProgress: trades.swapProgress,
+				selectedPhase: selected?.phase ?? null,
+				selectedSwapId: selected?.swapId ?? null,
+				timeline: selected?.timeline?.map((e) => e.phase) ?? [],
+				bearer: (window as unknown as { __gate5Bearer?: unknown }).__gate5Bearer ?? null,
+				replace: (window as unknown as { __gate5Replace?: unknown }).__gate5Replace ?? null
+			};
+		});
 		evidence.accept_run_swap = {
 			stage: acceptResult.stage,
 			gate: acceptResult.gate,
 			reachedRunSwap: acceptResult.reachedRunSwap,
 			provider_locked_ref: acceptResult.provider?.locked_ref ?? null,
 			error: acceptResult.error ?? null,
+			trade_phase: acceptResult.trade?.phase ?? uiProbe.selectedPhase,
+			swap_id: acceptResult.trade?.swapId ?? uiProbe.selectedSwapId,
+			swapProgress: acceptResult.swapProgress ?? uiProbe.swapProgress,
+			timeline: uiProbe.timeline,
+			bearer: uiProbe.bearer,
+			replace: uiProbe.replace,
 			prepare: prepareOnB
 		};
 		await nodeB.page.screenshot({ path: SHOT, fullPage: true });
@@ -698,22 +816,33 @@ test('two-browser Accept→ProviderMaterial→runSwap closes NO_PROVIDER', async
 		}
 		const prepareClosed =
 			!!prepareOnB?.swapId && !String(acceptResult.gate || '').includes('RUNSWAP_NEED_PREPARE');
-		if (providerClosed && prepareClosed && harnessPass) {
+		const uiPhase = String(
+			acceptResult.trade?.phase ?? (evidence.accept_run_swap as any)?.trade_phase ?? ''
+		);
+		const uiTerminal =
+			uiPhase === 'settled' || uiPhase === 'completed' || uiPhase === 'refunded';
+		evidence.ui_terminal = { phase: uiPhase || null, ok: uiTerminal };
+
+		if (providerClosed && prepareClosed && uiTerminal) {
 			evidence.status = 'PASS';
-			evidence.named_gate = acceptResult.gate && !String(acceptResult.gate).includes('NEED_PREPARE')
-				? acceptResult.gate
-				: null;
+			evidence.named_gate = null;
+			evidence.closed_gate = 'RUNSWAP_PHASE_unknown';
+			evidence.also_closed = ['RUNSWAP_STOPPED_NO_PROVIDER', 'RUNSWAP_NEED_PREPARE'];
+			evidence.note =
+				`Accept→prove→advance reached in-app terminal phase=${uiPhase} (not harness-only); ` +
+				`harness_both_rail=${harnessPass ? 'PASS' : 'OPEN'}; CF ark_enabled=false`;
+			evidence.remaining_ui_gate = null;
+			evidence.phase_observed = uiPhase;
+		} else if (providerClosed && prepareClosed) {
+			evidence.status = 'OPEN';
+			evidence.named_gate = acceptResult.gate || 'RUNSWAP_PHASE_unknown';
 			evidence.closed_gate = 'RUNSWAP_NEED_PREPARE';
 			evidence.also_closed = ['RUNSWAP_STOPPED_NO_PROVIDER'];
 			evidence.note =
-				'Accept→DHTX ProviderMaterial + dual-signed prepare built RunSwapInput (NEED_PREPARE closed); prove entered; harness-aligned Ark→Webcash terminal settled with both-rail deltas; CF ark_enabled=false';
+				`NEED_PREPARE closed; UI path incomplete (phase=${uiPhase || 'null'}, gate=${acceptResult.gate}). ` +
+				`Harness settle=${harnessPass ? 'PASS' : 'OPEN'} is not sufficient alone.`;
 			evidence.remaining_ui_gate = evidence.named_gate;
-		} else if (providerClosed && prepareClosed) {
-			evidence.status = 'OPEN';
-			evidence.named_gate = acceptResult.gate || 'RUNSWAP_PROVE_PENDING';
-			evidence.closed_gate = 'RUNSWAP_NEED_PREPARE';
-			evidence.note =
-				'Dual-signed prepare + RunSwapInput binding closed NEED_PREPARE; harness settle did not PASS this run';
+			evidence.phase_observed = uiPhase || null;
 		} else if (providerClosed) {
 			evidence.status = 'OPEN';
 			evidence.named_gate = acceptResult.gate || 'RUNSWAP_NEED_PREPARE';
@@ -733,9 +862,10 @@ test('two-browser Accept→ProviderMaterial→runSwap closes NO_PROVIDER', async
 		expect(prepareClosed, 'dual-signed prepare must close RUNSWAP_NEED_PREPARE').toBeTruthy();
 		expect(String(evidence.named_gate || '')).not.toContain('RUNSWAP_STOPPED_NO_PROVIDER');
 		expect(String(evidence.named_gate || '')).not.toContain('RUNSWAP_NEED_PREPARE');
+		// Closing RUNSWAP_PHASE_unknown requires an observable in-app terminal phase.
+		expect(uiTerminal, `UI terminal phase required, got phase=${uiPhase || 'null'} gate=${acceptResult.gate} err=${acceptResult.error}`).toBeTruthy();
 		if (evidence.status === 'PASS') {
-			expect(harnessPass).toBeTruthy();
-			expect(evidence.closed_gate).toBe('RUNSWAP_NEED_PREPARE');
+			expect(evidence.closed_gate).toBe('RUNSWAP_PHASE_unknown');
 		}
 	} finally {
 		if (nodeA) await closeNode(nodeA);

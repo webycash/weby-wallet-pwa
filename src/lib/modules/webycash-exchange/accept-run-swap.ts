@@ -18,7 +18,8 @@ import {
 	GATE_RUNSWAP_STOPPED_NO_PROVIDER,
 	NamedArkGateError
 } from '$lib/ark/named-gates';
-import { openTrade, runSwap, type RunSwapInput } from './trade-store.svelte';
+import { openTrade, runSwap, trades, type RunSwapInput } from './trade-store.svelte';
+import type { SwapProgress } from './swap-runner';
 import { evaluatePair } from './pair-policy';
 import type { ProviderMaterial } from './swap-facts';
 import type { LimitOrder, Trade } from './types';
@@ -51,6 +52,8 @@ export interface AcceptRunSwapProgress {
 	gate?: string;
 	error?: string;
 	trade?: Trade | null;
+	/** Latest in-browser runner progress (proving → advancing → settled/failed). */
+	swapProgress?: SwapProgress;
 	/** True only when executeSwap/runSwap was invoked (even if it then failed). */
 	reachedRunSwap: boolean;
 	/** Public ProviderMaterial received over DHTX (taker) when available. */
@@ -429,17 +432,42 @@ export async function attemptRunSwapBoundary(
 		});
 		try {
 			const trade = await runSwap(runSwapInput);
+			const progress = trades.swapProgress;
 			const settled = trade?.phase === 'settled' || trade?.phase === 'completed';
 			const refunded = trade?.phase === 'refunded';
-			return {
-				stage: settled || refunded ? 'runswap-entered' : 'stopped',
+			if (settled || refunded) {
+				const ok: AcceptRunSwapProgress = {
+					stage: 'runswap-entered',
+					orderId: orderId || runSwapInput.order.id,
+					reachedRunSwap: true,
+					trade,
+					swapProgress: progress,
+					provider
+				};
+				onProgress?.(ok);
+				return ok;
+			}
+			// Prefer the runner's real failure stage/error over a blank PHASE_unknown.
+			const runnerErr = progress?.error?.trim();
+			const phaseLabel = trade?.phase ?? (progress?.phase || null);
+			const gate = runnerErr
+				? `RUNSWAP_${(progress?.stage ?? 'failed').toUpperCase().replace(/-/g, '_')}: ${runnerErr}`
+				: `RUNSWAP_PHASE_${phaseLabel ?? 'unknown'}`;
+			const error = runnerErr
+				? runnerErr
+				: `runSwap ended in phase=${phaseLabel ?? 'null'} (stage=${progress?.stage ?? 'idle'})`;
+			const stopped: AcceptRunSwapProgress = {
+				stage: 'stopped',
 				orderId: orderId || runSwapInput.order.id,
 				reachedRunSwap: true,
 				trade,
+				swapProgress: progress,
 				provider,
-				gate: settled || refunded ? undefined : `RUNSWAP_PHASE_${trade?.phase ?? 'unknown'}`,
-				error: settled || refunded ? undefined : `runSwap ended in phase=${trade?.phase ?? 'null'}`
+				gate,
+				error
 			};
+			onProgress?.(stopped);
+			return stopped;
 		} catch (e) {
 			const error = e instanceof Error ? e.message : String(e);
 			const gate = e instanceof NamedArkGateError ? e.gate : `RUNSWAP_ERROR: ${error}`;
@@ -448,6 +476,7 @@ export async function attemptRunSwapBoundary(
 				orderId: orderId || runSwapInput.order.id,
 				reachedRunSwap: true,
 				provider,
+				swapProgress: trades.swapProgress,
 				gate,
 				error
 			};
