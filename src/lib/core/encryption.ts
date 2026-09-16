@@ -169,3 +169,70 @@ export const decryptWithPasskey = async (encrypted: string): Promise<WalletSnaps
 
 	return JSON.parse(new TextDecoder().decode(plaintext));
 };
+
+// ── Generic JSON envelopes (custody vault) ───────────────────────
+
+export const encryptJsonWithPassword = async (data: unknown, password: string): Promise<string> => {
+	const plaintext = new TextEncoder().encode(JSON.stringify(data));
+	const salt = crypto.getRandomValues(new Uint8Array(32));
+	const nonce = crypto.getRandomValues(new Uint8Array(12));
+
+	const keyMaterial = await crypto.subtle.importKey(
+		'raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']
+	);
+	const key = await crypto.subtle.deriveKey(
+		{ name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
+		keyMaterial, { name: 'AES-GCM', length: 256 }, false, ['encrypt']
+	);
+	const ciphertext = new Uint8Array(await crypto.subtle.encrypt(
+		{ name: 'AES-GCM', iv: nonce }, key, plaintext
+	));
+
+	return JSON.stringify({
+		ciphertext: Array.from(ciphertext),
+		nonce: Array.from(nonce),
+		salt: Array.from(salt),
+		algorithm: 'AES-256-GCM-PASSWORD',
+		kdf_params: { info: 'webycash-password-v1', iterations: 100000, memory_cost: 0, parallelism: 1 },
+		metadata: {
+			encrypted_at: Math.floor(Date.now() / 1000).toString(),
+			platform: 'web-crypto',
+			version: '1.0',
+			passkey_type: null
+		}
+	});
+};
+
+export const decryptJsonWithPassword = async <T = unknown>(
+	encryptedJson: string,
+	password: string
+): Promise<T> => {
+	const data = JSON.parse(encryptedJson);
+	if (data.algorithm !== 'AES-256-GCM-PASSWORD') throw new Error('wrong decryption method');
+
+	const salt = new Uint8Array(data.salt);
+	const nonce = new Uint8Array(data.nonce);
+	const ciphertext = new Uint8Array(data.ciphertext);
+
+	const keyMaterial = await crypto.subtle.importKey(
+		'raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']
+	);
+	const key = await crypto.subtle.deriveKey(
+		{ name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
+		keyMaterial, { name: 'AES-GCM', length: 256 }, false, ['decrypt']
+	);
+	const plaintext = new Uint8Array(await crypto.subtle.decrypt(
+		{ name: 'AES-GCM', iv: nonce }, key, ciphertext
+	));
+	return JSON.parse(new TextDecoder().decode(plaintext)) as T;
+};
+
+export const encryptJsonWithPasskey = async (
+	data: unknown
+): Promise<{ encrypted: string; credentialId: string }> => {
+	return encryptWithPasskey(data as WalletSnapshot);
+};
+
+export const decryptJsonWithPasskey = async <T = unknown>(encrypted: string): Promise<T> => {
+	return (await decryptWithPasskey(encrypted)) as T;
+};

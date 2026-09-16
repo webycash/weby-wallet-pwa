@@ -1,0 +1,149 @@
+{
+  "gate": "TWO_BROWSER_RUNSWAP",
+  "timestamp_europe_berlin": "2026-09-17 01:02:39",
+  "runtime": {
+    "ark_enabled": true,
+    "deployment": "development",
+    "ark_asp_url": "http://127.0.0.1:7070",
+    "ark_network": "regtest",
+    "ark_info_digest_hex": "3c8c619f7c512d6d070ab4377d5781d11c78d6a73796b9a70dea7d59c37bc07d"
+  },
+  "cf_ark_enabled": false,
+  "disk_free_gib": 56,
+  "asp_live_digest": "3c8c619f7c512d6d070ab4377d5781d11c78d6a73796b9a70dea7d59c37bc07d",
+  "browsers": {
+    "A": true,
+    "B": true
+  },
+  "bootstrap": {
+    "A": {
+      "peers": 1,
+      "roster": 1,
+      "ok": true
+    },
+    "B": {
+      "peers": 1,
+      "roster": 1,
+      "ok": true
+    }
+  },
+  "fingerprints": {
+    "A": "A42ADFA4A29412DCE518D6D69884F51E35B61FF1",
+    "B": "DBEC282A4268AF576487653DA472C34D503F173E"
+  },
+  "prepare_expires_at_unix": 1789600104,
+  "funding": {
+    "locked_ref": "6bc05206e41118d0dbe990fd578a616b6cc6658296839eb86e906ace01d183b5:0",
+    "settle": "d484a8730b2ef783…",
+    "refund": "f4d9487d1f547132…"
+  },
+  "order_id": "59ca330ad08e91be70344a9ef139561e",
+  "send_provider": {
+    "ok": true
+  },
+  "provider_prepare": {
+    "ok": true,
+    "delivered": true,
+    "requestCommitment": "3ed3f2fee610945478c5092ad4b1323b30a1b8fe3bbdb823022bde481e077333"
+  },
+  "accept_run_swap": {
+    "stage": "runswap-entered",
+    "reachedRunSwap": true,
+    "provider_locked_ref": "6bc05206e41118d0dbe990fd578a616b6cc6658296839eb86e906ace01d183b5:0",
+    "error": null,
+    "trade_phase": "settled",
+    "swap_id": "4a42ec89-3215-4b67-82c3-8f2514aac22a",
+    "swapProgress": {
+      "stage": "settled",
+      "swapId": "4a42ec89-3215-4b67-82c3-8f2514aac22a",
+      "phase": "settled"
+    },
+    "timeline": [
+      "order-selected",
+      "maker-response",
+      "settled"
+    ],
+    "bearer": {
+      "secret": "e1:secret:07…",
+      "public_token": "e1:public:9cef6bdef89c73b328a7c14e472877d8d89c0c78a92ea52679833862167c582b",
+      "unspent": true
+    },
+    "replace": {
+      "ok": true,
+      "health": {
+        "status": "success",
+        "results": {
+          "e1:public:9cef6bdef89c73b328a7c14e472877d8d89c0c78a92ea52679833862167c582b": {
+            "spent": true,
+            "amount": null
+          }
+        }
+      }
+    },
+    "prepare": {
+      "swapId": "4a42ec89-3215-4b67-82c3-8f2514aac22a",
+      "requestCommitment": "3ed3f2fee610945478c5092ad4b1323b30a1b8fe3bbdb823022bde481e077333",
+      "expiresAtUnix": "1789600104"
+    }
+  },
+  "harness_exit": 1,
+  "harness_tail": [
+    "  PASS: disk 55 GiB",
+    "== (0) liveness ==",
+    "  PASS: referee",
+    "  PASS: keyserver",
+    "  PASS: webcash",
+    "  PASS: asp regtest",
+    "  PASS: asp digest=3c8c619f7c512d6d…",
+    "  PASS: referee musig2 pubshare=02466d7fcae563e5cb…",
+    "== (0b) seller Ark dest + provider Ark before ==",
+    "{\"boardingAddress\":\"bcrt1pwlpxv3zl88a6x4j64vewpcshvyr7kws0myslmnfcup9fgkjlrsasy3phml\",\"offchainAddress\":\"tark1qr340xg400jtxat9hdd0ungyu6s05zjtdf85uj9smyzxshf98ndahmpdxn5u0dptydsj9jm4tp97m7ath3r4fkmqg3pxd8vvv24hycvl2hful3\"}",
+    "  PASS: seller_offchain=tark1qr340xg400jtxat9hdd0ung…",
+    "{\"confirmedSats\":0,\"preConfirmedSats\":11600000,\"totalSats\":11600000}",
+    "{\"confirmedSats\":25000,\"preConfirmedSats\":0,\"totalSats\":25000}",
+    "== (1) provider MuSig2 material ==",
+    "{\"pubkeyHex\":\"03ab5d2e79cfd621b1b027ffb24e2453ed7fb571ba9a841ff0e2473466cabd168d\",\"settleNonceHex\":\"03a9fc2d5fff02147a18600507e48079a794da92bee4de1ebe6cc8771da48f8d1a0383688ad37e5cef7f40494127abaceff99cf8a96527c606884010497428fb265c\",\"refundNonceHex\":\"031fce3927059979c24ad35912ff3717f954d23050efa0de3a00c7c51ffdb452240387b40608ddf348aa482c7ad087dc79235ee3958606e63eab0b7da83f6ae4d04c\",\"fillId\":\"gate5-a2w-1789599960\"}",
+    "  PASS: provider pub=03ab5d2e79cfd621b1…",
+    "== (2) fund 2-of-2 Q VTXO (provider Ark) → claim dest = seller ==",
+    "{\"lockedRef\":\"f4edd4915291bc81e067977a9313c94ccd28696265737e2ba6e05f0085027501:0\",\"settleSighashHex\":\"791634df2064e9507ddf25526f41738826980ccb5c920eb89f6314992b0a14ed\",\"amountSats\":25000,\"beforeTotal\":11600000,\"afterTotal\":11575000,\"dest\":\"tark1qr340xg400jtxat9hdd0ungyu6s05zjtdf85uj9smyzxshf98ndahmpdxn5u0dptydsj9jm4tp97m7ath3r4fkmqg3pxd8vvv24hycvl2hful3\"}",
+    "  PASS: locked_ref=f4edd4915291bc81e067977a9313c94ccd28696265737e2ba6e05f0085027501:0",
+    "  PASS: settle_sighash=791634df2064e9507d…",
+    "{\"confirmedSats\":0,\"preConfirmedSats\":11575000,\"totalSats\":11575000}",
+    "== (3) F1 identity register ==",
+    "  PASS: fps provider=730a5edc28c2f8daf2d9dce3a01d5f205e35e555 seller=eeec86207f875ff654d070a8179f86becb1fda13",
+    "== (4) prepare ==",
+    "  PASS: prepared_swap_id=ab87989f-1dbd-40bb-acbe-67b8acdb18c4",
+    "== (5) provider settle partial (wallet-real) ==",
+    "{\"partialHex\":\"bcbb941b0d84ea5644cfbc692d2e9eb1201466f4c6f40d1051b86b34d390627e\",\"providerPubkeyHex\":\"03ab5d2e79cfd621b1b027ffb24e2453ed7fb571ba9a841ff0e2473466cabd168d\",\"settleNonceHex\":\"03a9fc2d5fff02147a18600507e48079a794da92bee4de1ebe6cc8771da48f8d1a0383688ad37e5cef7f40494127abaceff99cf8a96527c606884010497428fb265c\",\"fillId\":\"gate5-a2w-1789599960\"}",
+    "  PASS: provider_partial=bcbb941b0d84ea5644…",
+    "== (6) build initiate ==",
+    "  PASS: initiate envelope     2816B H=20937f095ce910af473218fdf1ec1fbc0fad4d7d1a34ee4fdbbf076ad2136eb9",
+    "== (7) mine bearer + initiate + replace(payout→provider) + advance ==",
+    "  PASS: initiate HTTP 200 {\"phase\":\"insert-pushed\",\"swap_id\":\"ab87989f-1dbd-40bb-acbe-67b8acdb18c4\"}",
+    "{\"status\": \"success\", \"results\": {\"e0.4:public:a29a0709e8bc8ff8acc5cb5269805429bfd39f809c6081581ed31ce9e0038623\": {\"spent\": false, \"amount\": \"0.4\"}, \"e0.6:public:ddede7f80b446815a83f87d0b6ba37d3084e7e6adbf5f16eebd45b3060f12a88\": {\"spent\": false, \"amount\": \"0.6\"}}}",
+    "  PASS: provider webcash payout e0.4+e0.6 unspent (Ark→Webcash receive)",
+    "  advance[1] {\"phase\":\"settled\",\"swap_id\":\"ab87989f-1dbd-40bb-acbe-67b8acdb18c4\",\"terminal\":true}",
+    "  PASS: terminal settled",
+    "== (8) extract referee settle partial ==",
+    ""
+  ],
+  "harness_settle": {
+    "status": "PASS",
+    "note": "parsed from harness stdout (script exited after settle; claim-extract may still fail)",
+    "terminal": "settled"
+  },
+  "ui_terminal": {
+    "phase": "settled",
+    "ok": true
+  },
+  "status": "PASS",
+  "named_gate": null,
+  "closed_gate": "RUNSWAP_PHASE_unknown",
+  "also_closed": [
+    "RUNSWAP_STOPPED_NO_PROVIDER",
+    "RUNSWAP_NEED_PREPARE"
+  ],
+  "note": "Accept→prove→advance reached in-app terminal phase=settled (not harness-only); harness_both_rail=PASS; CF ark_enabled=false",
+  "remaining_ui_gate": null,
+  "phase_observed": "settled"
+}

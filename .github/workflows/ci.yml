@@ -28,15 +28,18 @@ jobs:
           workspaces: crates/wallet-wasm
       - run: cargo install wasm-pack --locked
       - run: sudo apt-get install -y binaryen
-      - run: cd crates/wallet-wasm && wasm-pack build --release --target web --out-dir pkg
-      - run: wasm-opt --enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals -Oz -o crates/wallet-wasm/pkg/wallet_wasm_bg.wasm crates/wallet-wasm/pkg/wallet_wasm_bg.wasm
-
-      # Node + SvelteKit
+      # Node first so we can verify committed wasm pins before CI rebuild overwrites pkg
       - uses: actions/setup-node@v5
         with:
           node-version: "24"
           cache: npm
       - run: npm ci
+      - name: Verify committed wasm-artifacts.json pins
+        run: node scripts/verify-wasm.mjs
+      - run: cd crates/wallet-wasm && wasm-pack build --release --target web --out-dir pkg
+      - run: wasm-opt --enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals -Oz -o crates/wallet-wasm/pkg/wallet_wasm_bg.wasm crates/wallet-wasm/pkg/wallet_wasm_bg.wasm
+      - name: Refresh wallet-wasm hashes after CI rebuild (toolchain may differ from pin machine)
+        run: node scripts/refresh-wallet-wasm-artifacts.mjs
       - run: npm run check
       - run: npm run build
 
@@ -62,15 +65,17 @@ jobs:
           workspaces: crates/wallet-wasm
       - run: cargo install wasm-pack --locked
       - run: sudo apt-get install -y binaryen
-      - run: cd crates/wallet-wasm && wasm-pack build --release --target web --out-dir pkg
-      - run: wasm-opt --enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals -Oz -o crates/wallet-wasm/pkg/wallet_wasm_bg.wasm crates/wallet-wasm/pkg/wallet_wasm_bg.wasm
-
-      # Node + build + deploy
       - uses: actions/setup-node@v5
         with:
           node-version: "24"
           cache: npm
       - run: npm ci
+      - name: Verify committed wasm-artifacts.json pins
+        run: node scripts/verify-wasm.mjs
+      - run: cd crates/wallet-wasm && wasm-pack build --release --target web --out-dir pkg
+      - run: wasm-opt --enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals -Oz -o crates/wallet-wasm/pkg/wallet_wasm_bg.wasm crates/wallet-wasm/pkg/wallet_wasm_bg.wasm
+      - name: Refresh wallet-wasm hashes after CI rebuild
+        run: node scripts/refresh-wallet-wasm-artifacts.mjs
       - run: npm run build
         env:
           BASE_PATH: "/wallet"
