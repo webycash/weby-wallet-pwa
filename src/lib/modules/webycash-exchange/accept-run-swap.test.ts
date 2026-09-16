@@ -80,6 +80,18 @@ describe('attemptRunSwapBoundary', () => {
 		expect(progress.gate).toBe(GATE_RUNSWAP_NEED_PREPARE);
 		expect(progress.provider?.locked_ref).toBe(`${'ee'.repeat(32)}:0`);
 	});
+
+	it('buildRunSwapInput path does not stop at NEED_PREPARE once RunSwapInput is supplied', async () => {
+		const progress = await attemptRunSwapBoundary(
+			{ order: sampleOrder() } as never,
+			sampleOrder().id,
+			undefined,
+			sampleWire()
+		);
+		expect(progress.reachedRunSwap).toBe(true);
+		expect(String(progress.gate || '')).not.toContain('RUNSWAP_NEED_PREPARE');
+	});
+
 });
 
 describe('providerMaterialFromWire', () => {

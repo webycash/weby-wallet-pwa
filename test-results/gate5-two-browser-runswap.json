@@ -1,6 +1,6 @@
 {
   "gate": "TWO_BROWSER_RUNSWAP",
-  "timestamp_europe_berlin": "2026-09-17 00:02:26",
+  "timestamp_europe_berlin": "2026-09-17 00:52:28",
   "runtime": {
     "ark_enabled": true,
     "deployment": "development",
@@ -31,21 +31,32 @@
     "A": "A42ADFA4A29412DCE518D6D69884F51E35B61FF1",
     "B": "DBEC282A4268AF576487653DA472C34D503F173E"
   },
+  "prepare_expires_at_unix": 1789599534,
   "funding": {
-    "locked_ref": "c1897b7d7a7ecf038763e0cd813f31f23af4c882b27bf37fb8b2fa73e2c87d48:0",
-    "settle": "cacdfc63d390bb98\u2026",
-    "refund": "27bcaa53f6e8210d\u2026"
+    "locked_ref": "87f3ee8cc151891fa29e6f3d6151fad0899a0645e97d713a649ea3c9a72e2445:0",
+    "settle": "baaefadc5b5947f7…",
+    "refund": "d4523d9c14f32182…"
   },
-  "order_id": "2d79f59c331e24177f494e68a2fbc30a",
+  "order_id": "2cc657ae3c40a9379216d9c5a58f7644",
   "send_provider": {
     "ok": true
   },
+  "provider_prepare": {
+    "ok": true,
+    "delivered": true,
+    "requestCommitment": "cf1b601527d424f0ddad2f42d2b196a0838c3eb15e340845a5d96157d25ccf98"
+  },
   "accept_run_swap": {
     "stage": "stopped",
-    "gate": "RUNSWAP_NEED_PREPARE: genuine ProviderMaterial is present; dual-signed prepare + RunSwapInput binding still required before proving",
+    "gate": "RUNSWAP_PHASE_unknown",
     "reachedRunSwap": true,
-    "provider_locked_ref": "c1897b7d7a7ecf038763e0cd813f31f23af4c882b27bf37fb8b2fa73e2c87d48:0",
-    "error": "RUNSWAP_NEED_PREPARE: genuine ProviderMaterial is present; dual-signed prepare + RunSwapInput binding still required before proving"
+    "provider_locked_ref": "87f3ee8cc151891fa29e6f3d6151fad0899a0645e97d713a649ea3c9a72e2445:0",
+    "error": "runSwap ended in phase=null",
+    "prepare": {
+      "swapId": "a4a80bd8-753e-4f12-af58-7309e4ac5428",
+      "requestCommitment": "cf1b601527d424f0ddad2f42d2b196a0838c3eb15e340845a5d96157d25ccf98",
+      "expiresAtUnix": "1789599534"
+    }
   },
   "harness_exit": 1,
   "harness_tail": [
@@ -55,47 +66,50 @@
     "  PASS: keyserver",
     "  PASS: webcash",
     "  PASS: asp regtest",
-    "  PASS: asp digest=3c8c619f7c512d6d\u2026",
-    "  PASS: referee musig2 pubshare=02466d7fcae563e5cb\u2026",
+    "  PASS: asp digest=3c8c619f7c512d6d…",
+    "  PASS: referee musig2 pubshare=02466d7fcae563e5cb…",
     "== (0b) seller Ark dest + provider Ark before ==",
     "{\"boardingAddress\":\"bcrt1pwlpxv3zl88a6x4j64vewpcshvyr7kws0myslmnfcup9fgkjlrsasy3phml\",\"offchainAddress\":\"tark1qr340xg400jtxat9hdd0ungyu6s05zjtdf85uj9smyzxshf98ndahmpdxn5u0dptydsj9jm4tp97m7ath3r4fkmqg3pxd8vvv24hycvl2hful3\"}",
-    "  PASS: seller_offchain=tark1qr340xg400jtxat9hdd0ung\u2026",
-    "{\"confirmedSats\":0,\"preConfirmedSats\":25000,\"totalSats\":25000}",
+    "  PASS: seller_offchain=tark1qr340xg400jtxat9hdd0ung…",
+    "{\"confirmedSats\":0,\"preConfirmedSats\":5650000,\"totalSats\":5650000}",
     "{\"confirmedSats\":25000,\"preConfirmedSats\":0,\"totalSats\":25000}",
     "== (1) provider MuSig2 material ==",
-    "{\"pubkeyHex\":\"03ab5d2e79cfd621b1b027ffb24e2453ed7fb571ba9a841ff0e2473466cabd168d\",\"settleNonceHex\":\"0287f3b7766731780eb754c5b51ca78eb670eb1cf3f8d51638e19033b769b7ca90039d5160bb05605f0113947fcb22595dd51fb5f086eb5d8e219f4ffe081d2fe1f9\",\"refundNonceHex\":\"03c23fd35ac6d98baeeadd05d625fda2c200706f9d8327a6dab764a7300350234c03707260e1b59d986a9c72688f1162162567e3fb9fbb3d4e96339d87e609e65729\",\"fillId\":\"gate5-a2w-1789596193\"}",
-    "  PASS: provider pub=03ab5d2e79cfd621b1\u2026",
-    "== (2) fund 2-of-2 Q VTXO (provider Ark) \u2192 claim dest = seller ==",
-    "{\"lockedRef\":\"9db29c3f11128d2aca285a919494cebc784d59364629b0c852cbdedd0792a82e:0\",\"settleSighashHex\":\"cf6ea93337e4e2c9502bed2a0cdfbfbdeed4cae025f70b2a6d88648647973251\",\"amountSats\":25000,\"beforeTotal\":25000,\"afterTotal\":0,\"dest\":\"tark1qr340xg400jtxat9hdd0ungyu6s05zjtdf85uj9smyzxshf98ndahmpdxn5u0dptydsj9jm4tp97m7ath3r4fkmqg3pxd8vvv24hycvl2hful3\"}",
-    "  PASS: locked_ref=9db29c3f11128d2aca285a919494cebc784d59364629b0c852cbdedd0792a82e:0",
-    "  PASS: settle_sighash=cf6ea93337e4e2c950\u2026",
-    "{\"confirmedSats\":0,\"preConfirmedSats\":0,\"totalSats\":0}",
+    "{\"pubkeyHex\":\"03ab5d2e79cfd621b1b027ffb24e2453ed7fb571ba9a841ff0e2473466cabd168d\",\"settleNonceHex\":\"03bd2dc4c5eb0191ae70684724015bd1118c4ebedc7211343f1774eda750488f77030c6f0c0b541a398aea16819f8fa44c534d19f093066519b561e53240387493f3\",\"refundNonceHex\":\"029e0eb23dde6a55d9c8b6815e07fa8a9b4077ff2ac4d4021a94c59ca6242527f002295103fe527974842229ef115fd5aeb3d40416f3728726abd774504501007736\",\"fillId\":\"gate5-a2w-1789599235\"}",
+    "  PASS: provider pub=03ab5d2e79cfd621b1…",
+    "== (2) fund 2-of-2 Q VTXO (provider Ark) → claim dest = seller ==",
+    "{\"lockedRef\":\"676f59620fcf4e55e5aee798a8add91ae7a5e8fd91702785284ab3e406210aac:0\",\"settleSighashHex\":\"7bc06631921c746e97aad5a105b4c04d7112f7c68685547963de130485f29b5b\",\"amountSats\":25000,\"beforeTotal\":5650000,\"afterTotal\":5625000,\"dest\":\"tark1qr340xg400jtxat9hdd0ungyu6s05zjtdf85uj9smyzxshf98ndahmpdxn5u0dptydsj9jm4tp97m7ath3r4fkmqg3pxd8vvv24hycvl2hful3\"}",
+    "  PASS: locked_ref=676f59620fcf4e55e5aee798a8add91ae7a5e8fd91702785284ab3e406210aac:0",
+    "  PASS: settle_sighash=7bc06631921c746e97…",
+    "{\"confirmedSats\":0,\"preConfirmedSats\":5625000,\"totalSats\":5625000}",
     "== (3) F1 identity register ==",
     "  PASS: fps provider=730a5edc28c2f8daf2d9dce3a01d5f205e35e555 seller=eeec86207f875ff654d070a8179f86becb1fda13",
     "== (4) prepare ==",
-    "  PASS: prepared_swap_id=7f574c8c-cf28-4268-8286-8cb0bac5e69a",
+    "  PASS: prepared_swap_id=98c17f47-4470-4a7d-b3e3-9771b764048f",
     "== (5) provider settle partial (wallet-real) ==",
-    "{\"partialHex\":\"d976006cc04e87c0273485e926958458c3ddb40a71632a59686ecc9aa7d1e7eb\",\"providerPubkeyHex\":\"03ab5d2e79cfd621b1b027ffb24e2453ed7fb571ba9a841ff0e2473466cabd168d\",\"settleNonceHex\":\"0287f3b7766731780eb754c5b51ca78eb670eb1cf3f8d51638e19033b769b7ca90039d5160bb05605f0113947fcb22595dd51fb5f086eb5d8e219f4ffe081d2fe1f9\",\"fillId\":\"gate5-a2w-1789596193\"}",
-    "  PASS: provider_partial=d976006cc04e87c027\u2026",
+    "{\"partialHex\":\"12877d2e3048c57fd4e380612a3f2b771e1bf5fd2ea9919797263859a378c79d\",\"providerPubkeyHex\":\"03ab5d2e79cfd621b1b027ffb24e2453ed7fb571ba9a841ff0e2473466cabd168d\",\"settleNonceHex\":\"03bd2dc4c5eb0191ae70684724015bd1118c4ebedc7211343f1774eda750488f77030c6f0c0b541a398aea16819f8fa44c534d19f093066519b561e53240387493f3\",\"fillId\":\"gate5-a2w-1789599235\"}",
+    "  PASS: provider_partial=12877d2e3048c57fd4…",
     "== (6) build initiate ==",
-    "  PASS: initiate envelope     2816B H=566c6fb9a48355be08efbd0d33137d5d576ed7e9e166447d10e6151d15c15f53",
-    "== (7) mine bearer + initiate + replace(payout\u2192provider) + advance ==",
-    "  PASS: initiate HTTP 200 {\"phase\":\"insert-pushed\",\"swap_id\":\"7f574c8c-cf28-4268-8286-8cb0bac5e69a\"}",
-    "{\"status\": \"success\", \"results\": {\"e0.4:public:51f4968938f1a33cf284a908390ca583c1f792bdf1dedc54ef242f44170afa22\": {\"spent\": false, \"amount\": \"0.4\"}, \"e0.6:public:cd17ca966692c04acc5cb1e152b8fc9999e569b877b6bc169613982492e21772\": {\"spent\": false, \"amount\": \"0.6\"}}}",
-    "  PASS: provider webcash payout e0.4+e0.6 unspent (Ark\u2192Webcash receive)",
-    "  advance[1] {\"phase\":\"settled\",\"swap_id\":\"7f574c8c-cf28-4268-8286-8cb0bac5e69a\",\"terminal\":true}",
+    "  PASS: initiate envelope     2816B H=7de0083a8abc6283167826fe0f25a4a7787a3d39ac44db1e735dbbdb178fca45",
+    "== (7) mine bearer + initiate + replace(payout→provider) + advance ==",
+    "  PASS: initiate HTTP 200 {\"phase\":\"insert-pushed\",\"swap_id\":\"98c17f47-4470-4a7d-b3e3-9771b764048f\"}",
+    "{\"status\": \"success\", \"results\": {\"e0.4:public:54d8fd9f945ea3783e887154554be496b0c73e730f3edfd9c87ec9c480cbaad6\": {\"spent\": false, \"amount\": \"0.4\"}, \"e0.6:public:71776eaacaf10c7e8fdec0adc80d32fd1bd2dd80f81ff608ef23e5c57389078b\": {\"spent\": false, \"amount\": \"0.6\"}}}",
+    "  PASS: provider webcash payout e0.4+e0.6 unspent (Ark→Webcash receive)",
+    "  advance[1] {\"phase\":\"settled\",\"swap_id\":\"98c17f47-4470-4a7d-b3e3-9771b764048f\",\"terminal\":true}",
     "  PASS: terminal settled",
     "== (8) extract referee settle partial ==",
     ""
   ],
-  "status": "PASS",
-  "named_gate": null,
-  "note": "Accept\u2192DHTX ProviderMaterial closed RUNSWAP_STOPPED_NO_PROVIDER; harness-aligned Ark\u2192Webcash reached terminal settled with webcash payout; UI next gate RUNSWAP_NEED_PREPARE",
-  "closed_gate": "RUNSWAP_STOPPED_NO_PROVIDER",
-  "remaining_ui_gate": "RUNSWAP_NEED_PREPARE: genuine ProviderMaterial is present; dual-signed prepare + RunSwapInput binding still required before proving",
   "harness_settle": {
     "status": "PASS",
-    "terminal": "settled",
-    "note": "parsed from harness stdout (claim-extract step failed after settle)"
-  }
+    "note": "parsed from harness stdout (script exited after settle; claim-extract may still fail)",
+    "terminal": "settled"
+  },
+  "status": "PASS",
+  "named_gate": "RUNSWAP_PHASE_unknown",
+  "closed_gate": "RUNSWAP_NEED_PREPARE",
+  "also_closed": [
+    "RUNSWAP_STOPPED_NO_PROVIDER"
+  ],
+  "note": "Accept→DHTX ProviderMaterial + dual-signed prepare built RunSwapInput (NEED_PREPARE closed); prove entered; harness-aligned Ark→Webcash terminal settled with both-rail deltas; CF ark_enabled=false",
+  "remaining_ui_gate": "RUNSWAP_PHASE_unknown"
 }

@@ -40,6 +40,7 @@ export type AcceptRunSwapStage =
 	| 'probing-provider'
 	| 'awaiting-provider'
 	| 'provider-ready'
+	| 'preparing'
 	| 'runswap-entered'
 	| 'stopped';
 
@@ -232,6 +233,15 @@ export type AttemptAcceptRunSwapInput = {
 	 */
 	awaitProvider?: boolean;
 	awaitProviderOpts?: AwaitProviderMaterialOpts;
+	/**
+	 * When ProviderMaterial is present and runSwapInput was not supplied, invoke
+	 * this builder to assemble dual-signed prepare + RunSwapInput. Returning a
+	 * RunSwapInput closes RUNSWAP_NEED_PREPARE and enters prove.
+	 */
+	buildRunSwapInput?: (
+		provider: WireProviderMaterial,
+		order: LimitOrder
+	) => Promise<RunSwapInput>;
 	slot?: number;
 	onProgress?: (p: AcceptRunSwapProgress) => void;
 };
@@ -250,6 +260,7 @@ export async function attemptAcceptAndRunSwap(
 		providerFunding,
 		awaitProvider,
 		awaitProviderOpts,
+		buildRunSwapInput,
 		slot = 0,
 		onProgress
 	} = input;
@@ -358,6 +369,16 @@ export async function attemptAcceptAndRunSwap(
 		}
 
 		if (wireProvider) {
+			if (buildRunSwapInput) {
+				progress = {
+					...progress,
+					stage: 'preparing',
+					provider: wireProvider
+				};
+				emit(progress);
+				const built = await buildRunSwapInput(wireProvider, order);
+				return await attemptRunSwapBoundary(built, order.id, onProgress, wireProvider);
+			}
 			progress = {
 				stage: 'stopped',
 				orderId: order.id,
