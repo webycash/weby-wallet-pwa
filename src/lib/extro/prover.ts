@@ -6,6 +6,8 @@
 // thread, so the tab stays responsive through the tens-of-seconds proof
 // generation.
 
+import { getRuntimeConfig } from './runtime-config';
+
 export interface ProveSwapArgs {
 	mnemonic: string;
 	bearerPk: Uint8Array;
@@ -30,6 +32,6 @@ export function proveSwapInitiate(args: ProveSwapArgs): Promise<Uint8Array> {
 			worker.terminate();
 			reject(new Error(`prover worker: ${err.message}`));
 		};
-		worker.postMessage({ id, ...args });
+		worker.postMessage({ id, bootConfig: getRuntimeConfig(), ...args });
 	});
 }
