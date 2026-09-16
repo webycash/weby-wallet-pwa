@@ -1,9 +1,9 @@
 /**
  * Step 7 orchestration: DHTX order → SendSwapAccept → (prepare) → runSwap.
  *
- * With `ark_enabled=false` and SendProviderMaterial still Unsupported, this
- * path MUST reach the runSwap boundary and stop at a named gate — never invent
- * a settled terminal phase or synthetic ProviderMaterial.
+ * With `ark_enabled=false`, this path MUST reach the runSwap boundary and stop
+ * at ARK_DISABLED — never invent a settled terminal phase. When Ark is enabled,
+ * SendProviderMaterial requires genuine locked_ref + settle/refund hashes.
  */
 
 import { getExtroClient } from '$lib/extro';
@@ -75,14 +75,28 @@ export async function acceptNetworkOrder(
 }
 
 /**
- * Probe SendProviderMaterial. Expected on current gate3 boundary: Unsupported
- * with genuine locked_ref wording. Any success without real Ark refs is a bug.
+ * Probe SendProviderMaterial. Without funding refs → PROVIDER_MATERIAL_UNSUPPORTED.
+ * With genuine locked_ref + hashes the WASM path may deliver; placeholders fail closed.
  */
+export type ProbeProviderMaterialFunding = {
+	lockedRef: string;
+	txSettleHashHex: string;
+	txRefundHashHex: string;
+};
+
 export async function probeProviderMaterial(
 	order: LimitOrder,
 	takerFpHex: string,
-	slot = 0
+	slot = 0,
+	funding?: ProbeProviderMaterialFunding
 ): Promise<{ ok: false; gate: string; message: string } | { ok: true }> {
+	if (!funding) {
+		return {
+			ok: false,
+			gate: GATE_PROVIDER_MATERIAL_UNSUPPORTED,
+			message: GATE_PROVIDER_MATERIAL_UNSUPPORTED
+		};
+	}
 	const response = await getExtroClient().send({
 		request_id: newRequestId(),
 		op: {
@@ -91,7 +105,10 @@ export async function probeProviderMaterial(
 				op: 'SendProviderMaterial',
 				slot,
 				order_id: hexToBytes(order.id, 16, 'order id'),
-				taker_fp: hexToBytes(takerFpHex, 20, 'taker fingerprint')
+				taker_fp: hexToBytes(takerFpHex, 20, 'taker fingerprint'),
+				locked_ref: funding.lockedRef,
+				tx_settle_hash_hex: funding.txSettleHashHex,
+				tx_refund_hash_hex: funding.txRefundHashHex
 			}
 		}
 	});
@@ -112,6 +129,8 @@ export type AttemptAcceptRunSwapInput = {
 	/** Optional full runSwap input once ProviderMaterial + prepare exist. */
 	runSwapInput?: RunSwapInput;
 	takerFingerprintHex?: string;
+	/** Genuine Ark funding refs required to pass SendProviderMaterial. */
+	providerFunding?: ProbeProviderMaterialFunding;
 	slot?: number;
 	onProgress?: (p: AcceptRunSwapProgress) => void;
 };
@@ -123,7 +142,7 @@ export type AttemptAcceptRunSwapInput = {
 export async function attemptAcceptAndRunSwap(
 	input: AttemptAcceptRunSwapInput
 ): Promise<AcceptRunSwapProgress> {
-	const { order, runSwapInput, takerFingerprintHex, slot = 0, onProgress } = input;
+	const { order, runSwapInput, takerFingerprintHex, providerFunding, slot = 0, onProgress } = input;
 	const emit = (p: AcceptRunSwapProgress) => onProgress?.(p);
 
 	let progress: AcceptRunSwapProgress = {
@@ -178,7 +197,7 @@ export async function attemptAcceptAndRunSwap(
 		if (takerFingerprintHex) {
 			progress = { ...progress, stage: 'probing-provider' };
 			emit(progress);
-			const probe = await probeProviderMaterial(order, takerFingerprintHex, slot);
+			const probe = await probeProviderMaterial(order, takerFingerprintHex, slot, providerFunding);
 			if (!probe.ok) {
 				progress = {
 					stage: 'stopped',

@@ -86,7 +86,18 @@ export type DhtxCommand =
 	 * `Provider` carrying THIS node's REAL per-swap MuSig2 material + provider
 	 * identity + ARK conditional references to the taker.
 	 */
-	| { op: 'SendProviderMaterial'; slot: number; order_id: Uint8Array; taker_fp: Uint8Array }
+	| {
+			op: 'SendProviderMaterial';
+			slot: number;
+			order_id: Uint8Array;
+			taker_fp: Uint8Array;
+			/** Exact funded VTXO outpoint (`txid:vout`). */
+			locked_ref: string;
+			/** 32-byte settle sighash/digest hex. */
+			tx_settle_hash_hex: string;
+			/** 32-byte refund sighash/digest hex. */
+			tx_refund_hash_hex: string;
+	  }
 	/** Relay one verified canonical prepare signature to the other named party. */
 	| {
 			op: 'SendSwapPrepareSignature';

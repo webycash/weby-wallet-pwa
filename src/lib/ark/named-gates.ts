@@ -9,7 +9,7 @@ export const GATE_ARK_DISABLED =
 
 /** SendProviderMaterial WASM boundary until real locked_ref + tx hashes exist. */
 export const GATE_PROVIDER_MATERIAL_UNSUPPORTED =
-	'PROVIDER_MATERIAL_UNSUPPORTED: SendProviderMaterial is disabled until browser Ark supplies genuine locked_ref and settle/refund transaction hashes';
+	'PROVIDER_MATERIAL_UNSUPPORTED: SendProviderMaterial requires genuine locked_ref and settle/refund transaction hashes (placeholders rejected)';
 
 /** Collaborative settle MuSig2 partial not yet produced for a real VTXO. */
 export const GATE_SETTLE_SIGNER_PENDING =
