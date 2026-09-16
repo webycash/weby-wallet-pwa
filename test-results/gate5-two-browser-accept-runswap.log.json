@@ -1,0 +1,44 @@
+{
+  "gate": "TWO_BROWSER_RUNSWAP",
+  "timestamp_europe_berlin": "2026-09-16 23:50:35",
+  "runtime": {
+    "ark_enabled": true,
+    "deployment": "development",
+    "ark_asp_url": "http://127.0.0.1:7070",
+    "ark_network": "regtest",
+    "ark_info_digest_hex": "3c8c619f7c512d6d070ab4377d5781d11c78d6a73796b9a70dea7d59c37bc07d"
+  },
+  "cf_ark_enabled": false,
+  "browsers": {
+    "A": true,
+    "B": true
+  },
+  "probe_A": {
+    "exports": [
+      "acceptNetworkOrder",
+      "attemptAcceptAndRunSwap",
+      "attemptRunSwapBoundary",
+      "probeProviderMaterial"
+    ]
+  },
+  "boundary": {
+    "ok": true,
+    "result": {
+      "stage": "stopped",
+      "orderId": "0000000000000000111111111111111111111111111111111111111111111111",
+      "reachedRunSwap": true,
+      "gate": "RUNSWAP_STOPPED_NO_PROVIDER: UI reached runSwap/executeSwap boundary; stopped before proving because genuine ProviderMaterial is unavailable",
+      "error": "RUNSWAP_STOPPED_NO_PROVIDER: UI reached runSwap/executeSwap boundary; stopped before proving because genuine ProviderMaterial is unavailable"
+    },
+    "fallback": "attemptRunSwapBoundary",
+    "error": "acceptNetworkOrder requires a network order, got source=network",
+    "gateConsts": {
+      "GATE_ARK_DISABLED": "ARK_DISABLED: ark_enabled=false; genuine settle/refund and ProviderMaterial remain closed on this deployment",
+      "GATE_PROVIDER_MATERIAL_UNSUPPORTED": "PROVIDER_MATERIAL_UNSUPPORTED: SendProviderMaterial requires genuine locked_ref and settle/refund transaction hashes (placeholders rejected)",
+      "GATE_RUNSWAP_STOPPED_NO_PROVIDER": "RUNSWAP_STOPPED_NO_PROVIDER: UI reached runSwap/executeSwap boundary; stopped before proving because genuine ProviderMaterial is unavailable"
+    }
+  },
+  "status": "OPEN",
+  "named_gate": "RUNSWAP_STOPPED_NO_PROVIDER: UI reached runSwap/executeSwap boundary; stopped before proving because genuine ProviderMaterial is unavailable",
+  "note": "Stopped at exact named gate; no fake settled"
+}
