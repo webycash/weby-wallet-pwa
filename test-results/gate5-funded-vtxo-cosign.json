@@ -1,0 +1,68 @@
+{
+  "gate": "GATE3_ARK_FUNDED_VTXO_COSIGN",
+  "result": "PASS",
+  "timestamp": "2026-09-16T20:37:52.289Z",
+  "asp": {
+    "url": "http://127.0.0.1:7070",
+    "network": "regtest",
+    "version": "v0.9.16",
+    "signer_pk_hex": "e35799157be4b37565bb5afe4d04e6a0fa0a4b6a4f4e48b0d904685d253cdbdb",
+    "info_digest_hex": "51c3746b90912cf4ad256e7a3e4bd203d6b8ff292e7b1e210cf43f1537b8cf09",
+    "checkpoint_tapscript_hex": "55b27520348870f3b24376e01a06660d1cfabab44fbebd3885001af27f5d14d1af6ac46cac",
+    "unilateral_exit_delay": 5
+  },
+  "funding": {
+    "ark_txid": "5f2282fe9484a69cf83c9792ada3608da2e016119deb9f2730841d4808abf718",
+    "locked_ref": "5f2282fe9484a69cf83c9792ada3608da2e016119deb9f2730841d4808abf718:0",
+    "amount_sats": 25000,
+    "conditional_address": "tark1qr340xg400jtxat9hdd0ungyu6s05zjtdf85uj9smyzxshf98ndak5kql2pgaq5h2vznq0j3arngwupar965wzk3nwpyv2zpl3ppupdp2029d5",
+    "pk_script_hex": "512052c0fa828e82975305303e51e8e687703d1975470ad19b82462841fc421e05a1",
+    "request_commitment_hex": "4eae8ef12eb5068fa2cdb2434c23c8da268e7bec8f001df1aff6780ba7831402"
+  },
+  "balances": {
+    "before": {
+      "boarding": {
+        "confirmed": 110000000,
+        "unconfirmed": 0,
+        "total": 110000000
+      },
+      "settled": 5000000,
+      "preconfirmed": 0,
+      "available": 5000000,
+      "gated": 0,
+      "intentLocked": 0,
+      "recoverable": 0,
+      "pendingRecovery": 0,
+      "total": 115000000,
+      "assets": [],
+      "availableAssets": []
+    },
+    "after": {
+      "boarding": {
+        "confirmed": 110000000,
+        "unconfirmed": 0,
+        "total": 110000000
+      },
+      "settled": 0,
+      "preconfirmed": 0,
+      "available": 0,
+      "gated": 0,
+      "intentLocked": 0,
+      "recoverable": 0,
+      "pendingRecovery": 0,
+      "total": 110000000,
+      "assets": [],
+      "availableAssets": []
+    },
+    "offchain_delta_sats": -5000000
+  },
+  "cosign": {
+    "path": "collaborative-settle",
+    "settle_digest_hex": "9068fd8532cad64db04db199287aea654f20d5ad527e28da6a2bcb2317fd7900",
+    "refund_digest_hex": "1b9f9da11bd33c74f901935757976b554225e72fbf83201f769aa539cfee40f6",
+    "signature_hex": "abdfd95415507a087ac27e71c054bb6284903d7fb94b807225b09105a2c14a89",
+    "provider_pubkey_hex": "029c701a1cb49f9f7b9e54a65cfad8c6d8cefba1f28c05a353381083cc12903a1c",
+    "referee_pubkey_hex": "03a07e623fd91593901203c93c0b3ab65506383a39301fa0c2da3531b88158d9ba",
+    "asp_ref": "arkade-regtest:musig2-partial"
+  }
+}
