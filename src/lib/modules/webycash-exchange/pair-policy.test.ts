@@ -4,7 +4,7 @@ import {
 	isPairAllowed,
 	pairRequiresReferee,
 	type AssetClass
-} from './pair-policy';
+, pairReleaseAvailability } from './pair-policy';
 
 describe('pair-policy: Webcash <-> Voucher is blocked (both orderings)', () => {
 	it('rejects Webcash -> Voucher', () => {
@@ -102,5 +102,28 @@ describe('pair-policy: deny by default', () => {
 				}
 			}
 		}
+	});
+});
+
+
+describe('Gate 6 Option A: RGB/Voucher release exclusion', () => {
+	it('marks RGB pairs unavailable even when pair-policy allows', () => {
+		expect(evaluatePair('Rgb20', 'BitcoinArk').allowed).toBe(true);
+		const a = pairReleaseAvailability('Rgb20', 'BitcoinArk');
+		expect(a.available).toBe(false);
+		expect(a.exclusion).toBe('gate6-rgb-voucher');
+		expect(a.message.toLowerCase()).toContain('unavailable');
+		expect(a.message.toLowerCase()).not.toMatch(/settled|complete/);
+	});
+
+	it('marks Voucher↔Ark unavailable for release', () => {
+		const a = pairReleaseAvailability('Voucher', 'BitcoinArk');
+		expect(a.available).toBe(false);
+		expect(a.exclusion).toBe('gate6-rgb-voucher');
+	});
+
+	it('keeps BitcoinArk↔Webcash available', () => {
+		const a = pairReleaseAvailability('BitcoinArk', 'Webcash');
+		expect(a.available).toBe(true);
 	});
 });

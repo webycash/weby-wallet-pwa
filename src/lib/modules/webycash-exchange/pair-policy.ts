@@ -199,3 +199,45 @@ export function assetLabel(a: AssetClass): string {
 			return 'Custom';
 	}
 }
+
+
+/** Gate 6 Option A — RGB + Voucher exchange pairs are release-excluded. */
+export type PairReleaseExclusion = 'gate6-rgb-voucher' | 'pair-policy-blocked';
+
+export type PairReleaseAvailability = {
+	available: boolean;
+	exclusion?: PairReleaseExclusion;
+	/** Honest UI copy — never claims RGB/voucher settlement works. */
+	message: string;
+};
+
+const isRgbAsset = (a: AssetClass): boolean => a === 'Rgb20' || a === 'Rgb21';
+const isVoucherAsset = (a: AssetClass): boolean => a === 'Voucher';
+
+/**
+ * Release-facing availability. Pair-policy may still *allow* RGB legs in the
+ * abstract; this gate hides them from the product UI until RGB/voucher rails
+ * are honestly ready. BitcoinArk↔Webcash remains the supported release pair.
+ */
+export function pairReleaseAvailability(a: AssetClass, b: AssetClass): PairReleaseAvailability {
+	const verdict = evaluatePair(a, b);
+	if (!verdict.allowed) {
+		return {
+			available: false,
+			exclusion: 'pair-policy-blocked',
+			message: verdict.label
+		};
+	}
+	if (isRgbAsset(a) || isRgbAsset(b) || isVoucherAsset(a) || isVoucherAsset(b)) {
+		return {
+			available: false,
+			exclusion: 'gate6-rgb-voucher',
+			message:
+				'Unavailable — RGB and Voucher exchange pairs are excluded from this release (Gate 6 Option A). No RGB/voucher settlement is claimed.'
+		};
+	}
+	return { available: true, message: verdict.label };
+}
+
+export const isPairAvailableInRelease = (a: AssetClass, b: AssetClass): boolean =>
+	pairReleaseAvailability(a, b).available;

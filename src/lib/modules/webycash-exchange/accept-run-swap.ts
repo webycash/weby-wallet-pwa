@@ -433,7 +433,7 @@ export async function attemptRunSwapBoundary(
 		try {
 			const trade = await runSwap(runSwapInput);
 			const progress = trades.swapProgress;
-			const settled = trade?.phase === 'settled' || trade?.phase === 'completed';
+			const settled = trade?.phase === 'settled';
 			const refunded = trade?.phase === 'refunded';
 			if (settled || refunded) {
 				const ok: AcceptRunSwapProgress = {

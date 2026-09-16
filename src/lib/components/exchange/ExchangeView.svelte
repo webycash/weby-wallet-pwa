@@ -24,6 +24,7 @@
 	import { pushStatus } from '$lib/modules/webycash-exchange/push-store.svelte';
 	import { discoverSeedersFromDhtx } from '$lib/modules/webycash-exchange/seeder-discovery';
 	import { attemptAcceptAndRunSwap } from '$lib/modules/webycash-exchange/accept-run-swap';
+	import { buildProductRunSwapInput } from '$lib/modules/webycash-exchange/build-product-run-swap-input';
 	import { getExtroClient } from '$lib/extro';
 	import { newRequestId } from '$lib/extro/commands';
 	import { extroConnection } from '$lib/extro/connection';
@@ -105,6 +106,7 @@
 				takerFingerprintHex,
 				awaitProvider: true,
 				awaitProviderOpts: { timeoutMs: 45_000, intervalMs: 300 },
+				buildRunSwapInput: buildProductRunSwapInput,
 				onProgress: (p) => {
 					if (p.gate) lastGate = p.gate;
 				}
