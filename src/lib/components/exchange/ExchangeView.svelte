@@ -25,6 +25,7 @@
 	import { discoverSeedersFromDhtx } from '$lib/modules/webycash-exchange/seeder-discovery';
 	import { attemptAcceptAndRunSwap } from '$lib/modules/webycash-exchange/accept-run-swap';
 	import { getExtroClient } from '$lib/extro';
+	import { newRequestId } from '$lib/extro/commands';
 	import { extroConnection } from '$lib/extro/connection';
 	import { nav } from '$lib/stores/navigation.svelte';
 	import MarketsView from './MarketsView.svelte';
@@ -86,16 +87,33 @@
 		busySwap = order.id;
 		lastGate = null;
 		try {
+			// Derive THIS node's fingerprint so Accept→await ProviderMaterial can bind.
+			let takerFingerprintHex: string | undefined;
+			try {
+				const id = await getExtroClient().send({
+					request_id: newRequestId(),
+					op: { kind: 'Wallet', cmd: { op: 'DeriveIdentity', slot: 0 } }
+				});
+				if (id.kind === 'Ok' && id.body.kind === 'Identity') {
+					takerFingerprintHex = id.body.fingerprint_hex;
+				}
+			} catch {
+				/* wallet may be locked; Accept path still exercises DHTX */
+			}
 			const result = await attemptAcceptAndRunSwap({
 				order: { ...order, side: order.side },
+				takerFingerprintHex,
+				awaitProvider: true,
+				awaitProviderOpts: { timeoutMs: 45_000, intervalMs: 300 },
 				onProgress: (p) => {
 					if (p.gate) lastGate = p.gate;
 				}
 			});
 			if (result.gate) {
 				lastGate = result.gate;
+				const hasProvider = !!result.provider?.locked_ref;
 				flash(
-					`Accept→runSwap stopped at named gate (reachedRunSwap=${result.reachedRunSwap}): ${result.gate}`,
+					`Accept→runSwap stopped at named gate (reachedRunSwap=${result.reachedRunSwap}, provider=${hasProvider}): ${result.gate}`,
 					'warn'
 				);
 				return;

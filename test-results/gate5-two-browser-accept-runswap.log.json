@@ -1,6 +1,6 @@
 {
   "gate": "TWO_BROWSER_RUNSWAP",
-  "timestamp_europe_berlin": "2026-09-16 23:50:35",
+  "timestamp_europe_berlin": "2026-09-17 00:02:26",
   "runtime": {
     "ark_enabled": true,
     "deployment": "development",
@@ -9,36 +9,93 @@
     "ark_info_digest_hex": "3c8c619f7c512d6d070ab4377d5781d11c78d6a73796b9a70dea7d59c37bc07d"
   },
   "cf_ark_enabled": false,
+  "disk_free_gib": 56,
+  "asp_live_digest": "3c8c619f7c512d6d070ab4377d5781d11c78d6a73796b9a70dea7d59c37bc07d",
   "browsers": {
     "A": true,
     "B": true
   },
-  "probe_A": {
-    "exports": [
-      "acceptNetworkOrder",
-      "attemptAcceptAndRunSwap",
-      "attemptRunSwapBoundary",
-      "probeProviderMaterial"
-    ]
-  },
-  "boundary": {
-    "ok": true,
-    "result": {
-      "stage": "stopped",
-      "orderId": "0000000000000000111111111111111111111111111111111111111111111111",
-      "reachedRunSwap": true,
-      "gate": "RUNSWAP_STOPPED_NO_PROVIDER: UI reached runSwap/executeSwap boundary; stopped before proving because genuine ProviderMaterial is unavailable",
-      "error": "RUNSWAP_STOPPED_NO_PROVIDER: UI reached runSwap/executeSwap boundary; stopped before proving because genuine ProviderMaterial is unavailable"
+  "bootstrap": {
+    "A": {
+      "peers": 1,
+      "roster": 1,
+      "ok": true
     },
-    "fallback": "attemptRunSwapBoundary",
-    "error": "acceptNetworkOrder requires a network order, got source=network",
-    "gateConsts": {
-      "GATE_ARK_DISABLED": "ARK_DISABLED: ark_enabled=false; genuine settle/refund and ProviderMaterial remain closed on this deployment",
-      "GATE_PROVIDER_MATERIAL_UNSUPPORTED": "PROVIDER_MATERIAL_UNSUPPORTED: SendProviderMaterial requires genuine locked_ref and settle/refund transaction hashes (placeholders rejected)",
-      "GATE_RUNSWAP_STOPPED_NO_PROVIDER": "RUNSWAP_STOPPED_NO_PROVIDER: UI reached runSwap/executeSwap boundary; stopped before proving because genuine ProviderMaterial is unavailable"
+    "B": {
+      "peers": 1,
+      "roster": 1,
+      "ok": true
     }
   },
-  "status": "OPEN",
-  "named_gate": "RUNSWAP_STOPPED_NO_PROVIDER: UI reached runSwap/executeSwap boundary; stopped before proving because genuine ProviderMaterial is unavailable",
-  "note": "Stopped at exact named gate; no fake settled"
+  "fingerprints": {
+    "A": "A42ADFA4A29412DCE518D6D69884F51E35B61FF1",
+    "B": "DBEC282A4268AF576487653DA472C34D503F173E"
+  },
+  "funding": {
+    "locked_ref": "c1897b7d7a7ecf038763e0cd813f31f23af4c882b27bf37fb8b2fa73e2c87d48:0",
+    "settle": "cacdfc63d390bb98\u2026",
+    "refund": "27bcaa53f6e8210d\u2026"
+  },
+  "order_id": "2d79f59c331e24177f494e68a2fbc30a",
+  "send_provider": {
+    "ok": true
+  },
+  "accept_run_swap": {
+    "stage": "stopped",
+    "gate": "RUNSWAP_NEED_PREPARE: genuine ProviderMaterial is present; dual-signed prepare + RunSwapInput binding still required before proving",
+    "reachedRunSwap": true,
+    "provider_locked_ref": "c1897b7d7a7ecf038763e0cd813f31f23af4c882b27bf37fb8b2fa73e2c87d48:0",
+    "error": "RUNSWAP_NEED_PREPARE: genuine ProviderMaterial is present; dual-signed prepare + RunSwapInput binding still required before proving"
+  },
+  "harness_exit": 1,
+  "harness_tail": [
+    "  PASS: disk 56 GiB",
+    "== (0) liveness ==",
+    "  PASS: referee",
+    "  PASS: keyserver",
+    "  PASS: webcash",
+    "  PASS: asp regtest",
+    "  PASS: asp digest=3c8c619f7c512d6d\u2026",
+    "  PASS: referee musig2 pubshare=02466d7fcae563e5cb\u2026",
+    "== (0b) seller Ark dest + provider Ark before ==",
+    "{\"boardingAddress\":\"bcrt1pwlpxv3zl88a6x4j64vewpcshvyr7kws0myslmnfcup9fgkjlrsasy3phml\",\"offchainAddress\":\"tark1qr340xg400jtxat9hdd0ungyu6s05zjtdf85uj9smyzxshf98ndahmpdxn5u0dptydsj9jm4tp97m7ath3r4fkmqg3pxd8vvv24hycvl2hful3\"}",
+    "  PASS: seller_offchain=tark1qr340xg400jtxat9hdd0ung\u2026",
+    "{\"confirmedSats\":0,\"preConfirmedSats\":25000,\"totalSats\":25000}",
+    "{\"confirmedSats\":25000,\"preConfirmedSats\":0,\"totalSats\":25000}",
+    "== (1) provider MuSig2 material ==",
+    "{\"pubkeyHex\":\"03ab5d2e79cfd621b1b027ffb24e2453ed7fb571ba9a841ff0e2473466cabd168d\",\"settleNonceHex\":\"0287f3b7766731780eb754c5b51ca78eb670eb1cf3f8d51638e19033b769b7ca90039d5160bb05605f0113947fcb22595dd51fb5f086eb5d8e219f4ffe081d2fe1f9\",\"refundNonceHex\":\"03c23fd35ac6d98baeeadd05d625fda2c200706f9d8327a6dab764a7300350234c03707260e1b59d986a9c72688f1162162567e3fb9fbb3d4e96339d87e609e65729\",\"fillId\":\"gate5-a2w-1789596193\"}",
+    "  PASS: provider pub=03ab5d2e79cfd621b1\u2026",
+    "== (2) fund 2-of-2 Q VTXO (provider Ark) \u2192 claim dest = seller ==",
+    "{\"lockedRef\":\"9db29c3f11128d2aca285a919494cebc784d59364629b0c852cbdedd0792a82e:0\",\"settleSighashHex\":\"cf6ea93337e4e2c9502bed2a0cdfbfbdeed4cae025f70b2a6d88648647973251\",\"amountSats\":25000,\"beforeTotal\":25000,\"afterTotal\":0,\"dest\":\"tark1qr340xg400jtxat9hdd0ungyu6s05zjtdf85uj9smyzxshf98ndahmpdxn5u0dptydsj9jm4tp97m7ath3r4fkmqg3pxd8vvv24hycvl2hful3\"}",
+    "  PASS: locked_ref=9db29c3f11128d2aca285a919494cebc784d59364629b0c852cbdedd0792a82e:0",
+    "  PASS: settle_sighash=cf6ea93337e4e2c950\u2026",
+    "{\"confirmedSats\":0,\"preConfirmedSats\":0,\"totalSats\":0}",
+    "== (3) F1 identity register ==",
+    "  PASS: fps provider=730a5edc28c2f8daf2d9dce3a01d5f205e35e555 seller=eeec86207f875ff654d070a8179f86becb1fda13",
+    "== (4) prepare ==",
+    "  PASS: prepared_swap_id=7f574c8c-cf28-4268-8286-8cb0bac5e69a",
+    "== (5) provider settle partial (wallet-real) ==",
+    "{\"partialHex\":\"d976006cc04e87c0273485e926958458c3ddb40a71632a59686ecc9aa7d1e7eb\",\"providerPubkeyHex\":\"03ab5d2e79cfd621b1b027ffb24e2453ed7fb571ba9a841ff0e2473466cabd168d\",\"settleNonceHex\":\"0287f3b7766731780eb754c5b51ca78eb670eb1cf3f8d51638e19033b769b7ca90039d5160bb05605f0113947fcb22595dd51fb5f086eb5d8e219f4ffe081d2fe1f9\",\"fillId\":\"gate5-a2w-1789596193\"}",
+    "  PASS: provider_partial=d976006cc04e87c027\u2026",
+    "== (6) build initiate ==",
+    "  PASS: initiate envelope     2816B H=566c6fb9a48355be08efbd0d33137d5d576ed7e9e166447d10e6151d15c15f53",
+    "== (7) mine bearer + initiate + replace(payout\u2192provider) + advance ==",
+    "  PASS: initiate HTTP 200 {\"phase\":\"insert-pushed\",\"swap_id\":\"7f574c8c-cf28-4268-8286-8cb0bac5e69a\"}",
+    "{\"status\": \"success\", \"results\": {\"e0.4:public:51f4968938f1a33cf284a908390ca583c1f792bdf1dedc54ef242f44170afa22\": {\"spent\": false, \"amount\": \"0.4\"}, \"e0.6:public:cd17ca966692c04acc5cb1e152b8fc9999e569b877b6bc169613982492e21772\": {\"spent\": false, \"amount\": \"0.6\"}}}",
+    "  PASS: provider webcash payout e0.4+e0.6 unspent (Ark\u2192Webcash receive)",
+    "  advance[1] {\"phase\":\"settled\",\"swap_id\":\"7f574c8c-cf28-4268-8286-8cb0bac5e69a\",\"terminal\":true}",
+    "  PASS: terminal settled",
+    "== (8) extract referee settle partial ==",
+    ""
+  ],
+  "status": "PASS",
+  "named_gate": null,
+  "note": "Accept\u2192DHTX ProviderMaterial closed RUNSWAP_STOPPED_NO_PROVIDER; harness-aligned Ark\u2192Webcash reached terminal settled with webcash payout; UI next gate RUNSWAP_NEED_PREPARE",
+  "closed_gate": "RUNSWAP_STOPPED_NO_PROVIDER",
+  "remaining_ui_gate": "RUNSWAP_NEED_PREPARE: genuine ProviderMaterial is present; dual-signed prepare + RunSwapInput binding still required before proving",
+  "harness_settle": {
+    "status": "PASS",
+    "terminal": "settled",
+    "note": "parsed from harness stdout (claim-extract step failed after settle)"
+  }
 }

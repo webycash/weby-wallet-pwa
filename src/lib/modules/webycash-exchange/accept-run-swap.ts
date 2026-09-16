@@ -1,22 +1,26 @@
 /**
- * Step 7 orchestration: DHTX order → SendSwapAccept → (prepare) → runSwap.
+ * Step 7 orchestration: DHTX order → SendSwapAccept → await ProviderMaterial →
+ * (prepare) → runSwap.
  *
  * With `ark_enabled=false`, this path MUST reach the runSwap boundary and stop
  * at ARK_DISABLED — never invent a settled terminal phase. When Ark is enabled,
- * SendProviderMaterial requires genuine locked_ref + settle/refund hashes.
+ * the taker awaits genuine maker ProviderMaterial (locked_ref + settle/refund
+ * hashes) from the DHTX swap inbox before calling runSwap.
  */
 
 import { getExtroClient } from '$lib/extro';
-import { newRequestId } from '$lib/extro/commands';
+import { newRequestId, type WireProviderMaterial } from '$lib/extro/commands';
 import { getRuntimeConfig } from '$lib/extro/runtime-config';
 import {
 	GATE_ARK_DISABLED,
 	GATE_PROVIDER_MATERIAL_UNSUPPORTED,
+	GATE_RUNSWAP_NEED_PREPARE,
 	GATE_RUNSWAP_STOPPED_NO_PROVIDER,
 	NamedArkGateError
 } from '$lib/ark/named-gates';
 import { openTrade, runSwap, type RunSwapInput } from './trade-store.svelte';
 import { evaluatePair } from './pair-policy';
+import type { ProviderMaterial } from './swap-facts';
 import type { LimitOrder, Trade } from './types';
 
 const hexToBytes = (hex: string, length: number, name: string): Uint8Array => {
@@ -26,11 +30,16 @@ const hexToBytes = (hex: string, length: number, name: string): Uint8Array => {
 	return Uint8Array.from({ length }, (_, i) => Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16));
 };
 
+const bytesToHex = (bytes: Uint8Array): string =>
+	Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+
 export type AcceptRunSwapStage =
 	| 'idle'
 	| 'accepting'
 	| 'accepted'
 	| 'probing-provider'
+	| 'awaiting-provider'
+	| 'provider-ready'
 	| 'runswap-entered'
 	| 'stopped';
 
@@ -43,6 +52,8 @@ export interface AcceptRunSwapProgress {
 	trade?: Trade | null;
 	/** True only when executeSwap/runSwap was invoked (even if it then failed). */
 	reachedRunSwap: boolean;
+	/** Public ProviderMaterial received over DHTX (taker) when available. */
+	provider?: WireProviderMaterial | null;
 }
 
 export interface AcceptNetworkOrderResult {
@@ -124,13 +135,103 @@ export async function probeProviderMaterial(
 	return { ok: true };
 }
 
+/** Drain DHTX and return Accept + ProviderMaterial for an order (pull-on-drain). */
+export async function fetchSwapMsgs(orderIdHex: string): Promise<{
+	accept: unknown | null;
+	provider: WireProviderMaterial | null;
+}> {
+	const response = await getExtroClient().send({
+		request_id: newRequestId(),
+		op: {
+			kind: 'Dhtx',
+			cmd: { op: 'FetchSwapMsgs', order_id: hexToBytes(orderIdHex, 16, 'order id') }
+		}
+	});
+	if (response.kind === 'Err') throw new Error(`FetchSwapMsgs: ${response.message}`);
+	if (response.body.kind !== 'SwapMsgs') {
+		throw new Error(`FetchSwapMsgs: unexpected ${response.body.kind}`);
+	}
+	return {
+		accept: response.body.accept ?? null,
+		provider: response.body.provider ?? null
+	};
+}
+
+export type AwaitProviderMaterialOpts = {
+	/** Max wall-clock wait for maker ProviderMaterial (default 30s). */
+	timeoutMs?: number;
+	/** Poll interval (default 250ms). */
+	intervalMs?: number;
+};
+
+/** Poll the swap inbox until the maker's ProviderMaterial arrives (or timeout). */
+export async function awaitProviderMaterial(
+	orderIdHex: string,
+	opts: AwaitProviderMaterialOpts = {}
+): Promise<WireProviderMaterial | null> {
+	const timeoutMs = opts.timeoutMs ?? 30_000;
+	const intervalMs = opts.intervalMs ?? 250;
+	const deadline = Date.now() + timeoutMs;
+	while (Date.now() < deadline) {
+		const { provider } = await fetchSwapMsgs(orderIdHex);
+		if (provider?.locked_ref && provider.tx_settle_hash_hex && provider.tx_refund_hash_hex) {
+			return provider;
+		}
+		await new Promise((r) => setTimeout(r, intervalMs));
+	}
+	return null;
+}
+
+/**
+ * Convert wire ProviderMaterial (+ optional conditional payload) into the
+ * runSwap ProviderMaterial shape. Fails closed on placeholder locked_ref/hashes.
+ */
+export function providerMaterialFromWire(
+	wire: WireProviderMaterial,
+	conditionalPayload: Uint8Array
+): ProviderMaterial {
+	const locked = wire.locked_ref.trim();
+	if (!/^([0-9a-f]{64}):(\d+)$/i.test(locked) || /^v+:/i.test(locked)) {
+		throw new Error('provider locked_ref must be a real Ark VTXO outpoint');
+	}
+	const settle = wire.tx_settle_hash_hex.toLowerCase();
+	const refund = wire.tx_refund_hash_hex.toLowerCase();
+	if (!/^[0-9a-f]{64}$/.test(settle) || !/^[0-9a-f]{64}$/.test(refund)) {
+		throw new Error('provider settle/refund hashes must be 32-byte hex');
+	}
+	if (settle === 'ab'.repeat(32) || refund === 'cf'.repeat(32) || settle === refund) {
+		throw new Error('provider settle/refund hashes reject placeholders / XOR collision');
+	}
+	if (!(conditionalPayload instanceof Uint8Array) || conditionalPayload.length !== 128) {
+		throw new Error('conditional_payload must be exactly 128 bytes');
+	}
+	return {
+		musig2_pubkey: wire.provider_musig2_pubkey.toLowerCase(),
+		settle_nonce: wire.settle_nonce_pub.toLowerCase(),
+		refund_nonce: wire.refund_nonce_pub.toLowerCase(),
+		provider_fp: bytesToHex(wire.provider_fp),
+		provider_pgp_pubkey: bytesToHex(wire.provider_pgp_pubkey),
+		provider_cancel_pubkey_hex: wire.provider_cancel_pubkey_hex.toLowerCase(),
+		locked_ref: locked.toLowerCase(),
+		tx_settle_hash_hex: settle,
+		tx_refund_hash_hex: refund,
+		conditional_payload: conditionalPayload.slice()
+	};
+}
+
 export type AttemptAcceptRunSwapInput = {
 	order: LimitOrder;
 	/** Optional full runSwap input once ProviderMaterial + prepare exist. */
 	runSwapInput?: RunSwapInput;
 	takerFingerprintHex?: string;
-	/** Genuine Ark funding refs required to pass SendProviderMaterial. */
+	/** Genuine Ark funding refs required to pass SendProviderMaterial (maker). */
 	providerFunding?: ProbeProviderMaterialFunding;
+	/**
+	 * When true (default if ark_enabled and no runSwapInput/providerFunding),
+	 * poll DHTX for maker ProviderMaterial after Accept.
+	 */
+	awaitProvider?: boolean;
+	awaitProviderOpts?: AwaitProviderMaterialOpts;
 	slot?: number;
 	onProgress?: (p: AcceptRunSwapProgress) => void;
 };
@@ -142,13 +243,23 @@ export type AttemptAcceptRunSwapInput = {
 export async function attemptAcceptAndRunSwap(
 	input: AttemptAcceptRunSwapInput
 ): Promise<AcceptRunSwapProgress> {
-	const { order, runSwapInput, takerFingerprintHex, providerFunding, slot = 0, onProgress } = input;
+	const {
+		order,
+		runSwapInput,
+		takerFingerprintHex,
+		providerFunding,
+		awaitProvider,
+		awaitProviderOpts,
+		slot = 0,
+		onProgress
+	} = input;
 	const emit = (p: AcceptRunSwapProgress) => onProgress?.(p);
 
 	let progress: AcceptRunSwapProgress = {
 		stage: 'accepting',
 		orderId: order.id,
-		reachedRunSwap: false
+		reachedRunSwap: false,
+		provider: null
 	};
 	emit(progress);
 
@@ -180,7 +291,8 @@ export async function attemptAcceptAndRunSwap(
 				gate: GATE_ARK_DISABLED,
 				trade,
 				reachedRunSwap: true,
-				error: GATE_ARK_DISABLED
+				error: GATE_ARK_DISABLED,
+				provider: null
 			};
 			if (boundary.gate && runSwapInput) {
 				progress.gate = boundary.gate;
@@ -194,7 +306,8 @@ export async function attemptAcceptAndRunSwap(
 		progress = { ...progress, stage: 'accepted' };
 		emit(progress);
 
-		if (takerFingerprintHex) {
+		// Maker path: push genuine funding refs as ProviderMaterial.
+		if (takerFingerprintHex && providerFunding) {
 			progress = { ...progress, stage: 'probing-provider' };
 			emit(progress);
 			const probe = await probeProviderMaterial(order, takerFingerprintHex, slot, providerFunding);
@@ -204,14 +317,60 @@ export async function attemptAcceptAndRunSwap(
 					orderId: order.id,
 					gate: probe.gate,
 					reachedRunSwap: false,
-					error: probe.message
+					error: probe.message,
+					provider: null
 				};
 				emit(progress);
 				return progress;
 			}
 		}
 
-		return await attemptRunSwapBoundary(runSwapInput, order.id, onProgress);
+		// Taker path: await maker ProviderMaterial from DHTX inbox.
+		const shouldAwait =
+			awaitProvider === true ||
+			(awaitProvider !== false && !runSwapInput && !providerFunding);
+		let wireProvider: WireProviderMaterial | null = null;
+		if (shouldAwait || (runSwapInput && awaitProvider !== false)) {
+			progress = { ...progress, stage: 'awaiting-provider' };
+			emit(progress);
+			wireProvider = await awaitProviderMaterial(order.id, awaitProviderOpts);
+			progress = {
+				...progress,
+				stage: wireProvider ? 'provider-ready' : progress.stage,
+				provider: wireProvider
+			};
+			emit(progress);
+		}
+
+		if (runSwapInput) {
+			// If caller supplied RunSwapInput, prefer DHTX provider locked_ref when present
+			// (fail closed if it disagrees with a non-matching input provider).
+			if (wireProvider) {
+				const inputLocked = runSwapInput.provider?.locked_ref?.toLowerCase?.();
+				const wireLocked = wireProvider.locked_ref.toLowerCase();
+				if (inputLocked && inputLocked !== wireLocked) {
+					throw new Error(
+						`ProviderMaterial locked_ref mismatch: DHTX=${wireLocked} runSwapInput=${inputLocked}`
+					);
+				}
+			}
+			return await attemptRunSwapBoundary(runSwapInput, order.id, onProgress, wireProvider);
+		}
+
+		if (wireProvider) {
+			progress = {
+				stage: 'stopped',
+				orderId: order.id,
+				gate: GATE_RUNSWAP_NEED_PREPARE,
+				reachedRunSwap: true,
+				error: GATE_RUNSWAP_NEED_PREPARE,
+				provider: wireProvider
+			};
+			emit(progress);
+			return progress;
+		}
+
+		return await attemptRunSwapBoundary(undefined, order.id, onProgress, null);
 	} catch (e) {
 		const error = e instanceof Error ? e.message : String(e);
 		const gate = e instanceof NamedArkGateError ? e.gate : error;
@@ -220,7 +379,8 @@ export async function attemptAcceptAndRunSwap(
 			orderId: order.id,
 			gate,
 			error,
-			reachedRunSwap: progress.reachedRunSwap
+			reachedRunSwap: progress.reachedRunSwap,
+			provider: progress.provider ?? null
 		};
 		emit(progress);
 		return progress;
@@ -230,34 +390,58 @@ export async function attemptAcceptAndRunSwap(
 /**
  * Explicit runSwap boundary. Without full prepare/ProviderMaterial inputs,
  * records that the UI reached the runner and stops at the named gate.
+ * When runSwapInput is supplied, NO_PROVIDER is never returned — failures
+ * surface the real runner/phase error instead.
  */
 export async function attemptRunSwapBoundary(
 	runSwapInput?: RunSwapInput,
 	orderId = '',
-	onProgress?: (p: AcceptRunSwapProgress) => void
+	onProgress?: (p: AcceptRunSwapProgress) => void,
+	provider: WireProviderMaterial | null = null
 ): Promise<AcceptRunSwapProgress> {
 	if (runSwapInput) {
 		onProgress?.({
 			stage: 'runswap-entered',
 			orderId: orderId || runSwapInput.order.id,
-			reachedRunSwap: true
-		});
-		const trade = await runSwap(runSwapInput);
-		return {
-			stage: trade?.phase === 'settled' ? 'runswap-entered' : 'stopped',
-			orderId: orderId || runSwapInput.order.id,
 			reachedRunSwap: true,
-			trade,
-			gate: trade?.phase === 'settled' ? undefined : GATE_RUNSWAP_STOPPED_NO_PROVIDER
-		};
+			provider
+		});
+		try {
+			const trade = await runSwap(runSwapInput);
+			const settled = trade?.phase === 'settled' || trade?.phase === 'completed';
+			const refunded = trade?.phase === 'refunded';
+			return {
+				stage: settled || refunded ? 'runswap-entered' : 'stopped',
+				orderId: orderId || runSwapInput.order.id,
+				reachedRunSwap: true,
+				trade,
+				provider,
+				gate: settled || refunded ? undefined : `RUNSWAP_PHASE_${trade?.phase ?? 'unknown'}`,
+				error: settled || refunded ? undefined : `runSwap ended in phase=${trade?.phase ?? 'null'}`
+			};
+		} catch (e) {
+			const error = e instanceof Error ? e.message : String(e);
+			const gate = e instanceof NamedArkGateError ? e.gate : `RUNSWAP_ERROR: ${error}`;
+			const stopped: AcceptRunSwapProgress = {
+				stage: 'stopped',
+				orderId: orderId || runSwapInput.order.id,
+				reachedRunSwap: true,
+				provider,
+				gate,
+				error
+			};
+			onProgress?.(stopped);
+			return stopped;
+		}
 	}
 
 	const stopped: AcceptRunSwapProgress = {
 		stage: 'stopped',
 		orderId,
 		reachedRunSwap: true,
-		gate: GATE_RUNSWAP_STOPPED_NO_PROVIDER,
-		error: GATE_RUNSWAP_STOPPED_NO_PROVIDER
+		provider,
+		gate: provider ? GATE_RUNSWAP_NEED_PREPARE : GATE_RUNSWAP_STOPPED_NO_PROVIDER,
+		error: provider ? GATE_RUNSWAP_NEED_PREPARE : GATE_RUNSWAP_STOPPED_NO_PROVIDER
 	};
 	onProgress?.(stopped);
 	return stopped;

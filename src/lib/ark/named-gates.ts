@@ -27,13 +27,18 @@ export const GATE_PREPARE_REQUIRES_ARK =
 export const GATE_RUNSWAP_STOPPED_NO_PROVIDER =
 	'RUNSWAP_STOPPED_NO_PROVIDER: UI reached runSwap/executeSwap boundary; stopped before proving because genuine ProviderMaterial is unavailable';
 
+/** ProviderMaterial arrived (DHTX) but prepare/runSwap inputs are still incomplete. */
+export const GATE_RUNSWAP_NEED_PREPARE =
+	'RUNSWAP_NEED_PREPARE: genuine ProviderMaterial is present; dual-signed prepare + RunSwapInput binding still required before proving';
+
 export type NamedArkGate =
 	| typeof GATE_ARK_DISABLED
 	| typeof GATE_PROVIDER_MATERIAL_UNSUPPORTED
 	| typeof GATE_SETTLE_SIGNER_PENDING
 	| typeof GATE_REFUND_SIGNER_PENDING
 	| typeof GATE_PREPARE_REQUIRES_ARK
-	| typeof GATE_RUNSWAP_STOPPED_NO_PROVIDER;
+	| typeof GATE_RUNSWAP_STOPPED_NO_PROVIDER
+	| typeof GATE_RUNSWAP_NEED_PREPARE;
 
 export class NamedArkGateError extends Error {
 	readonly gate: string;
