@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { getNetwork } from '$lib/stores/network.svelte';
 	import { getWasm } from '$lib/core/wasm';
+	import { getRuntimeConfig } from '$lib/extro/runtime-config';
+	import { resolveWebcashWasmNetwork } from '$lib/core/webcash-routing';
 	import { ShieldCheck } from '@lucide/svelte';
 
 	let input = $state('');
@@ -16,7 +17,7 @@
 		result = null;
 		try {
 			const wasm = await getWasm();
-			const responseJson = await wasm.verify_webcash(getNetwork(), trimmed);
+			const responseJson = await wasm.verify_webcash(resolveWebcashWasmNetwork(getRuntimeConfig()), trimmed);
 			const response = JSON.parse(responseJson);
 			if (response.spent === true) result = 'spent';
 			else if (response.spent === false) result = 'valid';

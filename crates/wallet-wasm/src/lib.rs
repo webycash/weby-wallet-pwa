@@ -15,8 +15,23 @@ use std::cell::RefCell;
 use std::str::FromStr;
 
 fn e(err: impl std::fmt::Display) -> JsError { JsError::new(&err.to_string()) }
-fn net(s: &str) -> NetworkMode { if s == "testnet" { NetworkMode::Testnet } else { NetworkMode::Production } }
-fn w(s: &str, n: &str) -> Result<Wallet, JsError> { Wallet::from_json(s, net(n)).map_err(e) }
+/// Resolve the Webcash server. Legacy enums remain for older callers; any
+/// `http(s)://` value is treated as `NetworkMode::Custom` so the configured
+/// runtime URL (e.g. https://dev.weby.cash/api/webcash) is not remapped to
+/// production/testnet hosts inside webylib.
+fn net(s: &str) -> Result<NetworkMode, JsError> {
+    let trimmed = s.trim().trim_end_matches('/');
+    if trimmed == "testnet" {
+        Ok(NetworkMode::Testnet)
+    } else if trimmed == "production" {
+        Ok(NetworkMode::Production)
+    } else if trimmed.starts_with("https://") || trimmed.starts_with("http://") {
+        Ok(NetworkMode::Custom(trimmed.to_string()))
+    } else {
+        Err(JsError::new(&format!("unsupported_webcash_network:{s}")))
+    }
+}
+fn w(s: &str, n: &str) -> Result<Wallet, JsError> { Wallet::from_json(s, net(n)?).map_err(e) }
 fn core(s: &str) -> Result<WalletCore, JsError> { Ok(WalletCore::new(Box::new(MemHarmoniiStore::from_json(s).map_err(e)?))) }
 fn save(c: &WalletCore) -> Result<String, JsError> { c.store().as_any().downcast_ref::<MemHarmoniiStore>().ok_or_else(|| JsError::new("bad store"))?.to_json().map_err(e) }
 
@@ -28,14 +43,14 @@ pub fn init_panic_hook() { console_error_panic_hook::set_once(); }
 #[wasm_bindgen]
 pub async fn create_wallet(network: &str, mnemonic_words: Option<String>) -> Result<String, JsError> {
     let kc = match mnemonic_words { Some(ref w) => HdKeychain::from_mnemonic_words(w), None => HdKeychain::generate_new() }.map_err(e)?;
-    let wl = Wallet::new_memory(net(network)).map_err(e)?;
+    let wl = Wallet::new_memory(net(network)?).map_err(e)?;
     wl.store_master_secret(&kc.derive_slot_hex("webcash", 0).map_err(e)?).await.map_err(e)?;
     Ok(serde_json::to_string(&serde_json::json!({"state": wl.to_json().map_err(e)?, "mnemonic": kc.mnemonic_words(), "master_secret": kc.derive_slot_hex("webcash",0).map_err(e)?})).map_err(e)?)
 }
 
 #[wasm_bindgen]
 pub async fn create_roaming_wallet(network: &str, master_secret_hex: &str, webcash_secrets_json: &str, depths_json: &str) -> Result<String, JsError> {
-    let wl = Wallet::new_memory(net(network)).map_err(e)?;
+    let wl = Wallet::new_memory(net(network)?).map_err(e)?;
     wl.store_master_secret(master_secret_hex).await.map_err(e)?;
     let secrets: Vec<String> = serde_json::from_str(webcash_secrets_json).map_err(e)?;
     for s in &secrets { wl.store_directly(SecretWebcash::parse(s).map_err(e)?).await.map_err(e)?; }
@@ -106,7 +121,7 @@ pub async fn recover_wallet(s: &str, n: &str, gap: usize) -> Result<String, JsEr
 pub async fn verify_webcash(n: &str, wc: &str) -> Result<String, JsError> {
     use harmoniis_wallet::webylib::server::{ServerClient, ServerConfig};
     let parsed = SecretWebcash::parse(wc).map_err(e)?; let pub_wc = parsed.to_public();
-    let client = ServerClient::with_config(ServerConfig { network: net(n), timeout_seconds: 30 }).map_err(e)?;
+    let client = ServerClient::with_config(ServerConfig { network: net(n)?, timeout_seconds: 30 }).map_err(e)?;
     let r = client.health_check(std::slice::from_ref(&pub_wc)).await.map_err(e)?;
     let hr = r.results.values().next();
     Ok(serde_json::to_string(&serde_json::json!({"spent": hr.and_then(|h| h.spent), "amount": hr.and_then(|h| h.amount.clone())})).map_err(e)?)
@@ -121,7 +136,7 @@ pub fn export_snapshot(s: &str, n: &str) -> Result<String, JsError> { serde_json
 #[wasm_bindgen]
 pub async fn scan_webcash_slots(m: &str, network: &str, max_slots: u32, gap_limit: usize) -> Result<String, JsError> {
     let c = core(m)?;
-    let result = c.scan_webcash_slots(net(network), max_slots, gap_limit).await.map_err(e)?;
+    let result = c.scan_webcash_slots(net(network)?, max_slots, gap_limit).await.map_err(e)?;
     let master_updated = save(&c)?;
     Ok(serde_json::to_string(&serde_json::json!({"master_state": master_updated, "wallets": result.wallets, "total_recovered": result.total_recovered})).map_err(e)?)
 }
@@ -186,7 +201,7 @@ pub fn mnemonic_from_hex(hex: &str) -> Result<String, JsError> { Ok(HdKeychain::
 // ── Utilities (webylib types) ───────────────────────────────────
 
 #[wasm_bindgen]
-pub fn api_url(network: &str, endpoint: &str) -> String { net(network).endpoint_url(&format!("/api/v1/{endpoint}")) }
+pub fn api_url(network: &str, endpoint: &str) -> Result<String, JsError> { Ok(net(network)?.endpoint_url(&format!("/api/v1/{endpoint}"))) }
 
 #[wasm_bindgen]
 pub fn format_amount(wats: i64) -> String { Amount::from_wats(wats).to_string() }
@@ -234,7 +249,7 @@ pub fn gpu_available() -> bool { GPU_MINER.with(|c| c.borrow().is_some()) }
 pub async fn gpu_mine(s: &str, n: &str) -> Result<String, JsError> {
     let wl = w(s, n)?;
     let miner = GPU_MINER.with(|c| { let b = c.borrow(); Ok::<_,JsError>((b.as_ref().ok_or_else(|| JsError::new("GPU not initialized"))? as *const GpuMiner,)) })?;
-    let result = unsafe { &*miner.0 }.mine_and_claim(&wl, net(n), 8).await.map_err(e)?;
+    let result = unsafe { &*miner.0 }.mine_and_claim(&wl, net(n)?, 8).await.map_err(e)?;
     serde_json::to_string(&result).map_err(e)
 }
 

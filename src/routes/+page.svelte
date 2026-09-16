@@ -9,15 +9,26 @@
 	import InstallPrompt from '$lib/components/wallet/InstallPrompt.svelte';
 	import Loader from '$lib/components/ui/Loader.svelte';
 	import { licenseAccepted, walletExists, encryptionType, acceptLicense, markWalletCreated } from '$lib/stores/settings.svelte';
-	import { setNetwork } from '$lib/stores/network.svelte';
+	import { setNetwork, allowedNetwork } from '$lib/stores/network.svelte';
 	import { setupWallet, insertWebcash, resetDb } from '$lib/stores/wallet.svelte';
 	import { parseMigrationBundle, importMigrationBundle, readClipboardBundle, clearClipboard, type MigrationBundle } from '$lib/core/migration';
+	import { seedExtroWallet, resetExtroSeed } from '$lib/extro/seed';
+	import { extroConnection } from '$lib/extro/connection';
+	import { getMnemonic } from '$lib/core/persistence';
 	import type { NetworkMode } from '$lib/core/types';
 
 	let unlocked = $state(encryptionType() === 'none');
+
+	// When the PWA is unlocked, slave the bundled extro-node wallet's lock state
+	// to it: Import the canonical mnemonic so DeriveFamilyHandle (receive
+	// addresses) and the address-deriving rail balances work for the session.
+	// Covers both the LockScreen path and the no-encryption auto-unlock above.
+	$effect(() => {
+		if (browser && unlocked) void seedExtroWallet(getMnemonic());
+	});
 	let installPrompt = $state<ReturnType<typeof InstallPrompt>>();
 	let pendingWebcash = $state('');
-	let pendingNetwork = $state<NetworkMode>('production');
+	let pendingNetwork = $state<NetworkMode>('testnet');
 	let pendingAmount = $state('');
 	let pendingMemo = $state('');
 	let receiving = $state(false);
@@ -58,7 +69,11 @@
 
 		if (wc) {
 			pendingWebcash = wc;
-			pendingNetwork = net === 'testnet' ? 'testnet' : 'production';
+			try {
+				pendingNetwork = allowedNetwork();
+			} catch {
+				pendingNetwork = net === 'production' ? 'production' : 'testnet';
+			}
 			pendingAmount = amt || '';
 			pendingMemo = memo || '';
 			// Don't clean URL yet — keep params until license accepted
@@ -190,6 +205,11 @@
 {:else if !unlocked}
 	<LockScreen onUnlock={() => { unlocked = true; }} />
 {:else}
-	<AppShell {pendingWebcash} onLock={() => { unlocked = false; }} onInstall={() => installPrompt?.show()} />
+	{#if $extroConnection.phase === 'error'}
+		<div class="fixed inset-x-3 top-3 z-[100] rounded-xl border border-destructive/30 bg-background/95 px-4 py-3 text-[12px] text-destructive shadow-lg backdrop-blur" role="alert">
+			Extro network unavailable: {$extroConnection.message}
+		</div>
+	{/if}
+	<AppShell {pendingWebcash} onLock={() => { resetExtroSeed(); unlocked = false; }} onInstall={() => installPrompt?.show()} />
 	<InstallPrompt bind:this={installPrompt} />
 {/if}
