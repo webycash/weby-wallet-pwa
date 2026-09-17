@@ -201,13 +201,13 @@ export function assetLabel(a: AssetClass): string {
 }
 
 
-/** Gate 6 Option A — RGB + Voucher exchange pairs are release-excluded. */
-export type PairReleaseExclusion = 'gate6-rgb-voucher' | 'pair-policy-blocked';
+/** Release exclusion reasons (pair-policy blocked only — RGB/voucher rails are webycash-server Workers). */
+export type PairReleaseExclusion = 'pair-policy-blocked';
 
 export type PairReleaseAvailability = {
 	available: boolean;
 	exclusion?: PairReleaseExclusion;
-	/** Honest UI copy — never claims RGB/voucher settlement works. */
+	/** Honest UI copy. RGB/voucher use webycash-server issuer-hosted rails (not full rgb-std/AluVM). */
 	message: string;
 };
 
@@ -215,9 +215,9 @@ const isRgbAsset = (a: AssetClass): boolean => a === 'Rgb20' || a === 'Rgb21';
 const isVoucherAsset = (a: AssetClass): boolean => a === 'Voucher';
 
 /**
- * Release-facing availability. Pair-policy may still *allow* RGB legs in the
- * abstract; this gate hides them from the product UI until RGB/voucher rails
- * are honestly ready. BitcoinArk↔Webcash remains the supported release pair.
+ * Release-facing availability. RGB/Voucher pairs that pair-policy allows are
+ * available against webycash-server Workers on Cloudflare (issuer-hosted bearer
+ * rails). We do not claim full rgb-std/AluVM client validation here.
  */
 export function pairReleaseAvailability(a: AssetClass, b: AssetClass): PairReleaseAvailability {
 	const verdict = evaluatePair(a, b);
@@ -230,10 +230,10 @@ export function pairReleaseAvailability(a: AssetClass, b: AssetClass): PairRelea
 	}
 	if (isRgbAsset(a) || isRgbAsset(b) || isVoucherAsset(a) || isVoucherAsset(b)) {
 		return {
-			available: false,
-			exclusion: 'gate6-rgb-voucher',
+			available: true,
 			message:
-				'Unavailable — RGB and Voucher exchange pairs are excluded from this release (Gate 6 Option A). No RGB/voucher settlement is claimed.'
+				verdict.label +
+				' — rail: webycash-server Worker (issuer-hosted bearer; not rgb-std/AluVM).'
 		};
 	}
 	return { available: true, message: verdict.label };

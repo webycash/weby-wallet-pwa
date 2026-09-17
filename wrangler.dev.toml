@@ -5,7 +5,7 @@ name = "weby-wallet-pwa-dev"
 main = "dev-worker.js"
 compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
-assets = { directory = "dev-deploy", binding = "ASSETS" }
+assets = { directory = "dev-deploy", binding = "ASSETS", run_worker_first = true }
 
 # Public, versioned release configuration served by dev-worker.js at
 # /wallet/runtime-config.json. Trust values are explicit; no PWA fallback is
@@ -26,13 +26,14 @@ PUBLIC_WEBCASH_SERVER_URL = "https://dev.weby.cash/api/webcash"
 PUBLIC_VOUCHER_SERVER_URL = "https://dev.weby.cash/api/voucher"
 PUBLIC_RGB_SERVER_URL = "https://dev.weby.cash/api/rgb"
 PUBLIC_RGB_COLLECTIBLE_SERVER_URL = "https://dev.weby.cash/api/rgb-collectible"
-PUBLIC_ARK_ENABLED = "false"
+# Default Arkade ASP (we do NOT operate it). Pins from GET https://signet.arkade.sh/v1/info
+PUBLIC_ARK_ENABLED = "true"
 PUBLIC_ARK_NETWORK = "signet"
-PUBLIC_ARK_ASP_URL = ""
-PUBLIC_ARK_SIGNER_PK_HEX = ""
-PUBLIC_ARK_INFO_DIGEST_HEX = ""
-PUBLIC_ARK_CHECKPOINT_TAPSCRIPT_HEX = ""
-PUBLIC_ARK_UNILATERAL_EXIT_DELAY = "0"
+PUBLIC_ARK_ASP_URL = "https://signet.arkade.sh"
+PUBLIC_ARK_SIGNER_PK_HEX = "8bf56160efc769112b361de4117b3c71b88ca16f1bb9f6ac7a2781929abc5e6a"
+PUBLIC_ARK_INFO_DIGEST_HEX = "557dae2225b5b4dd715bbfe3e8260e77929ea64ef070c7ed553bc496de8ea42f"
+PUBLIC_ARK_CHECKPOINT_TAPSCRIPT_HEX = "03a80040b275202697695adaf0635333d6240739de02feb3f6852e180c596b69a77536aadb7123ac"
+PUBLIC_ARK_UNILATERAL_EXIT_DELAY = "172544"
 PUBLIC_ZKP_PROFILE = "development-only"
 PUBLIC_ZKP_BEARER_VK_SHA256 = "ecd299b3326e682106a31a39decf1fb43c0d5b960eb40baa2975691f406f77c1"
 PUBLIC_ZKP_CONDITIONAL_VK_SHA256 = "8efdd75f738658f3da0308fac3cbf6912c1324e815d863548c7e82ba39d07f1d"

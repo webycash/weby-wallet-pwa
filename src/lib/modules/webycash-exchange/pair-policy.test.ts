@@ -106,24 +106,15 @@ describe('pair-policy: deny by default', () => {
 });
 
 
-describe('Gate 6 Option A: RGB/Voucher release exclusion', () => {
-	it('marks RGB pairs unavailable even when pair-policy allows', () => {
-		expect(evaluatePair('Rgb20', 'BitcoinArk').allowed).toBe(true);
-		const a = pairReleaseAvailability('Rgb20', 'BitcoinArk');
-		expect(a.available).toBe(false);
-		expect(a.exclusion).toBe('gate6-rgb-voucher');
-		expect(a.message.toLowerCase()).toContain('unavailable');
-		expect(a.message.toLowerCase()).not.toMatch(/settled|complete/);
-	});
-
-	it('marks Voucher↔Ark unavailable for release', () => {
+describe('RGB/Voucher release availability (webycash-server rails)', () => {
+	it('makes Voucher↔BitcoinArk available when pair-policy allows', () => {
 		const a = pairReleaseAvailability('Voucher', 'BitcoinArk');
-		expect(a.available).toBe(false);
-		expect(a.exclusion).toBe('gate6-rgb-voucher');
-	});
-
-	it('keeps BitcoinArk↔Webcash available', () => {
-		const a = pairReleaseAvailability('BitcoinArk', 'Webcash');
 		expect(a.available).toBe(true);
+		expect(a.message).toMatch(/webycash-server/);
+	});
+	it('makes Webcash↔Rgb20 available when pair-policy allows', () => {
+		const a = pairReleaseAvailability('Webcash', 'Rgb20');
+		expect(a.available).toBe(true);
+		expect(a.message).toMatch(/webycash-server/);
 	});
 });

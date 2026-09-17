@@ -53,8 +53,7 @@
 						<span class="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium whitespace-nowrap">
 							{v.requiresReferee ? 'Referee' : 'Direct'}
 						</span>
-					{:else if rel.exclusion === 'gate6-rgb-voucher'}
-						<span class="text-[10px] px-2 py-0.5 rounded-full bg-warning/15 text-warning font-medium">Unavailable</span>
+					
 					{:else}
 						<span class="text-[10px] px-2 py-0.5 rounded-full bg-destructive/12 text-destructive font-medium">Blocked</span>
 					{/if}
@@ -63,6 +62,6 @@
 		{/each}
 	</div>
 	<p class="text-[11px] text-muted-foreground/70 px-1 pt-1">
-		Pairs are observed from the extro orderbook torrent. RGB/Voucher markets show Unavailable (Gate 6 Option A) — no RGB settlement is claimed. Tap an available market to trade.
+		Pairs are observed from the extro orderbook torrent. RGB/Voucher rails are webycash-server Workers on Cloudflare (issuer-hosted bearer). Tap a market to trade.
 	</p>
 </div>
