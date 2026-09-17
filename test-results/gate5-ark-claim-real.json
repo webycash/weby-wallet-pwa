@@ -1,0 +1,52 @@
+{
+  "gate": "ARK_CLAIM_REAL",
+  "status": "PASS",
+  "timestamp_europe_berlin": "2026-09-16T23:31:29+02:00",
+  "swap_id": "747b363d-2124-42a9-ae1e-acaa3cc56f95",
+  "locked_ref": "eeffbf76dd910fd357da1a22a2a0a8c01ffaa5eb5c3fb4f6b0b0f886cf16cd49:0",
+  "settle_sighash_hex": "c5955a9239bd2e7ff388e4222d755a2f55af8bf653761fdb755909e87066c7ef",
+  "asp_vtxo_ref": "asp:Regtest:eeffbf76dd910fd357da1a22a2a0a8c01ffaa5eb5c3fb4f6b0b0f886cf16cd49:0:Settle:Present:partial=00ab0a6df9ec504c",
+  "provider_enc_partial": {
+    "b64": "AAAAILMS0k1G6hC2N251HuvMMiCNM/j6ZDaW/nPE03KDGA/SAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+    "len": 128,
+    "framed_len_prefix": "00000020",
+    "is_placeholder": false
+  },
+  "referee_partial_sig": "00ab0a6df9ec504c06469f02183629ddecb86e67d6e0027c41682d3030c7e9fb",
+  "bip340_agg_sig_hex": "83fc649bb2c100dc8b9cf07159ba983e37eff01f7844b4418edaffa0cb01ba6fb3bddcbb40d661023db5142104025bfe79ec67623b16997ab52d00a2b3dff9cd",
+  "owner_q_hex": "097e336af7b38cef713979abbbea827a41570d461e4b16f19e12eb797064e056",
+  "claim_txid": "43bb35b07ed87118dc91b2d2f3fafe95f491ddadbdd117f29927610093392f4c",
+  "ark_balance": {
+    "before_total_sats": 100000,
+    "after_total_sats": 125000,
+    "delta_sats": 25000,
+    "note": "claim.json internal delta read 0 before vtxo list refresh; external balance probes show +25000"
+  },
+  "webcash_bearer": {
+    "before": {
+      "status": "success",
+      "results": {
+        "e1:public:de33731a22146a4e24a8a89f9f97391a3bc6c3945cf5a6a4af0b4c474cd9203c": {
+          "spent": false,
+          "amount": "1"
+        }
+      }
+    },
+    "after": {
+      "status": "success",
+      "results": {
+        "e1:public:de33731a22146a4e24a8a89f9f97391a3bc6c3945cf5a6a4af0b4c474cd9203c": {
+          "spent": true,
+          "amount": null
+        }
+      }
+    }
+  },
+  "fixes": [
+    "referee orchestrator hex-decodes tx_settle/refund hash before MuSig2 partial_sign",
+    "claim_two_of_two signs ASP-returned checkpoints with local 2-of-2 MuSig2"
+  ],
+  "asp_digest": "3c8c619f7c512d6d070ab4377d5781d11c78d6a73796b9a70dea7d59c37bc07d",
+  "unilateral_exit_delay": 512,
+  "edge_release": "gate5-ark-claim-real-v1"
+}

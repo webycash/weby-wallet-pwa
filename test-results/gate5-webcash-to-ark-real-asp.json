@@ -1,0 +1,48 @@
+{
+  "gate": "GATE5_WEBCASH_TO_ARK_REAL_ASP",
+  "result": "PASS_REAL_ASP_PRESENT",
+  "timestamp": "2026-09-16T20:43:15Z",
+  "swap_id": "91ca63ad-b3ac-4037-a5cd-66c6f0c2b355",
+  "status": "settled",
+  "locked_output_ref": "5f2282fe9484a69cf83c9792ada3608da2e016119deb9f2730841d4808abf718:0",
+  "gate3_locked_ref": "5f2282fe9484a69cf83c9792ada3608da2e016119deb9f2730841d4808abf718:0",
+  "webcash_before": {
+    "status": "success",
+    "results": {
+      "e1:public:f4931522dcd5f92fb39bba0e5dae0b80c6c75fb7e60db73fb5d48b42b7ad9db3": {
+        "spent": false,
+        "amount": "1"
+      }
+    }
+  },
+  "webcash_after": {
+    "status": "success",
+    "results": {
+      "e1:public:f4931522dcd5f92fb39bba0e5dae0b80c6c75fb7e60db73fb5d48b42b7ad9db3": {
+        "spent": true,
+        "amount": null
+      }
+    }
+  },
+  "release": {
+    "kind": "release-settle",
+    "payload_hash_hex": "e4082f2047d24dcf0dd2f27065bcd912874b4b41e4ce99cc43d8e7ed3ff8c746",
+    "signature_hex": "2b84e83705d150496c3c6d970fc2a0f3e0ac0694c477dc29f141868867ab2701919773cafe4027889b2df90d7c53feb5ad7a4977b844be9764db6055cb297c06",
+    "payload": {
+      "asp_vtxo_ref": "asp:Regtest:5f2282fe9484a69cf83c9792ada3608da2e016119deb9f2730841d4808abf718:0:Settle:Present:partial=cc621276913959f4",
+      "provider_enc_partial_sig_b64": "AAAAMjxib2IncyBhcmsgc2V0dGxlIHBhcnRpYWwtc2lnLCBlbmNyeXB0ZWQgdG8gYWxpY2U+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+      "referee_partial_sig": "cc621276913959f46f2dacf2f7ce3943c39b9fec3899d3b34a4bfa8755f4050e"
+    }
+  },
+  "asp_real": true,
+  "provider_enc_partial_placeholder": true,
+  "referee_edge_release": "gate5-ark-asp-real-v1",
+  "cf_ark_enabled": false,
+  "named_gates": {
+    "ARK_ASP_FEATURE": "CLOSED",
+    "ARK_CLAIM_REAL": "OPEN",
+    "ARK_TO_WEBCASH": "OPEN",
+    "TWO_BROWSER_RUNSWAP": "OPEN",
+    "CF_ARK_ENABLED": "FORBIDDEN_FALSE"
+  }
+}

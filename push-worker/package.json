@@ -1,0 +1,13 @@
+{
+  "name": "webycash-push-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "weby.cash Web Push dispatch Worker (VAPID, web-push, D1) — dev.weby.cash/api/push/*",
+  "dependencies": {
+    "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}
