@@ -2,8 +2,16 @@
 	import { setupWallet, setupFromMnemonic, importWalletSnapshot, importFullBackup,
 		scanDeterministicSlots, resetDb, exportWalletSnapshot } from '$lib/stores/wallet.svelte';
 	import { markWalletCreated, setEncryptionType, type EncryptionType } from '$lib/stores/settings.svelte';
-	import { setNetwork, getNetwork } from '$lib/stores/network.svelte';
-	import { isWebAuthnAvailable, encryptWithPasskey, encryptWithPassword } from '$lib/core/encryption';
+	import { setNetwork, allowedNetwork } from '$lib/stores/network.svelte';
+	import { isWebAuthnAvailable } from '$lib/core/encryption';
+	import {
+		assertEncryptedWalletBlob,
+		buildCustodyVault,
+		encryptCustodyVaultWithPasskey,
+		encryptCustodyVaultWithPassword,
+		setSessionPassword
+	} from '$lib/core/custody';
+	import * as Persistence from '$lib/core/persistence';
 	import type { WalletSnapshot } from '$lib/core/types';
 	import { Plus, KeyRound, Upload, Lock, Fingerprint, ShieldOff, ScanLine, ClipboardPaste, Clipboard } from '@lucide/svelte';
 	import Loader from '$lib/components/ui/Loader.svelte';
@@ -111,19 +119,12 @@
 	let scanProgress = $state('');
 
 	const scanBothNetworks = async () => {
-		const original = getNetwork();
-		// Scan production
-		scanProgress = 'Scanning mainnet...';
-		setNetwork('production');
+		// Fail closed: only scan the network permitted by runtime deployment.
+		const permitted = allowedNetwork();
+		scanProgress = permitted === 'production' ? 'Scanning mainnet...' : 'Scanning testnet...';
+		setNetwork(permitted);
 		resetDb();
 		await scanDeterministicSlots(10, 20);
-		// Scan testnet
-		scanProgress = 'Scanning testnet...';
-		setNetwork('testnet');
-		resetDb();
-		await scanDeterministicSlots(10, 20);
-		// Restore original network
-		setNetwork(original);
 		resetDb();
 		scanProgress = '';
 	};
@@ -202,11 +203,16 @@
 		encLoading = true;
 
 		try {
+			const snapshot = await exportWalletSnapshot();
+			const mnemonic = Persistence.getMnemonic();
+			if (!mnemonic) throw new Error('custody_vault_missing_mnemonic');
+			const vault = buildCustodyVault(mnemonic, snapshot);
 			if (selectedEncryption === 'passkey') {
-				const snapshot = await exportWalletSnapshot();
-				const result = await encryptWithPasskey(snapshot);
+				const result = await encryptCustodyVaultWithPasskey(vault);
+				assertEncryptedWalletBlob(result.encrypted);
 				localStorage.setItem('weby_encrypted_wallet', result.encrypted);
 				localStorage.setItem('weby_passkey_credential', result.credentialId);
+				Persistence.clearMnemonic();
 			} else if (selectedEncryption === 'password') {
 				if (!encPassword || encPassword !== encPasswordConfirm) {
 					encError = 'Passwords do not match';
@@ -218,9 +224,11 @@
 					encLoading = false;
 					return;
 				}
-				const snapshot = await exportWalletSnapshot();
-				const encrypted = await encryptWithPassword(snapshot, encPassword);
+				const encrypted = await encryptCustodyVaultWithPassword(vault, encPassword);
+				assertEncryptedWalletBlob(encrypted);
 				localStorage.setItem('weby_encrypted_wallet', encrypted);
+				setSessionPassword(encPassword);
+				Persistence.clearMnemonic();
 			}
 
 			setEncryptionType(selectedEncryption);

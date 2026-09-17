@@ -8,6 +8,12 @@ const config = {
 		}),
 		paths: {
 			base: process.env.BASE_PATH || ''
+		},
+		alias: {
+			// Release-pinned extro-node WASM. Mirrors the vite.config $node
+			// alias so svelte-check resolves the bundled-adapter import.
+			$node: 'src/lib/node/pkg',
+			'$node/*': 'src/lib/node/pkg/*'
 		}
 	}
 };
