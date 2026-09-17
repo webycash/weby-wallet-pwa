@@ -189,7 +189,17 @@ export type WalletCommand =
 	 * issuer-namespaced family (Voucher/RGB) — register it on a rail server to
 	 * become a recognized issuer. Public-only. */
 	| { op: 'DeriveIssuer'; family: WireFamily; slot: number }
-	| { op: 'Lock' };
+	| { op: 'Lock' }
+	/** Hub: mint CapToken for audience origin; pins H4 issuer. */
+	| {
+			op: 'MintCapToken';
+			slot: number;
+			aud: string;
+			scopes: string[];
+			ttl_secs: number;
+	  }
+	/** Hub: revoke previously minted CapToken (rkyv bytes). */
+	| { op: 'RevokeCapToken'; token: Uint8Array };
 
 // ── Expected-outcome selector (mirrors ExpectedOutcome) ──────────────────────
 
@@ -476,6 +486,15 @@ export type ErrorCode =
 export type ResponseBody =
 	| { kind: 'Empty' }
 	| { kind: 'Identity'; fingerprint_hex: string; verifying_key: Uint8Array; slot: number }
+	| {
+			kind: 'CapTokenIssued';
+			token: Uint8Array;
+			issuer_verifying_key: Uint8Array;
+			aud: string;
+			scopes: string[];
+			fingerprint_hex: string;
+			exp_unix: number;
+	  }
 	| { kind: 'FamilyHandle'; address: string; slot: number; index: number }
 	| { kind: 'Issuer'; fingerprint: string; pubkey_hex: string }
 	| { kind: 'Summaries'; families: FamilySummary[] }

@@ -4,6 +4,7 @@ import { configureExtro } from '$lib/extro';
 import { configuredAdapterMode, loadBundledExtroNode } from '$lib/extro/config';
 import { loadRuntimeConfig } from '$lib/extro/runtime-config';
 import { syncNetworkFromRuntimeConfig } from '$lib/stores/network.svelte';
+import { installHubBridgeListener, DEFAULT_HUB_BRIDGE_ORIGINS } from '$lib/extro/hub-bridge';
 
 export const ssr = false;
 export const prerender = true;
@@ -34,6 +35,12 @@ export const load = async ({ fetch }) => {
 		// inspecting the real bundled client). Remove before ship.
 		if ((import.meta.env.DEV || config.deployment === 'development') && client) {
 			(window as unknown as { __extro?: unknown }).__extro = client;
+			// GATE 7-CAP: hub CapToken postMessage listener (dev only).
+			const hubBridge = installHubBridgeListener(client, {
+				allowedOrigins: [...DEFAULT_HUB_BRIDGE_ORIGINS],
+			});
+			(window as unknown as { __extroHubBridge?: { stop: () => void } }).__extroHubBridge =
+				hubBridge;
 		}
 		// 'cross-domain' needs explicit crossDomain options wired by the caller;
 		// leave the facade's lazy mock default in place for it (pre-production).
