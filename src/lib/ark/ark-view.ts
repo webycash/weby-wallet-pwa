@@ -1,5 +1,5 @@
 /**
- * Read-only Bitcoin ARK view (network from the configured default Arkade ASP; mainnet arkade.computer on dev). The owner key is
+ * Read-only Bitcoin ARK view (signet, default Arkade ASP). The owner key is
  * derived INSIDE the WASM (`DeriveFamilyHandle` Ark → `ark:vtxo:<owner>:<asp>:<delay>`);
  * only the public x-only key reaches JS. From it we build the standard Arkade
  * VTXO + boarding scripts and query the ASP indexer / esplora. No spending here.
