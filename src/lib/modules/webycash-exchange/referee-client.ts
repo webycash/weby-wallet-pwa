@@ -41,6 +41,8 @@ export interface RefereePubkey {
 	ed25519_pubkey_hex: string;
 	musig2_pubshare_hex: string;
 	referee_version: string;
+	/** Protocol capabilities (referee ≥ 0e02d05), e.g. `settle-ceremony-v1`. Absent on older builds. */
+	capabilities?: string[];
 }
 
 /** A signed wallet ack POSTed to /v1/swap/:id/ack. Never carries a secret. */

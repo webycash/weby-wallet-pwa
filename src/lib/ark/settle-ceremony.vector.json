@@ -1,0 +1,12 @@
+{
+	"_comment": "Cross-implementation BIP327 vector produced by the Rust musig2 =0.2.4 crate (same as webycash-referee / extro-node) with TEST-ONLY keys (referee sk 0x11*32, provider sk 0x22*32). Key order [referee, provider].",
+	"referee_pubkey_hex": "034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa",
+	"provider_pubkey_hex": "02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27",
+	"referee_nonce_hex": "0264f69dfcf2015461194ba26ca86e8d6af9c6b0b6c28815a44e904c7de921022b02493a4e3bb4e0841d1d8562bee630d03da230c4b0cd5a5b8b9a16f2de2c0d9c40",
+	"provider_nonce_hex": "021b61ea4207b9df7b04c267fa14199aa74b0467b15daf68330dc920d8467529c902fb53826a540fc902d099314134df48fb8e1e9ad72e544fda39931db3625523c2",
+	"sighash_hex": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+	"owner_q_xonly_hex": "76eaa6c77a7f2e4b89e733be05288b0f49918e7788084d983f2434048b532ad3",
+	"referee_partial_hex": "64fea0bd35308a8b4d8a3ec6b23801e9f4e8e3790710a143c443ba4905ec47dc",
+	"provider_partial_hex": "dc8d982effcdb059286cbbce8d1af5b59f8cd626f2369c6849745ad2778f985a",
+	"signature_hex": "85851fb2593c75771548691f5644b755e5cb662cee8833716f07c6e9acad7e6c418c38ec34fe3ae475f6fa953f52f7a0d9c6dcb949fe9d704de5b68ead459ef5"
+}

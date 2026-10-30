@@ -11,6 +11,16 @@
  * ProviderPartialSign); all fail closed while the wallet is locked. Nothing
  * here fabricates a terminal: with too little Ark balance the provider stops at
  * ARK_FUNDING_INSUFFICIENT and the seller at ARK_AWAITING_PROVIDER_FUNDING.
+ *
+ * Settle ceremony (fail closed): right after the contract is derived — BEFORE
+ * any funding — both roles require the pinned referee to advertise
+ * `settle-ceremony-v1` + `hex-sighash-v1` with the prepared MuSig2 pubshare, and
+ * KeyAgg([referee, provider]) to equal the contract owner key Q; an older
+ * referee stops at ARK_REFEREE_CEREMONY_UNAVAILABLE. After funding, the provider
+ * signs its settle partial in-WASM (only when a delivery channel exists) and the
+ * seller verifies both partials + aggregates under Q once the referee
+ * ReleaseSettle arrives; without that transport both stop at
+ * ARK_SETTLE_RELEASE_PENDING. Nothing here broadcasts.
  */
 import { getExtroClient } from '$lib/extro';
 import { getSelfIdentity } from '$lib/extro/self-identity';
@@ -20,9 +30,17 @@ import { loadArkOverview } from '$lib/ark/ark-view';
 import {
 	GATE_ARK_AWAITING_PROVIDER_FUNDING,
 	GATE_ARK_FUNDING_INSUFFICIENT,
-	GATE_SETTLE_SIGNER_PENDING,
+	GATE_SETTLE_RELEASE_PENDING,
 	NamedArkGateError
 } from '$lib/ark/named-gates';
+import { assertRefereeCeremony, type ReleaseSettle } from '$lib/ark/settle-ceremony';
+import {
+	assertOwnerKeyBinding,
+	providerSignSettle,
+	sellerAggregateSettle,
+	settleCeremonyInputs,
+	type ProviderPartialSigner
+} from '$lib/ark/settle-step';
 import { assertFundedLockedRef, resolveFundedLockedRef, type ArkIndexerReader } from '$lib/ark/funded-ref';
 import { fundingRefsFromTemplates } from '$lib/ark/provider-material';
 import type { VerifiedArkContractPlan } from '$lib/ark/swap-contract';
@@ -46,7 +64,8 @@ import {
 	countersignSwapPrepare,
 	fetchSwapPrepareInbox,
 	relaySwapPrepareSignature,
-	signSwapPrepare
+	signSwapPrepare,
+	verifySwapPreparedResponse
 } from './swap-prepare';
 import type { LimitOrder } from './types';
 
@@ -67,11 +86,15 @@ export type SwapPhase =
 	| 'prepared'
 	| 'awaiting-prepared'
 	| 'contract-derived'
+	| 'ceremony-ready'
 	| 'funding'
 	| 'funded'
 	| 'material-sent'
 	| 'awaiting-material'
 	| 'material-received'
+	| 'settle-partial-signed'
+	| 'settle-partial-delivered'
+	| 'settle-aggregated'
 	| 'gate'
 	| 'error';
 
@@ -83,6 +106,23 @@ export type SwapProgress = {
 	contractAddress?: string;
 	arkAmountSats?: string;
 	swapId?: string;
+	/** BIP340 settle signature under Q (seller, after aggregation; public). */
+	settleSignatureHex?: string;
+};
+
+/**
+ * Delivery of ceremony messages that are not yet carried by the default flow
+ * (two-proof initiate + encrypted provider partial). Absent → both roles stop
+ * at ARK_SETTLE_RELEASE_PENDING after the binding checks.
+ */
+export type SettleTransport = {
+	/** Provider: hand the self-verified settle partial to the referee/seller. */
+	deliverProviderPartial?: (ctx: { swapId: string; lockedRef: string; partialHex: string }) => Promise<void>;
+	/** Seller: the referee ReleaseSettle + decrypted provider partial, or null if not yet available. */
+	awaitReleaseSettle?: (ctx: {
+		swapId: string;
+		lockedRef: string;
+	}) => Promise<{ release: ReleaseSettle; providerPartialHex: string } | null>;
 };
 
 export type ProtocolOpts = {
@@ -91,7 +131,29 @@ export type ProtocolOpts = {
 	fundingWaitMs?: number;
 	intervalMs?: number;
 	onProgress?: (p: SwapProgress) => void;
+	settleTransport?: SettleTransport;
+	/** Test seam; defaults to the in-WASM ProviderPartialSign. */
+	providerPartialSigner?: ProviderPartialSigner;
 };
+
+/** Fail-closed ceremony handshake shared by both roles (runs before funding). */
+async function assertCeremonyReady(input: {
+	prepared: { refereeMusig2Pubshare: string };
+	providerMusig2PubkeyHex: string;
+	contract: ArkSwapContract;
+	facts: Partial<SwapProgress>;
+}): Promise<void> {
+	try {
+		await assertRefereeCeremony(refereeFromConfig().referee, input.prepared.refereeMusig2Pubshare);
+		assertOwnerKeyBinding({
+			refereePubkeyHex: input.prepared.refereeMusig2Pubshare,
+			providerPubkeyHex: input.providerMusig2PubkeyHex,
+			aggregateOwnerKey: input.contract.plan.aggregateOwnerKey
+		});
+	} catch (e) {
+		throw Object.assign(e as Error, { facts: input.facts });
+	}
+}
 
 const hexToBytes = (hex: string): Uint8Array => {
 	const clean = hex.startsWith('0x') ? hex.slice(2) : hex;
@@ -342,6 +404,20 @@ export async function runProviderSide(
 	};
 	emit({ phase: 'contract-derived', message: 'referee-verified 2-of-2 contract derived', ...facts });
 
+	const prepared = await verifySwapPreparedResponse({
+		signedResponse,
+		refereeVk,
+		expectedRequestCommitment: countersigned.requestCommitment,
+		idempotencyKey: terms.idempotency_key
+	});
+	await assertCeremonyReady({
+		prepared,
+		providerMusig2PubkeyHex: ownOffer.provider_musig2_pubkey,
+		contract,
+		facts
+	});
+	emit({ phase: 'ceremony-ready', message: 'referee serves settle-ceremony-v1; KeyAgg(referee, provider) = Q', ...facts });
+
 	const fresh = await loadArkOverview();
 	if (BigInt(fresh.offchainSats) < contract.plan.amountSats) {
 		throw Object.assign(
@@ -370,11 +446,45 @@ export async function runProviderSide(
 	const sent = await probeProviderMaterial(order, counterpartyFpHex, slot, refs);
 	if (!sent.ok) throw Object.assign(new NamedArkGateError(sent.gate), { facts });
 	emit({ phase: 'material-sent', message: `provider material sent for ${lockedRef}`, ...facts });
-	// Next: referee settle ceremony (referee nonce/partial) → WasmProviderCosignBackend.
-	throw Object.assign(
-		new NamedArkGateError(`${GATE_SETTLE_SIGNER_PENDING} (locked_ref=${lockedRef}, settle=${refs.txSettleHashHex})`),
-		{ facts }
-	);
+
+	// Settle ceremony: bind the published material (own key + settle nonce) and
+	// the referee's prepared pubshare/nonce to Q over the own settle sighash.
+	const ownMaterial = (await fetchSwapMsgs(order.id)).provider;
+	if (!ownMaterial || ownMaterial.locked_ref !== lockedRef) {
+		throw Object.assign(new Error('own provider material not recorded for the funded outpoint'), { facts });
+	}
+	let inputs;
+	try {
+		inputs = settleCeremonyInputs({
+			prepared,
+			material: ownMaterial,
+			lockedRef,
+			settleHashHex: refs.txSettleHashHex,
+			aggregateOwnerKey: contract.plan.aggregateOwnerKey
+		});
+	} catch (e) {
+		throw Object.assign(e as Error, { facts });
+	}
+	const deliver = opts.settleTransport?.deliverProviderPartial;
+	if (!deliver) {
+		// No delivery channel: do NOT consume the single-use WASM settle nonce.
+		throw Object.assign(
+			new NamedArkGateError(`${GATE_SETTLE_RELEASE_PENDING} (locked_ref=${lockedRef}, settle=${refs.txSettleHashHex})`),
+			{ facts }
+		);
+	}
+	const partialHex = await providerSignSettle({
+		slot,
+		orderIdHex: order.id,
+		counterpartyFpHex,
+		inputs,
+		sign: opts.providerPartialSigner
+	}).catch((e) => {
+		throw Object.assign(e as Error, { facts });
+	});
+	emit({ phase: 'settle-partial-signed', message: 'provider settle partial signed in-WASM and self-verified', ...facts });
+	await deliver({ swapId: contract.plan.swapId, lockedRef, partialHex });
+	return emit({ phase: 'settle-partial-delivered', message: `settle partial delivered for ${lockedRef}`, ...facts });
 }
 
 async function arkIndexer(): Promise<ArkIndexerReader> {
@@ -489,6 +599,13 @@ export async function runBearerSellerSide(
 		swapId: contract.plan.swapId
 	};
 	emit({ phase: 'contract-derived', message: 'referee-verified 2-of-2 contract derived', ...facts });
+	await assertCeremonyReady({
+		prepared: verified,
+		providerMusig2PubkeyHex: offer.provider_musig2_pubkey,
+		contract,
+		facts
+	});
+	emit({ phase: 'ceremony-ready', message: 'referee serves settle-ceremony-v1; KeyAgg(referee, provider) = Q', ...facts });
 
 	emit({ phase: 'awaiting-material', message: 'waiting for the provider to fund the contract', ...facts });
 	const material = await poll(
@@ -515,10 +632,52 @@ export async function runBearerSellerSide(
 		message: `provider funded ${checked.lockedRef}; settle/refund hashes match own templates`,
 		...facts
 	});
-	throw Object.assign(
-		new NamedArkGateError(`${GATE_SETTLE_SIGNER_PENDING} (locked_ref=${checked.lockedRef}, settle=${checked.txSettleHashHex})`),
-		{ facts }
-	);
+	let inputs;
+	try {
+		inputs = settleCeremonyInputs({
+			prepared: verified,
+			material,
+			lockedRef: checked.lockedRef,
+			settleHashHex: checked.txSettleHashHex,
+			aggregateOwnerKey: contract.plan.aggregateOwnerKey
+		});
+	} catch (e) {
+		throw Object.assign(e as Error, { facts });
+	}
+	const awaitRelease = opts.settleTransport?.awaitReleaseSettle;
+	const delivered = awaitRelease
+		? await poll(
+				'awaiting referee ReleaseSettle',
+				() => awaitRelease({ swapId: contract.plan.swapId, lockedRef: checked.lockedRef }),
+				stepTimeoutMs,
+				intervalMs
+			).catch(() => null)
+		: null;
+	if (!delivered) {
+		throw Object.assign(
+			new NamedArkGateError(
+				`${GATE_SETTLE_RELEASE_PENDING} (locked_ref=${checked.lockedRef}, settle=${checked.txSettleHashHex})`
+			),
+			{ facts }
+		);
+	}
+	let settleSignatureHex: string;
+	try {
+		settleSignatureHex = sellerAggregateSettle({
+			inputs,
+			release: delivered.release,
+			providerPartialHex: delivered.providerPartialHex,
+			lockedRef: checked.lockedRef
+		});
+	} catch (e) {
+		throw Object.assign(e as Error, { facts });
+	}
+	return emit({
+		phase: 'settle-aggregated',
+		message: `settle signature aggregated and verified under Q for ${checked.lockedRef} (not broadcast)`,
+		settleSignatureHex,
+		...facts
+	});
 }
 
 /** Run whichever role this wallet holds; converts errors/gates into a terminal progress. */

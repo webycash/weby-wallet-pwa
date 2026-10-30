@@ -208,8 +208,32 @@ export async function submitAndVerifySwapPrepare(input: {
 	nowUnix?: number;
 }): Promise<VerifiedPreparedSwap> {
 	const expected = exactBytes(input.expectedRequestCommitment, 32, 'request commitment');
-	const idempotencyKey = exactBytes(input.idempotencyKey, 16, 'idempotency key');
+	exactBytes(input.idempotencyKey, 16, 'idempotency key');
 	const signedResponse = await input.referee.prepare(input.envelope);
+	return verifySwapPreparedResponse({
+		signedResponse,
+		refereeVk: input.refereeVk,
+		expectedRequestCommitment: expected,
+		idempotencyKey: input.idempotencyKey,
+		nowUnix: input.nowUnix
+	});
+}
+
+/**
+ * Open a referee-signed `PreparedSwap` (fresh from the referee or relayed over
+ * DHTX) inside extro-node against the pinned referee key + the exact request
+ * commitment, exposing its MuSig2 pubshare + session pub-nonces.
+ */
+export async function verifySwapPreparedResponse(input: {
+	signedResponse: Uint8Array;
+	refereeVk: Uint8Array;
+	expectedRequestCommitment: Uint8Array;
+	idempotencyKey: Uint8Array;
+	nowUnix?: number;
+}): Promise<VerifiedPreparedSwap> {
+	const expected = exactBytes(input.expectedRequestCommitment, 32, 'request commitment');
+	const idempotencyKey = exactBytes(input.idempotencyKey, 16, 'idempotency key');
+	const signedResponse = input.signedResponse;
 	const response = await getExtroClient().send({
 		request_id: newRequestId(),
 		op: {

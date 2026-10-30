@@ -39,10 +39,24 @@ export const GATE_ARK_FUNDING_INSUFFICIENT =
 export const GATE_ARK_AWAITING_PROVIDER_FUNDING =
 	'ARK_AWAITING_PROVIDER_FUNDING: referee-prepared contract derived; the provider has not published a funded locked_ref + settle/refund hashes yet';
 
+/** The configured referee cannot run the settle ceremony (old build / foreign pubshare / no partial). */
+export const GATE_REFEREE_CEREMONY_UNAVAILABLE =
+	'ARK_REFEREE_CEREMONY_UNAVAILABLE: the referee does not serve settle-ceremony-v1 for this swap; refusing to fund, sign or aggregate';
+
+/** A ceremony input, partial or aggregate failed verification. */
+export const GATE_SETTLE_CEREMONY_INVALID =
+	'ARK_SETTLE_CEREMONY_INVALID: a settle ceremony key, nonce, partial or aggregate failed verification; nothing was signed or broadcast past this point';
+
+/** Provider partial is signed + verified; the referee ReleaseSettle has not been delivered. */
+export const GATE_SETTLE_RELEASE_PENDING =
+	'ARK_SETTLE_RELEASE_PENDING: settle ceremony bound to the contract owner key Q; awaiting the referee ReleaseSettle (two-proof initiate + provider-partial delivery are not wired into this flow yet)';
+
 export type NamedArkGate =
 	| typeof GATE_ARK_FUNDING_INSUFFICIENT
 	| typeof GATE_ARK_AWAITING_PROVIDER_FUNDING
-
+	| typeof GATE_REFEREE_CEREMONY_UNAVAILABLE
+	| typeof GATE_SETTLE_CEREMONY_INVALID
+	| typeof GATE_SETTLE_RELEASE_PENDING
 	| typeof GATE_ARK_DISABLED
 	| typeof GATE_PROVIDER_MATERIAL_UNSUPPORTED
 	| typeof GATE_SETTLE_SIGNER_PENDING
