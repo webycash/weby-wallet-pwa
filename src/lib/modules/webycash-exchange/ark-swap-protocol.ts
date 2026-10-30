@@ -33,17 +33,22 @@ import {
 	GATE_SETTLE_RELEASE_PENDING,
 	NamedArkGateError
 } from '$lib/ark/named-gates';
-import { assertRefereeCeremony, type ReleaseSettle } from '$lib/ark/settle-ceremony';
+import { assertRefereeCeremony, verifyCeremonyPartial } from '$lib/ark/settle-ceremony';
 import {
 	assertOwnerKeyBinding,
+	providerAggregateRefund,
 	providerSignSettle,
+	refundCeremonyInputs,
 	sellerAggregateSettle,
 	settleCeremonyInputs,
 	type ProviderPartialSigner
 } from '$lib/ark/settle-step';
-import { assertFundedLockedRef, resolveFundedLockedRef, type ArkIndexerReader } from '$lib/ark/funded-ref';
-import { fundingRefsFromTemplates } from '$lib/ark/provider-material';
-import type { VerifiedArkContractPlan } from '$lib/ark/swap-contract';
+import {
+	assertFundedLockedRef,
+	resolveFundedLockedRef,
+	type ArkIndexerReader
+} from '$lib/ark/funded-ref';
+import { fundingRefsFromSpends, type ArkSpend } from '$lib/ark/settle-tx';
 import {
 	buildArkSwapContract,
 	deriveVerifiedArkContractPlan,
@@ -58,7 +63,9 @@ import {
 	PREPARE_MAX_TTL_SECS,
 	submitDualSignedPrepare
 } from './accept-prepare';
-import { fetchSwapMsgs, probeProviderMaterial } from './accept-run-swap';
+import { fetchSwapMsgs, probeProviderMaterial, providerMaterialFromWire } from './accept-run-swap';
+import { frameConditionalPayload, type SettleTransport } from './ark-settle-transport';
+import { bearerLegFromWallet, buildSwapInitiateFacts } from './swap-facts';
 import { HttpRefereeClient } from './referee-client';
 import {
 	countersignSwapPrepare,
@@ -95,6 +102,12 @@ export type SwapPhase =
 	| 'settle-partial-signed'
 	| 'settle-partial-delivered'
 	| 'settle-aggregated'
+	| 'initiating'
+	| 'initiated'
+	| 'bearer-claimed'
+	| 'settled'
+	| 'refund-aggregated'
+	| 'refunded'
 	| 'gate'
 	| 'error';
 
@@ -108,22 +121,18 @@ export type SwapProgress = {
 	swapId?: string;
 	/** BIP340 settle signature under Q (seller, after aggregation; public). */
 	settleSignatureHex?: string;
+	/** Ark txid of the broadcast settle (seller) / refund (provider) spend. */
+	arkTxid?: string;
+	/** Latest referee phase for the swap (after initiate). */
+	refereePhase?: string;
 };
 
 /**
- * Delivery of ceremony messages that are not yet carried by the default flow
- * (two-proof initiate + encrypted provider partial). Absent → both roles stop
- * at ARK_SETTLE_RELEASE_PENDING after the binding checks.
+ * Ceremony delivery (see ark-settle-transport.ts; `defaultSettleTransport()`
+ * wires DHTX + the pinned referee). Absent hooks → the role stops at
+ * ARK_SETTLE_RELEASE_PENDING after the binding checks.
  */
-export type SettleTransport = {
-	/** Provider: hand the self-verified settle partial to the referee/seller. */
-	deliverProviderPartial?: (ctx: { swapId: string; lockedRef: string; partialHex: string }) => Promise<void>;
-	/** Seller: the referee ReleaseSettle + decrypted provider partial, or null if not yet available. */
-	awaitReleaseSettle?: (ctx: {
-		swapId: string;
-		lockedRef: string;
-	}) => Promise<{ release: ReleaseSettle; providerPartialHex: string } | null>;
-};
+export type { SettleTransport };
 
 export type ProtocolOpts = {
 	slot?: number;
@@ -132,6 +141,8 @@ export type ProtocolOpts = {
 	intervalMs?: number;
 	onProgress?: (p: SwapProgress) => void;
 	settleTransport?: SettleTransport;
+	/** How long to wait for referee insert/release outcomes (default 10 min). */
+	settleWaitMs?: number;
 	/** Test seam; defaults to the in-WASM ProviderPartialSign. */
 	providerPartialSigner?: ProviderPartialSigner;
 };
@@ -442,8 +453,17 @@ export async function runProviderSide(
 	const lockedRef = await resolveFundedLockedRef(await arkIndexer(), contract, funded.arkTxId, {
 		intervalMs
 	});
-	const refs = await fundingRefsFromTemplates(contract.plan, lockedRef);
-	const sent = await probeProviderMaterial(order, counterpartyFpHex, slot, refs);
+	// Real Arkade spends: tx_settle/refund_hash = [checkpoint, ark] BIP341 sighash bundles.
+	const refs = fundingRefsFromSpends(
+		contract,
+		lockedRef,
+		getRuntimeConfig().ark_checkpoint_tapscript_hex
+	);
+	const sent = await probeProviderMaterial(order, counterpartyFpHex, slot, {
+		lockedRef: refs.lockedRef,
+		txSettleHashHex: refs.txSettleHashHex,
+		txRefundHashHex: refs.txRefundHashHex
+	});
 	if (!sent.ok) throw Object.assign(new NamedArkGateError(sent.gate), { facts });
 	emit({ phase: 'material-sent', message: `provider material sent for ${lockedRef}`, ...facts });
 
@@ -465,7 +485,8 @@ export async function runProviderSide(
 	} catch (e) {
 		throw Object.assign(e as Error, { facts });
 	}
-	const deliver = opts.settleTransport?.deliverProviderPartial;
+	const transport = opts.settleTransport ?? {};
+	const deliver = transport.deliverProviderPartial;
 	if (!deliver) {
 		// No delivery channel: do NOT consume the single-use WASM settle nonce.
 		throw Object.assign(
@@ -482,9 +503,131 @@ export async function runProviderSide(
 	}).catch((e) => {
 		throw Object.assign(e as Error, { facts });
 	});
-	emit({ phase: 'settle-partial-signed', message: 'provider settle partial signed in-WASM and self-verified', ...facts });
-	await deliver({ swapId: contract.plan.swapId, lockedRef, partialHex });
-	return emit({ phase: 'settle-partial-delivered', message: `settle partial delivered for ${lockedRef}`, ...facts });
+	emit({
+		phase: 'settle-partial-signed',
+		message: 'provider settle partial signed in-WASM and self-verified',
+		...facts
+	});
+	await deliver({
+		slot,
+		orderIdHex: order.id,
+		sellerFpHex: counterpartyFpHex,
+		sellerVkHex: terms.parties.bearer_seller_pgp_pubkey_hex.toLowerCase(),
+		swapId: contract.plan.swapId,
+		lockedRef,
+		partialHex
+	});
+	const deliveredP = emit({
+		phase: 'settle-partial-delivered',
+		message: `settle partial delivered for ${lockedRef}`,
+		...facts
+	});
+	const awaitOutcome = transport.awaitProviderOutcome;
+	if (!awaitOutcome) return deliveredP;
+
+	// Wait for the referee: the sealed bearer secret (insert-pull) or, on abort,
+	// a ReleaseRefund partial for the collaborative refund.
+	const outcome = await poll(
+		'awaiting referee insert / refund',
+		() => awaitOutcome({ slot, swapId: contract.plan.swapId, selfFpHex: me.fpHex }),
+		opts.settleWaitMs ?? 600_000,
+		intervalMs
+	).catch(() => null);
+	if (!outcome) {
+		throw Object.assign(
+			new NamedArkGateError(
+				`${GATE_SETTLE_RELEASE_PENDING} (awaiting referee insert, swap=${contract.plan.swapId})`
+			),
+			{ facts }
+		);
+	}
+	if (outcome.kind === 'insert') {
+		if (!transport.insertBearer) {
+			throw Object.assign(
+				new NamedArkGateError(`${GATE_SETTLE_RELEASE_PENDING} (no bearer insert hook)`),
+				{ facts }
+			);
+		}
+		await transport.insertBearer(outcome.webcash).catch((e) => {
+			throw Object.assign(
+				new Error(`bearer insert failed: ${e instanceof Error ? e.message : String(e)}`),
+				{ facts }
+			);
+		});
+		return emit({
+			phase: 'bearer-claimed',
+			message:
+				'bearer webcash opened in-WASM and inserted (H spent); the seller settles the Ark leg',
+			...facts
+		});
+	}
+	// Abort path: verify the referee refund partial, sign own refund partial,
+	// aggregate under Q and broadcast the refund to the provider destination.
+	let refundSigs: string;
+	try {
+		const refundInputs = refundCeremonyInputs({
+			prepared,
+			material: ownMaterial,
+			lockedRef,
+			refundHashHex: refs.txRefundHashHex,
+			aggregateOwnerKey: contract.plan.aggregateOwnerKey
+		});
+		refundSigs = await providerAggregateRefund({
+			slot,
+			orderIdHex: order.id,
+			counterpartyFpHex,
+			inputs: refundInputs,
+			refereePartialHex: outcome.refereePartialHex,
+			sign: opts.providerPartialSigner
+		});
+	} catch (e) {
+		throw Object.assign(e as Error, { facts });
+	}
+	emit({
+		phase: 'refund-aggregated',
+		message: `refund aggregated under Q for ${lockedRef}`,
+		...facts
+	});
+	return submitOrStop(transport, refs.refund, contract, refundSigs, 'refunded', emit, facts);
+}
+
+async function submitOrStop(
+	transport: SettleTransport,
+	spend: ArkSpend,
+	contract: ArkSwapContract,
+	aggregateSigsHex: string,
+	phase: 'settled' | 'refunded',
+	emit: (p: Omit<SwapProgress, 'role'>) => SwapProgress,
+	facts: Partial<SwapProgress>
+): Promise<SwapProgress> {
+	if (!transport.submitSpend) {
+		return emit({
+			phase: phase === 'settled' ? 'settle-aggregated' : 'refund-aggregated',
+			message: `${spend.kind} aggregated under Q for ${spend.lockedRef} (no submit hook; not broadcast)`,
+			settleSignatureHex: phase === 'settled' ? aggregateSigsHex : undefined,
+			...facts
+		});
+	}
+	let arkTxid: string;
+	try {
+		arkTxid = await transport.submitSpend({
+			spend,
+			qXonly: contract.plan.aggregateOwnerKey,
+			aggregateSigsHex
+		});
+	} catch (e) {
+		throw Object.assign(
+			new Error(`${spend.kind} submit failed: ${e instanceof Error ? e.message : String(e)}`),
+			{ facts }
+		);
+	}
+	return emit({
+		phase,
+		message: `${spend.kind} broadcast via the ASP: Ark tx ${arkTxid}`,
+		arkTxid,
+		settleSignatureHex: phase === 'settled' ? aggregateSigsHex : undefined,
+		...facts
+	});
 }
 
 async function arkIndexer(): Promise<ArkIndexerReader> {
@@ -494,20 +637,32 @@ async function arkIndexer(): Promise<ArkIndexerReader> {
 
 /**
  * Seller-side check of published provider material: the hashes must equal the
- * seller's OWN settle/refund templates over (verified plan, locked_ref).
+ * seller's OWN `[checkpoint, ark]` sighash bundles of the real settle/refund
+ * Arkade spends over (verified contract, locked_ref).
  */
-export async function verifyProviderMaterialAgainstPlan(
+export function verifyProviderMaterialAgainstPlan(
 	material: Pick<WireProviderMaterial, 'locked_ref' | 'tx_settle_hash_hex' | 'tx_refund_hash_hex'>,
-	plan: VerifiedArkContractPlan
-): Promise<{ lockedRef: string; txSettleHashHex: string; txRefundHashHex: string }> {
-	const own = await fundingRefsFromTemplates(plan, material.locked_ref);
+	contract: ArkSwapContract,
+	checkpointTapscriptHex: string = getRuntimeConfig().ark_checkpoint_tapscript_hex
+): {
+	lockedRef: string;
+	txSettleHashHex: string;
+	txRefundHashHex: string;
+	settle: ArkSpend;
+	refund: ArkSpend;
+} {
+	const own = fundingRefsFromSpends(contract, material.locked_ref, checkpointTapscriptHex);
 	if (material.tx_settle_hash_hex.toLowerCase() !== own.txSettleHashHex) {
-		throw new Error('provider settle template hash does not match the referee-verified plan');
+		throw new Error(
+			'provider settle sighash does not match the own settle spend over the verified contract'
+		);
 	}
 	if (material.tx_refund_hash_hex.toLowerCase() !== own.txRefundHashHex) {
-		throw new Error('provider refund template hash does not match the referee-verified plan');
+		throw new Error(
+			'provider refund sighash does not match the own refund spend over the verified contract'
+		);
 	}
-	return { lockedRef: own.lockedRef, txSettleHashHex: own.txSettleHashHex, txRefundHashHex: own.txRefundHashHex };
+	return own;
 }
 
 /** Bearer-seller side: wait for the provider offer, build + sign the terms, prepare. */
@@ -625,11 +780,16 @@ export async function runBearerSellerSide(
 			{ facts }
 		);
 	}
-	const checked = await verifyProviderMaterialAgainstPlan(material, contract.plan);
+	let checked: ReturnType<typeof verifyProviderMaterialAgainstPlan>;
+	try {
+		checked = verifyProviderMaterialAgainstPlan(material, contract);
+	} catch (e) {
+		throw Object.assign(e as Error, { facts });
+	}
 	await assertFundedLockedRef(await arkIndexer(), contract, checked.lockedRef);
 	emit({
 		phase: 'material-received',
-		message: `provider funded ${checked.lockedRef}; settle/refund hashes match own templates`,
+		message: `provider funded ${checked.lockedRef}; settle/refund sighashes match own Arkade spends`,
 		...facts
 	});
 	let inputs;
@@ -644,11 +804,120 @@ export async function runBearerSellerSide(
 	} catch (e) {
 		throw Object.assign(e as Error, { facts });
 	}
-	const awaitRelease = opts.settleTransport?.awaitReleaseSettle;
+	const transport = opts.settleTransport ?? {};
+	const settleWaitMs = opts.settleWaitMs ?? 600_000;
+	const swapId = contract.plan.swapId;
+
+	// Two-proof initiate: the provider's sealed settle partial becomes the
+	// conditional payload; the bearer secret is sealed to the provider.
+	if (transport.awaitProviderPartial && transport.sealBearerSecret && transport.initiate) {
+		const awaitPartial = transport.awaitProviderPartial;
+		const pp = await poll(
+			'awaiting provider settle partial',
+			() => awaitPartial({ slot, orderIdHex: order.id, swapId, lockedRef: checked.lockedRef }),
+			stepTimeoutMs,
+			intervalMs
+		).catch(() => null);
+		if (!pp) {
+			throw Object.assign(
+				new NamedArkGateError(
+					`${GATE_SETTLE_RELEASE_PENDING} (provider settle partial not delivered for ${checked.lockedRef})`
+				),
+				{ facts }
+			);
+		}
+		let initFacts;
+		let publicWebcash: string;
+		try {
+			verifyCeremonyPartial(inputs, 'provider', pp.partialHex);
+			const bearer = await bearerLegFromWallet(slot, 0, fillAmountRawFor(order));
+			publicWebcash = `e${bearer.bearerAmount}:public:${bytesToHex(bearer.publicTokenHash)}`;
+			const encSecretForProvider = await transport.sealBearerSecret({
+				slot,
+				publicTokenHash: bearer.publicTokenHash,
+				amount: bearer.bearerAmount,
+				providerVk: material.provider_pgp_pubkey,
+				swapId
+			});
+			initFacts = buildSwapInitiateFacts({
+				order,
+				bearer,
+				provider: providerMaterialFromWire(material, frameConditionalPayload(pp.sealed)),
+				bearerSeller: {
+					bearer_seller_fp: me.fpHex,
+					bearer_seller_pgp_pubkey: me.pgpHex,
+					bearer_seller_cancel_pubkey_hex: me.pgpHex
+				},
+				encSecretForProvider,
+				prepared: verified,
+				expectedProviderFpHex: providerFpHex
+			});
+		} catch (e) {
+			throw Object.assign(e as Error, { facts });
+		}
+		emit({
+			phase: 'initiating',
+			message: 'provider partial verified; proving the two-proof initiate',
+			...facts
+		});
+		const init = await transport.initiate({ slot, facts: initFacts }).catch((e) => {
+			throw Object.assign(
+				new Error(`initiate failed: ${e instanceof Error ? e.message : String(e)}`),
+				{ facts }
+			);
+		});
+		if (init.swapId !== swapId) {
+			throw Object.assign(
+				new Error(`referee initiated ${init.swapId}, expected prepared ${swapId}`),
+				{ facts }
+			);
+		}
+		emit({
+			phase: 'initiated',
+			message: `referee accepted the initiate (${init.phase})`,
+			refereePhase: init.phase,
+			...facts
+		});
+		let phase = init.phase;
+		if (transport.advance && phase !== 'settled') {
+			for (let step = 0; step < 8; step++) {
+				// Advance only once the provider claimed H, so the post-check passes
+				// first time; after the wait the referee decides (retry/abort).
+				if (transport.bearerSpent) {
+					const spentCheck = transport.bearerSpent;
+					await poll(
+						'awaiting provider claim',
+						async () => ((await spentCheck(publicWebcash)) ? true : null),
+						step === 0 ? settleWaitMs : intervalMs * 30,
+						intervalMs
+					).catch(() => null);
+				}
+				const r = await transport.advance(swapId).catch((e) => {
+					throw Object.assign(
+						new Error(`advance failed: ${e instanceof Error ? e.message : String(e)}`),
+						{ facts }
+					);
+				});
+				phase = r.phase;
+				emit({
+					phase: 'initiated',
+					message: `referee phase ${phase}`,
+					refereePhase: phase,
+					...facts
+				});
+				if (r.terminal || phase === 'settled') break;
+			}
+		}
+		if (phase !== 'settled') {
+			throw Object.assign(new Error(`referee did not settle (phase=${phase})`), { facts });
+		}
+	}
+
+	const awaitRelease = transport.awaitReleaseSettle;
 	const delivered = awaitRelease
 		? await poll(
 				'awaiting referee ReleaseSettle',
-				() => awaitRelease({ swapId: contract.plan.swapId, lockedRef: checked.lockedRef }),
+				() => awaitRelease({ slot, swapId, lockedRef: checked.lockedRef, selfFpHex: me.fpHex }),
 				stepTimeoutMs,
 				intervalMs
 			).catch(() => null)
@@ -672,12 +941,23 @@ export async function runBearerSellerSide(
 	} catch (e) {
 		throw Object.assign(e as Error, { facts });
 	}
-	return emit({
-		phase: 'settle-aggregated',
-		message: `settle signature aggregated and verified under Q for ${checked.lockedRef} (not broadcast)`,
+	if (!transport.submitSpend) {
+		return emit({
+			phase: 'settle-aggregated',
+			message: `settle signature aggregated and verified under Q for ${checked.lockedRef} (not broadcast)`,
+			settleSignatureHex,
+			...facts
+		});
+	}
+	return submitOrStop(
+		transport,
+		checked.settle,
+		contract,
 		settleSignatureHex,
-		...facts
-	});
+		'settled',
+		emit,
+		facts
+	);
 }
 
 /** Run whichever role this wallet holds; converts errors/gates into a terminal progress. */

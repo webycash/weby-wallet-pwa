@@ -129,6 +129,18 @@ export type DhtxCommand =
 	 * the Accept received as the maker and/or the Provider material received as
 	 * the taker. Pull-on-drain (mirrors FetchOrders).
 	 */
+	/**
+	 * Relay the provider's settle partial bundle, already sealed to the
+	 * bearer-seller identity (`SealToIdentity`, AAD `provider-partial/v1`).
+	 */
+	| {
+			op: 'SendProviderPartial';
+			slot: number;
+			order_id: Uint8Array;
+			taker_fp: Uint8Array;
+			locked_ref: string;
+			sealed: Uint8Array;
+	  }
 	| { op: 'FetchSwapMsgs'; order_id: Uint8Array };
 
 // ── Keyserver commands (mirrors extro-node KeyserverCommand) ─────────────────
@@ -286,6 +298,19 @@ export type Scheme402Command =
 			referee_pk_hex: string;
 			referee_nonce_hex: string;
 			msg: Uint8Array;
+	  }
+	/** Seal `plaintext` to a peer's Ed25519 identity key (`webycash/seal-x25519/v1`). */
+	| { op: 'SealToIdentity'; recipient_vk: Uint8Array; aad: Uint8Array; plaintext: Uint8Array }
+	/** Open a seal addressed to this wallet's identity key (needs an unlocked wallet). */
+	| { op: 'OpenSealed'; slot: number; aad: Uint8Array; sealed: Uint8Array }
+	/** Seal the wallet-held webcash secret for `public_token_hash` to the provider. */
+	| {
+			op: 'SealBearerSecret';
+			slot: number;
+			public_token_hash: Uint8Array;
+			amount: string;
+			recipient_vk: Uint8Array;
+			swap_id: string;
 	  }
 	| { op: 'SignSwapPrepare'; slot: number; terms: ArkPrepareTerms }
 	| {
@@ -554,6 +579,8 @@ export type ResponseBody =
 	  }
 	| { kind: 'ProofKeysInstalled' }
 	| { kind: 'InitiateEnvelope'; bytes: Uint8Array }
+	| { kind: 'Sealed'; bytes: Uint8Array }
+	| { kind: 'Opened'; bytes: Uint8Array }
 	// ── Dhtx orderbook response arms (mirrors extro-node ResponseBody) ──────────
 	| {
 			/** A signed limit order was published into the node network. */
@@ -585,6 +612,8 @@ export type ResponseBody =
 			provider_prepare: Uint8Array | null;
 			bearer_seller_prepare: Uint8Array | null;
 			prepared_response: Uint8Array | null;
+			/** The provider's sealed settle partial bundle, once relayed. */
+			provider_partial?: { order_id: Uint8Array; locked_ref: string; sealed: Uint8Array } | null;
 	  }
 	| { kind: 'KeyserverPinned' }
 	| { kind: 'Discovered'; fingerprint_hex: string; verified: boolean }

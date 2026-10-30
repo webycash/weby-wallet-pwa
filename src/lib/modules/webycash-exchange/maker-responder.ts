@@ -14,6 +14,7 @@ import { newRequestId } from '$lib/extro/commands';
 import { fetchSwapMsgs, probeProviderMaterial } from './accept-run-swap';
 import type { LimitOrder } from './types';
 import { makerRole, runSwapRole, type SwapPhase, type SwapProgress, type SwapRole } from './ark-swap-protocol';
+import { defaultSettleTransport } from './ark-settle-transport';
 
 export type MakerResponse = {
 	orderId: string;
@@ -102,6 +103,7 @@ export async function runMakerSwap(
 	});
 	const final = await runSwapRole(role, order, takerFp, {
 		slot,
+		settleTransport: defaultSettleTransport(),
 		onProgress: (p) => onUpdate(toResponse(p))
 	});
 	return toResponse(final);

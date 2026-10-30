@@ -18,6 +18,7 @@ import {
 	aggregateSettleSignature,
 	assertCeremonyMatchesOwnerKey,
 	checkCeremonyInputs,
+	releaseNamesLockedRef,
 	verifyCeremonyPartial,
 	type CeremonyInputs,
 	type ReleaseSettle
@@ -98,8 +99,13 @@ export function sellerAggregateSettle(input: {
 	providerPartialHex: string;
 	lockedRef: string;
 }): string {
-	if (input.release.aspVtxoRef !== input.lockedRef) throw invalid('ReleaseSettle is for a different VTXO');
-	return aggregateSettleSignature(input.inputs, input.release.refereePartialHex, input.providerPartialHex);
+	if (!releaseNamesLockedRef(input.release.aspVtxoRef, input.lockedRef))
+		throw invalid('ReleaseSettle is for a different VTXO');
+	return aggregateSettleSignature(
+		input.inputs,
+		input.release.refereePartialHex,
+		input.providerPartialHex
+	);
 }
 
 /**
@@ -121,4 +127,67 @@ export function assertOwnerKeyBinding(input: {
 		},
 		input.aggregateOwnerKey
 	);
+}
+
+// ── Collaborative refund (provider aggregates; referee ReleaseRefund) ────────
+
+type RefundMaterialKeys = Pick<
+	WireProviderMaterial,
+	'provider_musig2_pubkey' | 'refund_nonce_pub' | 'locked_ref' | 'tx_refund_hash_hex'
+>;
+
+/** Bind the refund session: referee refund nonce + provider refund nonce over the refund bundle. */
+export function refundCeremonyInputs(input: {
+	prepared: { refereeMusig2Pubshare: string; refereeRefundNoncePub: string };
+	material: RefundMaterialKeys;
+	lockedRef: string;
+	refundHashHex: string;
+	aggregateOwnerKey: Uint8Array;
+}): CeremonyInputs {
+	if (input.material.locked_ref !== input.lockedRef)
+		throw invalid('material locked_ref differs from the funded outpoint');
+	if (input.material.tx_refund_hash_hex.toLowerCase() !== input.refundHashHex.toLowerCase()) {
+		throw invalid('material refund hash differs from the own refund spend');
+	}
+	let inputs: CeremonyInputs;
+	try {
+		inputs = checkCeremonyInputs({
+			refereePubkeyHex: input.prepared.refereeMusig2Pubshare,
+			providerPubkeyHex: input.material.provider_musig2_pubkey,
+			refereeNonceHex: input.prepared.refereeRefundNoncePub,
+			providerNonceHex: input.material.refund_nonce_pub,
+			sighashHex: input.refundHashHex
+		});
+	} catch (e) {
+		if (e instanceof NamedArkGateError) throw e;
+		throw invalid(e instanceof Error ? e.message : String(e));
+	}
+	assertCeremonyMatchesOwnerKey(inputs, input.aggregateOwnerKey);
+	return inputs;
+}
+
+/**
+ * Provider refund: WASM partial with the single-use REFUND nonce, self-verified,
+ * then aggregated with the referee's ReleaseRefund partial (verified first).
+ */
+export async function providerAggregateRefund(input: {
+	slot: number;
+	orderIdHex: string;
+	counterpartyFpHex: string;
+	inputs: CeremonyInputs;
+	refereePartialHex: string;
+	sign?: ProviderPartialSigner;
+}): Promise<string> {
+	verifyCeremonyPartial(input.inputs, 'referee', input.refereePartialHex);
+	const sign = input.sign ?? wasmProviderPartialSign;
+	const partial = await sign({
+		slot: input.slot,
+		fillId: providerFillId(input.orderIdHex, input.counterpartyFpHex),
+		session: 'refund',
+		refereePkHex: input.inputs.refereePubkeyHex,
+		refereeNonceHex: input.inputs.refereeNonceHex,
+		msg: hexToBytes(input.inputs.sighashHex)
+	});
+	verifyCeremonyPartial(input.inputs, 'provider', partial);
+	return aggregateSettleSignature(input.inputs, input.refereePartialHex, partial);
 }

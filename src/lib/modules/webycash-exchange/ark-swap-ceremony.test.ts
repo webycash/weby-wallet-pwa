@@ -19,9 +19,17 @@ const CFG = {
 	ark_unilateral_exit_delay: 172544,
 	ark_asp_url: 'https://asp.invalid',
 	referee_url: 'https://referee.invalid',
-	referee_vk_hex: '66'.repeat(32)
+	referee_vk_hex: '66'.repeat(32),
+	ark_checkpoint_tapscript_hex: '51'
 };
-const CAPS = ['ark-prepare-policies-v1', 'hex-sighash-v1', 'settle-ceremony-v1'];
+const CAPS = [
+	'ark-prepare-policies-v1',
+	'hex-sighash-v1',
+	'settle-ceremony-v1',
+	'sighash-bundle-v1',
+	'release-pull-v1',
+	'insert-pull-v1'
+];
 
 const state = vi.hoisted(() => ({
 	refereePubkey: null as unknown,
@@ -29,7 +37,9 @@ const state = vi.hoisted(() => ({
 	material: null as unknown,
 	walletCreate: vi.fn(),
 	balance: '0',
-	q: ''
+	q: '',
+	refundHash: '',
+	initFacts: null as unknown
 }));
 
 vi.mock('$lib/extro/runtime-config', () => ({ getRuntimeConfig: () => CFG }));
@@ -57,8 +67,22 @@ vi.mock('./referee-client', () => ({
 	}
 }));
 vi.mock('./accept-run-swap', () => ({
-	fetchSwapMsgs: async () => ({ provider: state.msgs.length ? state.msgs.shift() : state.material }),
-	probeProviderMaterial: async () => ({ ok: true })
+	fetchSwapMsgs: async () => ({
+		provider: state.msgs.length ? state.msgs.shift() : state.material
+	}),
+	probeProviderMaterial: async () => ({ ok: true }),
+	providerMaterialFromWire: (m: unknown, payload: Uint8Array) => ({ wire: m, payload })
+}));
+vi.mock('./swap-facts', () => ({
+	bearerLegFromWallet: async () => ({
+		publicTokenHash: hex('e1'.repeat(32)),
+		bearerAmount: '100',
+		fillAmountRaw: 100n
+	}),
+	buildSwapInitiateFacts: (input: unknown) => {
+		state.initFacts = input;
+		return { facts: 'two-proof' };
+	}
 }));
 vi.mock('./swap-prepare', () => ({
 	signSwapPrepare: async () => ({ signed: new Uint8Array([1]), requestCommitment: hex('88'.repeat(32)) }),
@@ -88,11 +112,13 @@ vi.mock('$lib/ark/funded-ref', () => ({
 	resolveFundedLockedRef: async () => LOCKED,
 	assertFundedLockedRef: async () => undefined
 }));
-vi.mock('$lib/ark/provider-material', () => ({
-	fundingRefsFromTemplates: async (_p: unknown, lockedRef: string) => ({
+vi.mock('$lib/ark/settle-tx', () => ({
+	fundingRefsFromSpends: (_c: unknown, lockedRef: string) => ({
 		lockedRef,
 		txSettleHashHex: vector.sighash_hex,
-		txRefundHashHex: 'a5'.repeat(32)
+		txRefundHashHex: state.refundHash,
+		settle: { kind: 'settle', lockedRef, bundleHex: vector.sighash_hex },
+		refund: { kind: 'refund', lockedRef, bundleHex: state.refundHash }
 	})
 }));
 vi.mock('@arkade-os/sdk', () => ({
@@ -127,7 +153,12 @@ const offer = () => ({
 	tx_settle_hash_hex: '',
 	tx_refund_hash_hex: ''
 });
-const fundedMaterial = () => ({ ...offer(), locked_ref: LOCKED, tx_settle_hash_hex: vector.sighash_hex, tx_refund_hash_hex: 'a5'.repeat(32) });
+const fundedMaterial = () => ({
+	...offer(),
+	locked_ref: LOCKED,
+	tx_settle_hash_hex: vector.sighash_hex,
+	tx_refund_hash_hex: state.refundHash
+});
 
 function providerTerms() {
 	const id32 = new Uint8Array(32);
@@ -183,6 +214,8 @@ beforeEach(() => {
 	state.walletCreate.mockReset();
 	state.balance = '0';
 	state.q = vector.owner_q_xonly_hex;
+	state.refundHash = 'a5'.repeat(32);
+	state.initFacts = null;
 });
 
 describe('provider side', () => {
@@ -234,7 +267,92 @@ describe('provider side', () => {
 			settleTransport: { deliverProviderPartial }
 		});
 		expect(out.phase).toBe('settle-partial-delivered');
-		expect(deliverProviderPartial).toHaveBeenCalledWith({ swapId: 'swap-1', lockedRef: LOCKED, partialHex: vector.provider_partial_hex });
+		expect(deliverProviderPartial).toHaveBeenCalledWith({
+			slot: 0,
+			orderIdHex: ORDER_ID,
+			sellerFpHex: SELLER_FP,
+			sellerVkHex: '78'.repeat(32),
+			swapId: 'swap-1',
+			lockedRef: LOCKED,
+			partialHex: vector.provider_partial_hex
+		});
+	});
+
+	it('after delivery opens the inserted bearer secret and claims it', async () => {
+		state.balance = '1000000';
+		state.walletCreate.mockResolvedValue({});
+		state.msgs = [offer()];
+		state.material = fundedMaterial();
+		const insertBearer = vi.fn(async () => undefined);
+		const outcomes = [null, { kind: 'insert' as const, webcash: 'e100:secret:' + 'ab'.repeat(32) }];
+		const out = await runSwapRole('provider', order, SELLER_FP, {
+			...fast,
+			providerPartialSigner: async () => vector.provider_partial_hex,
+			settleTransport: {
+				deliverProviderPartial: async () => undefined,
+				awaitProviderOutcome: async () => outcomes.shift() ?? null,
+				insertBearer
+			}
+		});
+		expect(out.phase).toBe('bearer-claimed');
+		expect(insertBearer).toHaveBeenCalledWith('e100:secret:' + 'ab'.repeat(32));
+	});
+
+	it('on a referee abort aggregates the refund under Q and submits it', async () => {
+		state.balance = '1000000';
+		state.walletCreate.mockResolvedValue({});
+		state.refundHash = vector.sighash_hex; // the cross-impl vector message
+		state.msgs = [offer()];
+		state.material = fundedMaterial();
+		const sessions: string[] = [];
+		const submitSpend = vi.fn(async () => 'f0'.repeat(32));
+		const out = await runSwapRole('provider', order, SELLER_FP, {
+			...fast,
+			providerPartialSigner: async (req) => {
+				sessions.push(req.session);
+				return vector.provider_partial_hex;
+			},
+			settleTransport: {
+				deliverProviderPartial: async () => undefined,
+				awaitProviderOutcome: async () => ({
+					kind: 'refund',
+					refereePartialHex: vector.referee_partial_hex
+				}),
+				submitSpend
+			}
+		});
+		expect(out.phase).toBe('refunded');
+		expect(out.arkTxid).toBe('f0'.repeat(32));
+		expect(sessions).toEqual(['settle', 'refund']);
+		expect(submitSpend).toHaveBeenCalledWith(
+			expect.objectContaining({
+				spend: expect.objectContaining({ kind: 'refund' }),
+				aggregateSigsHex: vector.signature_hex
+			})
+		);
+	});
+
+	it('refuses to sign a refund over a forged referee partial', async () => {
+		state.balance = '1000000';
+		state.walletCreate.mockResolvedValue({});
+		state.refundHash = vector.sighash_hex;
+		state.msgs = [offer()];
+		state.material = fundedMaterial();
+		const submitSpend = vi.fn(async () => 'f0'.repeat(32));
+		const out = await runSwapRole('provider', order, SELLER_FP, {
+			...fast,
+			providerPartialSigner: async () => vector.provider_partial_hex,
+			settleTransport: {
+				deliverProviderPartial: async () => undefined,
+				awaitProviderOutcome: async () => ({
+					kind: 'refund',
+					refereePartialHex: vector.provider_partial_hex
+				}),
+				submitSpend
+			}
+		});
+		expect(out.gate ?? out.message).toMatch(/ARK_SETTLE_CEREMONY_INVALID/);
+		expect(submitSpend).not.toHaveBeenCalled();
 	});
 
 	it('refuses to deliver a WASM partial that does not verify', async () => {
@@ -285,6 +403,100 @@ describe('bearer-seller side', () => {
 		});
 		expect(out.phase).toBe('settle-aggregated');
 		expect(out.settleSignatureHex).toBe(vector.signature_hex);
+	});
+
+	it('two-proof initiate: verifies the provider partial, initiates, advances after H is spent, settles and submits', async () => {
+		state.msgs = [offer()];
+		state.material = fundedMaterial();
+		const sealed = new Uint8Array([9, 9, 9]);
+		const initiate = vi.fn(async () => ({ swapId: 'swap-1', phase: 'insert-pushed' }));
+		const spent = [false, true];
+		const advance = vi.fn(async () => ({ phase: 'settled', terminal: true }));
+		const submitSpend = vi.fn(async () => 'e0'.repeat(32));
+		const sealBearerSecret = vi.fn(async () => new Uint8Array([7]));
+		const out = await runSwapRole('bearer-seller', order, PROVIDER_FP, {
+			...fast,
+			settleWaitMs: 500,
+			settleTransport: {
+				awaitProviderPartial: async () => ({ sealed, partialHex: vector.provider_partial_hex }),
+				sealBearerSecret,
+				initiate,
+				bearerSpent: async () => spent.shift() ?? true,
+				advance,
+				awaitReleaseSettle: async () => ({
+					release: {
+						refereePartialHex: vector.referee_partial_hex,
+						providerEncPartialB64: 'AAEC',
+						aspVtxoRef: LOCKED
+					},
+					providerPartialHex: vector.provider_partial_hex
+				}),
+				submitSpend
+			}
+		});
+		expect(out.phase).toBe('settled');
+		expect(out.arkTxid).toBe('e0'.repeat(32));
+		expect(initiate).toHaveBeenCalledWith({ slot: 0, facts: { facts: 'two-proof' } });
+		expect(advance).toHaveBeenCalledTimes(1);
+		expect(sealBearerSecret).toHaveBeenCalledWith(
+			expect.objectContaining({ amount: '100', swapId: 'swap-1', providerVk: hex('77'.repeat(32)) })
+		);
+		const init = state.initFacts as {
+			provider: { payload: Uint8Array };
+			expectedProviderFpHex: string;
+		};
+		expect(init.provider.payload.length).toBe(128);
+		expect(Array.from(init.provider.payload.slice(0, 7))).toEqual([0, 0, 0, 3, 9, 9, 9]);
+		expect(init.expectedProviderFpHex).toBe(PROVIDER_FP);
+		expect(submitSpend).toHaveBeenCalledWith(
+			expect.objectContaining({
+				spend: expect.objectContaining({ kind: 'settle' }),
+				aggregateSigsHex: vector.signature_hex
+			})
+		);
+	});
+
+	it('two-proof initiate: refuses a provider partial that does not verify (no initiate)', async () => {
+		state.msgs = [offer()];
+		state.material = fundedMaterial();
+		const initiate = vi.fn(async () => ({ swapId: 'swap-1', phase: 'insert-pushed' }));
+		const out = await runSwapRole('bearer-seller', order, PROVIDER_FP, {
+			...fast,
+			settleTransport: {
+				awaitProviderPartial: async () => ({
+					sealed: new Uint8Array([1]),
+					partialHex: vector.referee_partial_hex
+				}),
+				sealBearerSecret: async () => new Uint8Array([7]),
+				initiate
+			}
+		});
+		expect(out.gate ?? out.message).toMatch(/ARK_SETTLE_CEREMONY_INVALID/);
+		expect(initiate).not.toHaveBeenCalled();
+	});
+
+	it('two-proof initiate: an aborted referee swap is an error, never a settle', async () => {
+		state.msgs = [offer()];
+		state.material = fundedMaterial();
+		const awaitReleaseSettle = vi.fn();
+		const out = await runSwapRole('bearer-seller', order, PROVIDER_FP, {
+			...fast,
+			settleWaitMs: 20,
+			settleTransport: {
+				awaitProviderPartial: async () => ({
+					sealed: new Uint8Array([1]),
+					partialHex: vector.provider_partial_hex
+				}),
+				sealBearerSecret: async () => new Uint8Array([7]),
+				initiate: async () => ({ swapId: 'swap-1', phase: 'insert-pushed' }),
+				bearerSpent: async () => false,
+				advance: async () => ({ phase: 'refunded', terminal: true }),
+				awaitReleaseSettle
+			}
+		});
+		expect(out.phase).toBe('error');
+		expect(out.message).toMatch(/did not settle \(phase=refunded\)/);
+		expect(awaitReleaseSettle).not.toHaveBeenCalled();
 	});
 
 	it('rejects a tampered referee partial', async () => {

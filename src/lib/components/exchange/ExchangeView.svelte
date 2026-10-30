@@ -38,6 +38,7 @@
 		takerRole,
 		type SwapProgress
 	} from '$lib/modules/webycash-exchange/ark-swap-protocol';
+	import { defaultSettleTransport } from '$lib/modules/webycash-exchange/ark-settle-transport';
 	import { getRuntimeConfig } from '$lib/extro/runtime-config';
 	import { buildProductRunSwapInput } from '$lib/modules/webycash-exchange/build-product-run-swap-input';
 	import { getExtroClient } from '$lib/extro';
@@ -214,6 +215,7 @@
 				};
 				const final = await runSwapRole(role, order, order.makerFingerprint, {
 					slot: 0,
+					settleTransport: defaultSettleTransport(),
 					onProgress: (p) => {
 						takerProgress = p;
 						if (p.gate) lastGate = p.gate;

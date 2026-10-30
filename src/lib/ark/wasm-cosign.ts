@@ -32,7 +32,11 @@ export async function wasmProviderPartialSign(input: {
 	refereeNonceHex: string;
 	msg: Uint8Array;
 }): Promise<string> {
-	if (input.msg.length !== 32) throw new Error('ProviderPartialSign msg must be 32 bytes');
+	// sighash-bundle-v1: one 32-byte message per session ([checkpoint, ark]).
+	const n = input.msg.length / 32;
+	if (!Number.isInteger(n) || n < 1 || n > 2) {
+		throw new Error('ProviderPartialSign msg must be 1..2 × 32 bytes');
+	}
 	const res = await getExtroClient().send({
 		request_id: newRequestId(),
 		op: {
@@ -49,9 +53,13 @@ export async function wasmProviderPartialSign(input: {
 		}
 	});
 	if (res.kind === 'Err') throw new Error(`ProviderPartialSign: ${res.message}`);
-	if (res.body.kind !== 'ProviderPartial') throw new Error(`ProviderPartialSign: unexpected ${res.body.kind}`);
-	if (!HEX32.test(res.body.partial_hex)) throw new Error('ProviderPartialSign returned a malformed partial');
-	return res.body.partial_hex.toLowerCase();
+	if (res.body.kind !== 'ProviderPartial')
+		throw new Error(`ProviderPartialSign: unexpected ${res.body.kind}`);
+	const partial = res.body.partial_hex;
+	if (typeof partial !== 'string' || partial.length !== 64 * n || !/^[0-9a-f]+$/i.test(partial)) {
+		throw new Error('ProviderPartialSign returned a malformed partial');
+	}
+	return partial.toLowerCase();
 }
 
 export type WasmCosignOpts = {

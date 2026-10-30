@@ -54,9 +54,9 @@ export interface ProviderMaterial {
 	provider_cancel_pubkey_hex: string;
 	/** The ARK conditional leg's real VTXO outpoint (`txid:vout`). */
 	locked_ref: string;
-	/** Settlement tx hash the conditional binding pins (32-byte hex). */
+	/** Settlement sighash(es) the conditional binding pins (32·N-byte hex, sighash-bundle-v1). */
 	tx_settle_hash_hex: string;
-	/** Refund tx hash (32-byte hex). */
+	/** Refund sighash(es) (32·N-byte hex). */
 	tx_refund_hash_hex: string;
 	/** Length-framed encryption of the provider's genuine settle partial. */
 	conditional_payload: Uint8Array;
@@ -118,8 +118,8 @@ export interface TwoProofFacts {
 	enc_secret_for_provider: Uint8Array;
 	conditional_payload: Uint8Array; // CONDITIONAL_WITNESS_LEN (128)
 	locked_ref: string;
-	tx_settle_hash: Uint8Array; // 32
-	tx_refund_hash: Uint8Array; // 32
+	tx_settle_hash: Uint8Array; // 32·N (sighash-bundle-v1: [checkpoint, ark])
+	tx_refund_hash: Uint8Array; // 32·N, same N as tx_settle_hash
 	provider_musig2_pubkey: string;
 	provider_cancel_pubkey_hex: string;
 	bearer_seller_cancel_pubkey_hex: string;
@@ -195,6 +195,12 @@ export interface BuildFactsInput {
 	encSecretForProvider: Uint8Array;
 	/** Referee-signed allocation verified against the runtime-pinned referee key. */
 	prepared: PreparedSwapBinding;
+	/**
+	 * The provider fingerprint the dual-signed prepare terms name. Required when
+	 * the TAKER provides Ark (the maker is then the bearer seller); defaults to
+	 * the order maker.
+	 */
+	expectedProviderFpHex?: string;
 }
 
 const exactHexBytes = (value: string, n: number, name: string): Uint8Array => {
@@ -231,11 +237,11 @@ const exactCompressedKey = (value: string, name: string): string => {
 
 const exactPublicNonce = (value: string, name: string): string => {
 	if (typeof value !== 'string') {
-		throw new Error(`${name} must be a 66-byte MuSig2 public nonce`);
+		throw new Error(`${name} must be 1..2 × 66-byte MuSig2 public nonces`);
 	}
 	const clean = value.toLowerCase();
-	if (!/^[0-9a-f]{132}$/.test(clean)) {
-		throw new Error(`${name} must be a 66-byte MuSig2 public nonce`);
+	if (!/^(?:[0-9a-f]{132}){1,2}$/.test(clean)) {
+		throw new Error(`${name} must be 1..2 × 66-byte MuSig2 public nonces`);
 	}
 	if (/^0+$/.test(clean)) throw new Error(`${name} must not be all zero`);
 	return clean;
@@ -306,11 +312,20 @@ export function buildSwapInitiateFacts(input: BuildFactsInput): TwoProofFacts {
 	const orderId = new Uint8Array(32);
 	orderId.set(exactHexBytes(order.id, 16, 'order.id'), 16);
 
-	// The DHTX provider must be the same maker whose order signature was accepted.
+	// The DHTX provider must be the party the prepared terms name: the maker by
+	// default, or (taker-provides direction) the explicitly expected provider.
 	const providerFp = exactHexBytes(provider.provider_fp, 20, 'provider_fp');
-	const orderMakerFp = exactHexBytes(order.makerFingerprint, 20, 'order.makerFingerprint');
-	if (!providerFp.every((byte, index) => byte === orderMakerFp[index])) {
-		throw new Error('provider_fp does not match the signed order maker fingerprint');
+	const expectedProviderFp = exactHexBytes(
+		input.expectedProviderFpHex ?? order.makerFingerprint,
+		20,
+		input.expectedProviderFpHex ? 'expectedProviderFpHex' : 'order.makerFingerprint'
+	);
+	if (!providerFp.every((byte, index) => byte === expectedProviderFp[index])) {
+		throw new Error(
+			input.expectedProviderFpHex
+				? 'provider_fp does not match the prepared provider fingerprint'
+				: 'provider_fp does not match the signed order maker fingerprint'
+		);
 	}
 	// REAL provider pgp pubkey: the maker's identity key bytes over DHTX.
 	const providerPgp = exactHexBytes(provider.provider_pgp_pubkey, 32, 'provider_pgp_pubkey');
@@ -343,8 +358,22 @@ export function buildSwapInitiateFacts(input: BuildFactsInput): TwoProofFacts {
 
 	const conditionalPayload = validateConditionalPayload(provider.conditional_payload);
 	const lockedRef = validateLockedRef(provider.locked_ref);
-	const settleHash = exactHexBytes(provider.tx_settle_hash_hex, 32, 'tx_settle_hash_hex');
-	const refundHash = exactHexBytes(provider.tx_refund_hash_hex, 32, 'tx_refund_hash_hex');
+	// sighash-bundle-v1: [checkpoint, ark] (64 bytes) for real Arkade spends;
+	// a single 32-byte sighash is the legacy form.
+	const bundleLen = (hex: string) => (typeof hex === 'string' && hex.length === 128 ? 64 : 32);
+	const settleHash = exactHexBytes(
+		provider.tx_settle_hash_hex,
+		bundleLen(provider.tx_settle_hash_hex),
+		'tx_settle_hash_hex'
+	);
+	const refundHash = exactHexBytes(
+		provider.tx_refund_hash_hex,
+		bundleLen(provider.tx_refund_hash_hex),
+		'tx_refund_hash_hex'
+	);
+	if (settleHash.length !== refundHash.length) {
+		throw new Error('tx_settle_hash and tx_refund_hash must carry the same number of sighashes');
+	}
 	const providerCancel = exactHexBytes(
 		provider.provider_cancel_pubkey_hex,
 		32,

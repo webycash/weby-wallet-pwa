@@ -2,8 +2,9 @@
  * Assemble + validate genuine Ark ProviderMaterial for Gate 3.
  *
  * Rejects historical placeholders (`v…` locked_ref, `ab…`/`cf…` hashes).
- * Settle/refund hashes MUST be distinct (XOR terminals). Prefer digests from
- * `buildSettleTemplate` / `buildRefundTemplate` until live sighashes exist.
+ * Settle/refund hashes MUST be distinct (XOR terminals). Live swaps use the
+ * real Arkade sighash bundles from `fundingRefsFromSpends` (settle-tx.ts);
+ * `fundingRefsFromTemplates` is the legacy template digest (not broadcastable).
  */
 
 import type { WireProviderMaterial } from '$lib/extro/commands';
@@ -35,13 +36,15 @@ export function exactLockedRef(lockedRef: string): string {
 
 export function exactTxHashHex(hashHex: string, label: string): string {
 	const normalized = hashHex.toLowerCase();
-	if (!/^[0-9a-f]{64}$/.test(normalized)) {
-		throw new Error(`${label} must be 32-byte hex`);
+	// sighash-bundle-v1: 1 (legacy) or 2 (checkpoint ‖ ark) 32-byte sighashes.
+	if (!/^(?:[0-9a-f]{64}){1,2}$/.test(normalized)) {
+		throw new Error(`${label} must be 1..2 × 32-byte hex`);
 	}
 	if (
 		normalized === PLACEHOLDER_SETTLE ||
 		normalized === PLACEHOLDER_REFUND ||
-		/^0+$/.test(normalized)
+		/^0+$/.test(normalized) ||
+		/^0{64}|0{64}$/.test(normalized)
 	) {
 		throw new Error(`${label} rejects placeholder/zero digests`);
 	}
@@ -103,8 +106,9 @@ export function assembleProviderMaterial(input: AssembleProviderMaterialInput): 
 	if (!/^[0-9a-f]{66}$/i.test(input.providerMusig2Pubkey)) {
 		throw new Error('provider_musig2_pubkey must be 33-byte compressed hex');
 	}
-	if (!/^[0-9a-f]{132}$/i.test(input.settleNoncePub) || !/^[0-9a-f]{132}$/i.test(input.refundNoncePub)) {
-		throw new Error('MuSig2 pub-nonces must be 66-byte hex');
+	const nonce = /^(?:[0-9a-f]{132}){1,2}$/i;
+	if (!nonce.test(input.settleNoncePub) || !nonce.test(input.refundNoncePub)) {
+		throw new Error('MuSig2 pub-nonces must be 1..2 × 66-byte hex');
 	}
 	return {
 		order_id: input.orderId.slice(),

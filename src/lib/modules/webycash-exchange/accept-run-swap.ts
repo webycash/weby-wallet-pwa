@@ -200,8 +200,10 @@ export function providerMaterialFromWire(
 	}
 	const settle = wire.tx_settle_hash_hex.toLowerCase();
 	const refund = wire.tx_refund_hash_hex.toLowerCase();
-	if (!/^[0-9a-f]{64}$/.test(settle) || !/^[0-9a-f]{64}$/.test(refund)) {
-		throw new Error('provider settle/refund hashes must be 32-byte hex');
+	// sighash-bundle-v1: 1 (legacy) or 2 ([checkpoint, ark]) 32-byte sighashes.
+	const bundle = /^(?:[0-9a-f]{64}){1,2}$/;
+	if (!bundle.test(settle) || !bundle.test(refund)) {
+		throw new Error('provider settle/refund hashes must be 1..2 × 32-byte hex');
 	}
 	if (settle === 'ab'.repeat(32) || refund === 'cf'.repeat(32) || settle === refund) {
 		throw new Error('provider settle/refund hashes reject placeholders / XOR collision');

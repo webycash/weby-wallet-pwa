@@ -107,7 +107,14 @@ describe('parseReleaseSettle', () => {
 });
 
 describe('assertRefereeCeremony (fail closed against older referees)', () => {
-	const caps = [SETTLE_CEREMONY_CAPABILITY, HEX_SIGHASH_CAPABILITY, 'ark-prepare-policies-v1'];
+	const caps = [
+		SETTLE_CEREMONY_CAPABILITY,
+		HEX_SIGHASH_CAPABILITY,
+		'sighash-bundle-v1',
+		'release-pull-v1',
+		'insert-pull-v1',
+		'ark-prepare-policies-v1'
+	];
 	const probe = (body: unknown) => ({ pubkey: async () => body as never });
 	it('accepts a ceremony-capable referee with the prepared pubshare', async () => {
 		await expect(
@@ -200,5 +207,31 @@ describe('settle step wiring', () => {
 				lockedRef: LOCKED
 			})
 		).toThrow(/different VTXO/);
+	});
+});
+
+describe('pull capabilities + release outpoint naming', () => {
+	it('requires release-pull-v1 and insert-pull-v1', async () => {
+		const probe = (caps: string[]) => ({
+			pubkey: async () =>
+				({ musig2_pubshare_hex: vector.referee_pubkey_hex, capabilities: caps }) as never
+		});
+		const base = [SETTLE_CEREMONY_CAPABILITY, HEX_SIGHASH_CAPABILITY, 'sighash-bundle-v1'];
+		await expect(
+			assertRefereeCeremony(probe([...base, 'insert-pull-v1']), vector.referee_pubkey_hex)
+		).rejects.toThrow(/release-pull-v1/);
+		await expect(
+			assertRefereeCeremony(probe([...base, 'release-pull-v1']), vector.referee_pubkey_hex)
+		).rejects.toThrow(/insert-pull-v1/);
+	});
+	it('accepts the live asp_vtxo_ref shapes for the same outpoint only', async () => {
+		const { releaseNamesLockedRef } = await import('./settle-ceremony');
+		const out = `${'5a'.repeat(32)}:1`;
+		expect(releaseNamesLockedRef(out, out)).toBe(true);
+		expect(releaseNamesLockedRef(`asp:signet:${out}:Settle:Spent:partial=ab`, out)).toBe(true);
+		expect(releaseNamesLockedRef(`asp:${out}`, out)).toBe(true);
+		expect(releaseNamesLockedRef('asp-unverified:timeout', out)).toBe(true);
+		expect(releaseNamesLockedRef(`asp:signet:${'5b'.repeat(32)}:1:Settle`, out)).toBe(false);
+		expect(releaseNamesLockedRef(`asp:signet:${'5a'.repeat(32)}:10:Settle`, out)).toBe(false);
 	});
 });

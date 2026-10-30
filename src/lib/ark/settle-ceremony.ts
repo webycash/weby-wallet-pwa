@@ -33,12 +33,52 @@ export const HEX_SIGHASH_CAPABILITY = 'hex-sighash-v1';
 
 const HEX32 = /^[0-9a-f]{64}$/i;
 const HEX33 = /^0[23][0-9a-f]{64}$/i;
-const HEX66 = /^[0-9a-f]{132}$/i;
+/** `sighash-bundle-v1`: at most [checkpoint, ark]. */
+export const MAX_SIGHASH_BUNDLE = 2;
+/** Capability: hashes / nonces / partials may be N≤2 concatenated units. */
+export const SIGHASH_BUNDLE_CAPABILITY = 'sighash-bundle-v1';
+/** `GET /v1/swap/{id}/release` serves the signed terminal release push. */
+export const RELEASE_PULL_CAPABILITY = 'release-pull-v1';
+/** `GET /v1/swap/{id}/insert` serves the provider-sealed bearer secret. */
+export const INSERT_PULL_CAPABILITY = 'insert-pull-v1';
+
+/**
+ * Does the referee's `asp_vtxo_ref` name `lockedRef`? The referee reports
+ * either the bare outpoint, `asp:{net}:{outpoint}:{tx}:{obs}:partial=…`
+ * (read-only ASP observation) or `asp-unverified:{error}` when the ASP lookup
+ * failed (non-blocking on the referee). The ref is informational — the real
+ * binding is the partial signatures verifying over this VTXO's sighashes — but
+ * a ref that names a DIFFERENT outpoint is rejected.
+ */
+export function releaseNamesLockedRef(aspVtxoRef: string, lockedRef: string): boolean {
+	const ref = aspVtxoRef.toLowerCase();
+	const want = lockedRef.toLowerCase();
+	if (ref === want) return true;
+	if (ref.startsWith('asp-unverified:')) return true;
+	const m = /^asp:(?:[a-z0-9]+:)?([0-9a-f]{64}:\d+)(?::|$)/.exec(ref);
+	return m !== null && m[1] === want;
+}
 
 const hexToBytes = (hex: string): Uint8Array =>
 	Uint8Array.from(hex.match(/../g) ?? [], (b) => Number.parseInt(b, 16));
 const bytesToHex = (b: Uint8Array): string =>
 	Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
+
+/** Number of `unit`-byte items in a bundle hex string, or 0 if malformed. */
+export function bundleCount(hex: string, unit: number): number {
+	if (!/^([0-9a-f]{2})+$/i.test(hex)) return 0;
+	const len = hex.length / 2;
+	if (len % unit !== 0) return 0;
+	const n = len / unit;
+	return n >= 1 && n <= MAX_SIGHASH_BUNDLE ? n : 0;
+}
+
+/** Split bundle hex into `unit`-byte lowercase hex chunks. */
+export function splitBundle(hex: string, unit: number): string[] {
+	const out: string[] = [];
+	for (let i = 0; i < hex.length; i += unit * 2) out.push(hex.slice(i, i + unit * 2).toLowerCase());
+	return out;
+}
 
 /** Public inputs of one settle ceremony — all lowercase hex as on the wire. */
 export interface CeremonyInputs {
@@ -46,11 +86,14 @@ export interface CeremonyInputs {
 	refereePubkeyHex: string;
 	/** Provider MuSig2 pubkey (33-byte compressed). */
 	providerPubkeyHex: string;
-	/** Referee settle pub-nonce (66 bytes). */
+	/** Referee settle pub-nonces (N × 66 bytes, bundle order). */
 	refereeNonceHex: string;
-	/** Provider settle pub-nonce (66 bytes). */
+	/** Provider settle pub-nonces (N × 66 bytes, bundle order). */
 	providerNonceHex: string;
-	/** The 32-byte sighash both parties sign (`tx_settle_hash`). */
+	/**
+	 * `sighash-bundle-v1` (`tx_settle_hash` / `tx_refund_hash`): N × 32-byte
+	 * sighashes `[checkpoint, ark]` (N=1 legacy single hash).
+	 */
 	sighashHex: string;
 }
 
@@ -68,12 +111,18 @@ export function checkCeremonyInputs(inputs: CeremonyInputs): CeremonyInputs {
 		providerNonceHex: inputs.providerNonceHex.toLowerCase(),
 		sighashHex: inputs.sighashHex.toLowerCase()
 	};
-	if (!HEX33.test(out.refereePubkeyHex)) throw invalid('referee pubshare must be 33-byte compressed hex');
-	if (!HEX33.test(out.providerPubkeyHex)) throw invalid('provider pubkey must be 33-byte compressed hex');
-	if (out.refereePubkeyHex === out.providerPubkeyHex) throw invalid('referee and provider keys must differ');
-	if (!HEX66.test(out.refereeNonceHex)) throw invalid('referee settle nonce must be 66-byte hex');
-	if (!HEX66.test(out.providerNonceHex)) throw invalid('provider settle nonce must be 66-byte hex');
-	if (!HEX32.test(out.sighashHex)) throw invalid('settle sighash must be 32-byte hex');
+	if (!HEX33.test(out.refereePubkeyHex))
+		throw invalid('referee pubshare must be 33-byte compressed hex');
+	if (!HEX33.test(out.providerPubkeyHex))
+		throw invalid('provider pubkey must be 33-byte compressed hex');
+	if (out.refereePubkeyHex === out.providerPubkeyHex)
+		throw invalid('referee and provider keys must differ');
+	const n = bundleCount(out.sighashHex, 32);
+	if (!n) throw invalid('settle sighash must be 1..2 × 32-byte hex');
+	if (bundleCount(out.refereeNonceHex, 66) !== n)
+		throw invalid(`referee settle nonce must be ${n} × 66-byte hex`);
+	if (bundleCount(out.providerNonceHex, 66) !== n)
+		throw invalid(`provider settle nonce must be ${n} × 66-byte hex`);
 	return out;
 }
 
@@ -103,33 +152,53 @@ export function assertCeremonyMatchesOwnerKey(inputs: CeremonyInputs, aggregateO
 	}
 }
 
-function session(inputs: CeremonyInputs): { s: Session; nonces: Uint8Array[] } {
-	const nonces = [hexToBytes(inputs.refereeNonceHex), hexToBytes(inputs.providerNonceHex)];
+function session(
+	inputs: CeremonyInputs,
+	i: number
+): { s: Session; nonces: Uint8Array[]; msg: Uint8Array } {
+	const nonces = [
+		splitBundle(inputs.refereeNonceHex, 66)[i],
+		splitBundle(inputs.providerNonceHex, 66)[i]
+	].map(hexToBytes);
+	const msg = hexToBytes(splitBundle(inputs.sighashHex, 32)[i]);
 	try {
 		const agg = nonceAggregate(nonces);
-		return { s: new Session(agg, pubkeys(inputs), hexToBytes(inputs.sighashHex)), nonces };
+		return { s: new Session(agg, pubkeys(inputs), msg), nonces, msg };
 	} catch (e) {
-		throw invalid(`session setup failed: ${e instanceof Error ? e.message : String(e)}`);
+		throw invalid(`session ${i} setup failed: ${e instanceof Error ? e.message : String(e)}`);
 	}
-}
-
-/** Verify one partial against its committed pubkey + pub-nonce for exactly this sighash. */
-export function verifyCeremonyPartial(raw: CeremonyInputs, signer: CeremonySigner, partialHex: string): void {
-	const inputs = checkCeremonyInputs(raw);
-	if (!HEX32.test(partialHex)) throw invalid(`${signer} partial must be 32-byte hex`);
-	const { s, nonces } = session(inputs);
-	let ok = false;
-	try {
-		ok = s.partialSigVerify(hexToBytes(partialHex), nonces, signer === 'referee' ? 0 : 1);
-	} catch {
-		ok = false;
-	}
-	if (!ok) throw invalid(`${signer} partial does not verify`);
 }
 
 /**
- * Bearer-seller aggregate: verify both partials, aggregate in key order, and
- * BIP340-verify the 64-byte signature under Q. Returns the signature hex.
+ * Verify one signer's partial bundle (N × 32 bytes) against its committed
+ * pubkey + pub-nonces for exactly this sighash bundle.
+ */
+export function verifyCeremonyPartial(
+	raw: CeremonyInputs,
+	signer: CeremonySigner,
+	partialHex: string
+): void {
+	const inputs = checkCeremonyInputs(raw);
+	const n = bundleCount(inputs.sighashHex, 32);
+	if (bundleCount(partialHex, 32) !== n)
+		throw invalid(`${signer} partial must be ${n} × 32-byte hex`);
+	const parts = splitBundle(partialHex, 32);
+	for (let i = 0; i < n; i++) {
+		const { s, nonces } = session(inputs, i);
+		let ok = false;
+		try {
+			ok = s.partialSigVerify(hexToBytes(parts[i]), nonces, signer === 'referee' ? 0 : 1);
+		} catch {
+			ok = false;
+		}
+		if (!ok) throw invalid(`${signer} partial ${i} does not verify`);
+	}
+}
+
+/**
+ * Bearer-seller aggregate: verify both partial bundles, aggregate each
+ * message in key order, and BIP340-verify every 64-byte signature under Q.
+ * Returns the concatenated N × 64-byte signatures hex (`[checkpoint, ark]`).
  */
 export function aggregateSettleSignature(
 	raw: CeremonyInputs,
@@ -139,18 +208,23 @@ export function aggregateSettleSignature(
 	const inputs = checkCeremonyInputs(raw);
 	verifyCeremonyPartial(inputs, 'referee', refereePartialHex);
 	verifyCeremonyPartial(inputs, 'provider', providerPartialHex);
-	const { s } = session(inputs);
-	let sig: Uint8Array;
-	try {
-		sig = s.partialSigAgg([hexToBytes(refereePartialHex), hexToBytes(providerPartialHex)]);
-	} catch (e) {
-		throw invalid(`aggregate failed: ${e instanceof Error ? e.message : String(e)}`);
-	}
 	const q = hexToBytes(ownerQXonlyHex(inputs.refereePubkeyHex, inputs.providerPubkeyHex));
-	if (!schnorr.verify(sig, hexToBytes(inputs.sighashHex), q)) {
-		throw invalid('aggregate signature does not verify under Q');
+	const ref = splitBundle(refereePartialHex, 32);
+	const prov = splitBundle(providerPartialHex, 32);
+	let out = '';
+	for (let i = 0; i < ref.length; i++) {
+		const { s, msg } = session(inputs, i);
+		let sig: Uint8Array;
+		try {
+			sig = s.partialSigAgg([hexToBytes(ref[i]), hexToBytes(prov[i])]);
+		} catch (e) {
+			throw invalid(`aggregate ${i} failed: ${e instanceof Error ? e.message : String(e)}`);
+		}
+		if (!schnorr.verify(sig, msg, q))
+			throw invalid(`aggregate signature ${i} does not verify under Q`);
+		out += bytesToHex(sig);
 	}
-	return bytesToHex(sig);
+	return out;
 }
 
 /** Decoded `ReleaseSettle` push body (referee `ensure_settle_release`). */
@@ -176,7 +250,7 @@ export function parseReleaseSettle(payload: Uint8Array | string): ReleaseSettle 
 	if (typeof partial !== 'string') {
 		throw new NamedArkGateError(`${GATE_REFEREE_CEREMONY_UNAVAILABLE} (ReleaseSettle has no referee_partial_sig)`);
 	}
-	if (!HEX32.test(partial)) throw invalid('referee_partial_sig must be 32-byte hex');
+	if (!bundleCount(partial, 32)) throw invalid('referee_partial_sig must be 1..2 × 32-byte hex');
 	const enc = b.provider_enc_partial_sig_b64;
 	if (typeof enc !== 'string' || enc.length === 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(enc)) {
 		throw invalid('provider_enc_partial_sig_b64 missing or not base64');
@@ -209,8 +283,16 @@ export async function assertRefereeCeremony(
 			`${GATE_REFEREE_CEREMONY_UNAVAILABLE} (GET /v1/pubkey failed: ${e instanceof Error ? e.message : String(e)})`
 		);
 	}
-	const caps = Array.isArray(pk.capabilities) ? pk.capabilities.filter((c): c is string => typeof c === 'string') : [];
-	for (const need of [SETTLE_CEREMONY_CAPABILITY, HEX_SIGHASH_CAPABILITY]) {
+	const caps = Array.isArray(pk.capabilities)
+		? pk.capabilities.filter((c): c is string => typeof c === 'string')
+		: [];
+	for (const need of [
+		SETTLE_CEREMONY_CAPABILITY,
+		HEX_SIGHASH_CAPABILITY,
+		SIGHASH_BUNDLE_CAPABILITY,
+		RELEASE_PULL_CAPABILITY,
+		INSERT_PULL_CAPABILITY
+	]) {
 		if (!caps.includes(need)) {
 			throw new NamedArkGateError(`${GATE_REFEREE_CEREMONY_UNAVAILABLE} (referee does not advertise ${need})`);
 		}
