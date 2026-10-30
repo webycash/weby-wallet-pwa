@@ -5,7 +5,7 @@
 import type { NetworkMode } from '$lib/core/types';
 import type { WireNetwork } from './commands';
 import type { ExtroNodeWasm } from './bundled-node';
-import { getRuntimeConfig } from './runtime-config';
+import { getRuntimeConfig, isMainnetTier } from './runtime-config';
 
 export interface RailEndpoints {
 	network: WireNetwork;
@@ -21,16 +21,17 @@ export function configuredAdapterMode(): 'bundled' {
 
 export function railEndpoints(mode: NetworkMode): RailEndpoints {
 	const config = getRuntimeConfig();
-	const expected: NetworkMode = config.deployment === 'production' ? 'production' : 'testnet';
+	const mainnet = isMainnetTier(config.deployment);
+	const expected: NetworkMode = mainnet ? 'production' : 'testnet';
 	if (mode !== expected) {
 		throw new Error(
 			`Extro rail network mismatch: deployment ${config.deployment} permits only ${expected}, got ${mode}`
 		);
 	}
 	return {
-		network: config.deployment === 'production' ? 'Bitcoin' : 'Signet',
+		network: mainnet ? 'Bitcoin' : 'Signet',
 		esploraUrl:
-			config.deployment === 'production'
+			mainnet
 				? 'https://blockstream.info/api'
 				: 'https://blockstream.info/signet/api',
 		voucherUrl: config.voucher_server_url,

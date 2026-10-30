@@ -2,7 +2,11 @@
 // authority for which server the wallet WASM may contact.
 
 import type { NetworkMode } from './types';
-import type { DeploymentTier, ExtroRuntimeConfig } from '$lib/extro/runtime-config';
+import {
+	isMainnetTier,
+	type DeploymentTier,
+	type ExtroRuntimeConfig
+} from '$lib/extro/runtime-config';
 
 export class NetworkRoutingError extends Error {
 	constructor(message: string) {
@@ -13,7 +17,7 @@ export class NetworkRoutingError extends Error {
 
 /** UI/persistence network mode permitted by a deployment profile. */
 export function allowedNetworkForDeployment(deployment: DeploymentTier): NetworkMode {
-	return deployment === 'production' ? 'production' : 'testnet';
+	return isMainnetTier(deployment) ? 'production' : 'testnet';
 }
 
 /** True when a hostname is the live production Webcash origin. */
@@ -44,7 +48,7 @@ export function resolveWebcashWasmNetwork(config: ExtroRuntimeConfig): string {
 		throw new NetworkRoutingError('development_must_not_select_production_webcash');
 	}
 	if (
-		config.deployment === 'production' &&
+		isMainnetTier(config.deployment) &&
 		allowedNetworkForDeployment(config.deployment) === 'production' &&
 		!isProductionWebcashHost(parsed.hostname) &&
 		parsed.hostname !== 'weby.cash' &&

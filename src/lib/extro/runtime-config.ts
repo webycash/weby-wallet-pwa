@@ -1,4 +1,12 @@
-export type DeploymentTier = 'development' | 'production';
+export type DeploymentTier = 'development' | 'staging' | 'production';
+
+/**
+ * Mainnet tiers. `staging` is a separate, non-production mainnet test deploy
+ * (its own Worker + DB); it is the ONLY non-production tier allowed on Bitcoin
+ * mainnet. `development` stays signet/testnet-only.
+ */
+export const isMainnetTier = (deployment: DeploymentTier): boolean =>
+	deployment === 'production' || deployment === 'staging';
 export type ArkNetwork = 'regtest' | 'signet' | 'bitcoin';
 
 export interface RuntimeTurnServer {
@@ -141,9 +149,9 @@ const url = (
 			`field \`${name}\` must not contain credentials, query, or fragment`
 		);
 	}
-	if (deployment === 'production') {
+	if (deployment !== 'development') {
 		if (parsed.protocol !== 'https:') {
-			throw new RuntimeConfigError(`field \`${name}\` must use https in production`);
+			throw new RuntimeConfigError(`field \`${name}\` must use https in ${deployment}`);
 		}
 		if (
 			/^(localhost|127\.0\.0\.1|\[?::1\]?)$/i.test(parsed.hostname) ||
@@ -170,8 +178,12 @@ export function parseRuntimeConfig(input: unknown): ExtroRuntimeConfig {
 	if (source.schema_version !== 2) {
 		throw new RuntimeConfigError(`unsupported schema_version \`${String(source.schema_version)}\``);
 	}
-	if (source.deployment !== 'development' && source.deployment !== 'production') {
-		throw new RuntimeConfigError('deployment must be `development` or `production`');
+	if (
+		source.deployment !== 'development' &&
+		source.deployment !== 'staging' &&
+		source.deployment !== 'production'
+	) {
+		throw new RuntimeConfigError('deployment must be `development`, `staging` or `production`');
 	}
 	const deployment = source.deployment;
 	if (source.adapter_mode !== 'bundled') {
@@ -289,6 +301,11 @@ export function parseRuntimeConfig(input: unknown): ExtroRuntimeConfig {
 			)
 		) {
 			throw new RuntimeConfigError('public Open Relay credentials are prohibited in production');
+		}
+	} else if (deployment === 'staging') {
+		// Mainnet staging: Ark (if enabled) must be on bitcoin mainnet, never signet.
+		if (arkEnabled && arkNetwork !== 'bitcoin') {
+			throw new RuntimeConfigError('ark_network must be `bitcoin` in staging');
 		}
 	} else if (arkEnabled && arkNetwork === 'bitcoin') {
 		throw new RuntimeConfigError('development cannot enable Ark on bitcoin mainnet');
