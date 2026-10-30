@@ -8,10 +8,18 @@ import fs from 'node:fs';
 
 const BASE = (process.env.E2E_BASE_URL ?? 'https://dev.weby.cash/wallet').replace(/\/$/, '');
 const OUT = process.env.E2E_EVIDENCE_DIR ?? 'test-results/exchange-ui';
-const MNEMONICS = [
+const DEFAULT_MNEMONICS = [
 	'legal winner thank year wave sausage worth useful legal winner thank year wave sausage worth useful legal winner thank year wave sausage worth title',
 	'letter advice cage absurd amount doctor acoustic avoid letter advice cage absurd amount doctor acoustic avoid letter advice cage absurd amount doctor acoustic bless'
 ];
+// Staging (mainnet) runs pass E2E_MNEMONICS_FILE pointing at a JSON {A,B} kept
+// outside git (SENSITIVE); the phrases are never logged.
+const MNEMONICS: string[] = process.env.E2E_MNEMONICS_FILE
+	? (() => {
+			const j = JSON.parse(fs.readFileSync(process.env.E2E_MNEMONICS_FILE!, 'utf8'));
+			return [j.A, j.B];
+		})()
+	: DEFAULT_MNEMONICS;
 const log: Record<string, unknown>[] = [];
 const note = (who: string, step: string, data: unknown = null) => {
 	const e = { t: new Date().toISOString(), who, step, data };
