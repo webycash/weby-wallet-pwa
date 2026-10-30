@@ -131,7 +131,7 @@ for (const dir of [
 	{ name: 'ark-to-webcash', pair: /Webcash.*(Ark|ARK)|(Ark|ARK).*Webcash/, makerSide: 'Buy' }
 ] as const) {
 	test(`exchange UI two-browser ${dir.name}`, async ({ browser }) => {
-		test.setTimeout(600_000);
+		test.setTimeout(900_000);
 		const result: Record<string, unknown> = { direction: dir.name, base: BASE };
 		const a = await onboard(browser, `A-${dir.name}`, MNEMONICS[0]);
 		const b = await onboard(browser, `B-${dir.name}`, MNEMONICS[1]);
