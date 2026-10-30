@@ -126,6 +126,32 @@ async function banner(page: Page, who: string, step: string, timeout = 60_000) {
 	return { text, gate };
 }
 
+const TERMINAL = new Set(['gate', 'error', 'settled', 'material-received']);
+
+async function terminalPhase(page: Page, testId: string, who: string, step: string, timeoutMs = 300_000) {
+	const t0 = Date.now();
+	let phase: string | null = null;
+	let text: string | null = null;
+	let role: string | null = null;
+	const trail: string[] = [];
+	while (Date.now() - t0 < timeoutMs) {
+		const el = page.getByTestId(testId).first();
+		if (await el.isVisible().catch(() => false)) {
+			phase = await el.getAttribute('data-phase');
+			role = await el.getAttribute('data-role');
+			text = await el.innerText().catch(() => null);
+			if (phase && trail[trail.length - 1] !== phase) trail.push(phase);
+			if (phase && TERMINAL.has(phase)) break;
+		}
+		await page.waitForTimeout(1500);
+	}
+	const gateMatch = text?.match(/ARK_[A-Z_]+/);
+	const out = { phase, role, text, trail, gate: gateMatch ? gateMatch[0] : null, ms: Date.now() - t0 };
+	note(who, step, out);
+	await shot(page, who, step);
+	return out;
+}
+
 for (const dir of [
 	{ name: 'webcash-to-ark', pair: /Webcash.*(Ark|ARK)|(Ark|ARK).*Webcash/, makerSide: 'Sell' },
 	{ name: 'ark-to-webcash', pair: /Webcash.*(Ark|ARK)|(Ark|ARK).*Webcash/, makerSide: 'Buy' }
@@ -169,18 +195,32 @@ for (const dir of [
 				await b.page.getByPlaceholder('0.00').nth(0).fill('1');
 				await b.page.getByPlaceholder('0.00').nth(1).fill('1000');
 				await b.page.getByRole('button', { name: new RegExp(`Place ${takerSide.toLowerCase()} limit`, 'i') }).click();
-				result.accept = await banner(b.page, `B-${dir.name}`, '05-accept', 120_000);
-				// Maker side: the responder panel on A.
+				// Both roles run concurrently: taker B (accept → its role) and maker A
+				// (background responder → its role). Wait for a terminal phase on each.
+				const [taker, maker] = await Promise.all([
+					terminalPhase(b.page, 'swap-progress', `B-${dir.name}`, '05-taker-swap'),
+					terminalPhase(a.page, 'maker-response', `A-${dir.name}`, '06-maker-swap')
+				]);
+				result.taker = taker;
+				result.maker = maker;
+				result.accept = await banner(b.page, `B-${dir.name}`, '07-accept-banner', 5_000);
+				result.makerResponderDiag = await a.page
+					.getByTestId('maker-responder-diag')
+					.innerText()
+					.catch(() => null);
+				result.makerResponderError = (await a.page.getByTestId('maker-responder-error').isVisible())
+					? await a.page.getByTestId('maker-responder-error').innerText()
+					: null;
 				const mr = a.page.getByTestId('maker-responder');
-				await mr.waitFor({ timeout: 60_000 }).catch(() => {});
 				result.makerResponder = (await mr.isVisible()) ? await mr.innerText() : null;
-				await shot(a.page, `A-${dir.name}`, '06-maker-responder');
+				result.gates = [taker.gate, maker.gate].filter(Boolean);
 			}
 			result.balancesAfter = {
 				A: await balances(a.page, `A-${dir.name}`, 'after'),
 				B: await balances(b.page, `B-${dir.name}`, 'after')
 			};
-			result.settled = /settled/i.test(JSON.stringify(result.accept ?? '')) && !/gate|stopped/i.test(JSON.stringify(result.accept ?? ''));
+			result.settled =
+				(result.taker as any)?.phase === 'settled' && (result.maker as any)?.phase === 'settled';
 		} finally {
 			result.status = result.settled ? 'PASS' : 'FAIL';
 			fs.mkdirSync(OUT, { recursive: true });

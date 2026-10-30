@@ -31,7 +31,18 @@ export const GATE_RUNSWAP_STOPPED_NO_PROVIDER =
 export const GATE_RUNSWAP_NEED_PREPARE =
 	'RUNSWAP_NEED_PREPARE: genuine ProviderMaterial is present; dual-signed prepare + RunSwapInput binding still required before proving';
 
+/** Provider reached the verified contract but its Ark balance cannot fund it. */
+export const GATE_ARK_FUNDING_INSUFFICIENT =
+	'ARK_FUNDING_INSUFFICIENT: referee-prepared contract derived; provider Ark balance is below the contract amount, so the 2-of-2 VTXO was not funded';
+
+/** Bearer seller holds referee-prepared terms and waits for the provider's funded VTXO. */
+export const GATE_ARK_AWAITING_PROVIDER_FUNDING =
+	'ARK_AWAITING_PROVIDER_FUNDING: referee-prepared contract derived; the provider has not published a funded locked_ref + settle/refund hashes yet';
+
 export type NamedArkGate =
+	| typeof GATE_ARK_FUNDING_INSUFFICIENT
+	| typeof GATE_ARK_AWAITING_PROVIDER_FUNDING
+
 	| typeof GATE_ARK_DISABLED
 	| typeof GATE_PROVIDER_MATERIAL_UNSUPPORTED
 	| typeof GATE_SETTLE_SIGNER_PENDING

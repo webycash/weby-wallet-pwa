@@ -87,6 +87,13 @@ export type DhtxCommand =
 	 * identity + ARK conditional references to the taker.
 	 */
 	| {
+			op: 'SendProviderOffer';
+			slot: number;
+			order_id: Uint8Array;
+			counterparty_fp: Uint8Array;
+			provider_ark_destination: string;
+	  }
+	| {
 			op: 'SendProviderMaterial';
 			slot: number;
 			order_id: Uint8Array;
@@ -266,6 +273,18 @@ export interface ArkPrepareExpectation {
 export type Scheme402Command =
 	/** Emit the provider's MuSig2 material (pubkey + settle/refund nonces) for a swap. */
 	| { op: 'ProviderMaterial'; slot: number; swap_id: string }
+	| { op: 'InspectSwapPrepare'; counterparty_signed: Uint8Array }
+	| { op: 'ArkPublicKey'; slot: number }
+	| { op: 'ArkSchnorrSign'; slot: number; digest: Uint8Array }
+	| {
+			op: 'ProviderPartialSign';
+			slot: number;
+			fill_id: string;
+			session: 'settle' | 'refund';
+			referee_pk_hex: string;
+			referee_nonce_hex: string;
+			msg: Uint8Array;
+	  }
 	| { op: 'SignSwapPrepare'; slot: number; terms: ArkPrepareTerms }
 	| {
 			op: 'CountersignSwapPrepare';
@@ -501,6 +520,10 @@ export type ResponseBody =
 	| { kind: 'SignedRetry'; retry: Uint8Array; receipt_id: Uint8Array }
 	| { kind: 'ProviderMaterial'; musig2_pubkey: string; settle_nonce: string; refund_nonce: string }
 	| { kind: 'SwapPrepareSigned'; signed: Uint8Array; request_commitment: Uint8Array }
+	| { kind: 'SwapPrepareTerms'; terms: ArkPrepareTerms }
+	| { kind: 'ArkPublicKey'; compressed_hex: string; xonly_hex: string }
+	| { kind: 'ArkSchnorrSignature'; signature_hex: string; xonly_hex: string }
+	| { kind: 'ProviderPartial'; partial_hex: string }
 	| { kind: 'SwapPrepareEnvelope'; bytes: Uint8Array }
 	| {
 			kind: 'SwapPrepared';

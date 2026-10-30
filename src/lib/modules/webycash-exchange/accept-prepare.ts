@@ -66,6 +66,8 @@ export type BuildPrepareTermsInput = {
 	signedOrderCommitmentSha256: Uint8Array;
 	fillAmountRaw: bigint;
 	provider: WireProviderMaterial;
+	/** Accept a pre-funding `offer:<dest>` provider body (terms precede funding). */
+	allowOffer?: boolean;
 	bearerSellerFpHex: string;
 	bearerSellerPgpPubkeyHex: string;
 	bearerSellerCancelPubkeyHex: string;
@@ -87,7 +89,8 @@ export function buildArkPrepareTermsFromProvider(input: BuildPrepareTermsInput):
 	}
 	const providerFp = bytesToHex(input.provider.provider_fp);
 	const providerPgp = bytesToHex(input.provider.provider_pgp_pubkey);
-	if (!/^([0-9a-f]{64}):(\d+)$/i.test(input.provider.locked_ref)) {
+	const isOffer = input.allowOffer === true && input.provider.locked_ref.startsWith('offer:');
+	if (!isOffer && !/^([0-9a-f]{64}):(\d+)$/i.test(input.provider.locked_ref)) {
 		throw new Error('provider locked_ref must be a real Ark VTXO outpoint');
 	}
 	const idempotencyKey = input.idempotencyKey ?? randomBytes(16);

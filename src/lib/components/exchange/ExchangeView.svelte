@@ -26,9 +26,19 @@
 	import {
 		pollAcceptsForOwnOrders,
 		respondToAccept,
+		runMakerSwap,
 		type MakerResponse
 	} from '$lib/modules/webycash-exchange/maker-responder';
-	import { attemptAcceptAndRunSwap } from '$lib/modules/webycash-exchange/accept-run-swap';
+	import {
+		acceptNetworkOrder,
+		attemptAcceptAndRunSwap
+	} from '$lib/modules/webycash-exchange/accept-run-swap';
+	import {
+		runSwapRole,
+		takerRole,
+		type SwapProgress
+	} from '$lib/modules/webycash-exchange/ark-swap-protocol';
+	import { getRuntimeConfig } from '$lib/extro/runtime-config';
 	import { buildProductRunSwapInput } from '$lib/modules/webycash-exchange/build-product-run-swap-input';
 	import { getExtroClient } from '$lib/extro';
 	import { newRequestId } from '$lib/extro/commands';
@@ -55,6 +65,20 @@
 
 	let selfFp = $state<string | null>(null);
 	let makerResponses = $state<MakerResponse[]>([]);
+	let takerProgress = $state<SwapProgress | null>(null);
+	let responderError = $state<string | null>(null);
+	let responderDiag = $state<string>('responder idle');
+	const arkEnabled = (): boolean => {
+		try {
+			return getRuntimeConfig().ark_enabled;
+		} catch {
+			return false;
+		}
+	};
+	const upsertMakerResponse = (r: MakerResponse) => {
+		makerResponses = [r, ...makerResponses.filter((x) => x.orderId !== r.orderId)];
+		if (r.gate) lastGate = r.gate;
+	};
 	const handledAccepts = new Set<string>();
 	let pollTimer: ReturnType<typeof setInterval> | null = null;
 	let polling = false;
@@ -87,21 +111,34 @@
 	/** Maker responder: auto-respond to Accepts on this wallet's own orders. */
 	const runMakerResponder = async () => {
 		const me = await loadSelfFp();
-		if (!me) return;
+		if (!me) {
+			responderDiag = 'self fingerprint unavailable (wallet locked?)';
+			return;
+		}
 		const own = [...orderbook.bids, ...orderbook.asks].filter(
 			(o) => o.makerFingerprint.toLowerCase() === me
 		);
+		responderDiag = `self ${me.slice(0, 10)}… · own live orders ${own.length} · handled ${handledAccepts.size}`;
 		if (own.length === 0) return;
 		const fresh = await pollAcceptsForOwnOrders(own, handledAccepts);
 		for (const { order, takerFp } of fresh) {
 			handledAccepts.add(`${order.id}:${takerFp}`);
-			makerResponses = [
-				{ orderId: order.id, takerFp, phase: 'accept-received', message: 'Taker accepted your order — responding…', at: Date.now() },
-				...makerResponses.filter((r) => r.orderId !== order.id)
-			];
-			const res = await respondToAccept(order, takerFp, 0);
-			makerResponses = [res, ...makerResponses.filter((r) => r.orderId !== order.id)];
-			if (res.gate) lastGate = res.gate;
+			upsertMakerResponse({
+				orderId: order.id,
+				takerFp,
+				phase: 'accept-received',
+				message: 'Taker accepted your order — responding…',
+				at: Date.now()
+			});
+			if (arkEnabled()) {
+				// Long-running two-party protocol: never block the 4 s refresh loop.
+				void runMakerSwap(order, takerFp, upsertMakerResponse, 0)
+					.then(upsertMakerResponse)
+					.catch((e) => (responderError = e instanceof Error ? e.message : String(e)));
+			} else {
+				const res = await respondToAccept(order, takerFp, 0);
+				upsertMakerResponse(res);
+			}
 		}
 	};
 
@@ -112,7 +149,12 @@
 			await loadSelfFp();
 			await refreshBook();
 			refreshSeeders();
-			await runMakerResponder();
+			try {
+				await runMakerResponder();
+				responderError = null;
+			} catch (e) {
+				responderError = e instanceof Error ? e.message : String(e);
+			}
 		} finally {
 			polling = false;
 		}
@@ -162,6 +204,32 @@
 				}
 			} catch {
 				/* wallet may be locked; Accept path still exercises DHTX */
+			}
+			if (arkEnabled()) {
+				const role = takerRole(order);
+				const accepted = await acceptNetworkOrder(order, 0);
+				takerProgress = {
+					role,
+					phase: 'accept-sent',
+					message: `Accept sent (delivered=${accepted.delivered}); running ${role} side`
+				};
+				const final = await runSwapRole(role, order, order.makerFingerprint, {
+					slot: 0,
+					onProgress: (p) => {
+						takerProgress = p;
+						if (p.gate) lastGate = p.gate;
+					}
+				});
+				takerProgress = final;
+				if (final.gate) {
+					lastGate = final.gate;
+					flash(`Swap (${role}) stopped at named gate: ${final.gate}`, 'warn');
+				} else if (final.phase === 'error') {
+					flash(`Swap (${role}) failed: ${final.message}`, 'error');
+				} else {
+					flash(`Swap (${role}) reached ${final.phase} for ${order.id.slice(0, 8)}…`);
+				}
+				return;
 			}
 			const result = await attemptAcceptAndRunSwap({
 				order: { ...order, side: order.side },
@@ -317,11 +385,31 @@
 		</div>
 	{/if}
 
+	{#if takerProgress}
+		<div
+			data-testid="swap-progress"
+			data-role={takerProgress.role}
+			data-phase={takerProgress.phase}
+			class="rounded-xl bg-muted/30 px-3 py-2 text-[11px] font-mono break-all">
+			{takerProgress.role} · {takerProgress.phase} · {takerProgress.message}{takerProgress.contractAddress
+				? ` · contract ${takerProgress.contractAddress}`
+				: ''}{takerProgress.arkAmountSats ? ` · ${takerProgress.arkAmountSats} sat` : ''}
+		</div>
+	{/if}
+
+	<div data-testid="maker-responder-diag" class="sr-only">{responderDiag}</div>
+
+	{#if responderError}
+		<div data-testid="maker-responder-error" class="rounded-xl bg-destructive/10 px-3 py-2 text-[11px] text-destructive font-mono break-all">
+			maker responder: {responderError}
+		</div>
+	{/if}
+
 	{#if makerResponses.length > 0}
 		<div data-testid="maker-responder" class="rounded-xl bg-muted/30 px-3 py-2 text-[11px] space-y-1">
 			<div class="font-semibold text-[12px]">Your orders — taker activity</div>
 			{#each makerResponses as r (r.orderId)}
-				<div data-testid="maker-response" data-phase={r.phase} class="font-mono break-all">
+				<div data-testid="maker-response" data-phase={r.phase} data-role={r.role ?? ''} class="font-mono break-all">
 					{r.orderId.slice(0, 8)}… ← taker {r.takerFp.slice(0, 10)}… · {r.phase}{r.providerPubkey
 						? ` · provider key ${r.providerPubkey.slice(0, 12)}…`
 						: ''} · {r.message}

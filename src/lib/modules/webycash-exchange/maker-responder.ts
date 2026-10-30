@@ -13,11 +13,14 @@ import { getExtroClient } from '$lib/extro';
 import { newRequestId } from '$lib/extro/commands';
 import { fetchSwapMsgs, probeProviderMaterial } from './accept-run-swap';
 import type { LimitOrder } from './types';
+import { makerRole, runSwapRole, type SwapPhase, type SwapProgress, type SwapRole } from './ark-swap-protocol';
 
 export type MakerResponse = {
 	orderId: string;
 	takerFp: string;
-	phase: 'accept-received' | 'material-derived' | 'stopped' | 'sent' | 'error';
+	phase: 'accept-received' | 'material-derived' | 'stopped' | 'sent' | 'error' | SwapPhase;
+	role?: SwapRole;
+	contractAddress?: string;
 	providerPubkey?: string;
 	gate?: string;
 	message: string;
@@ -74,4 +77,32 @@ export async function respondToAccept(
 	} catch (e) {
 		return { ...base, phase: 'error', message: e instanceof Error ? e.message : String(e) };
 	}
+}
+
+/**
+ * Ark-enabled maker side: run this wallet's role (provider or bearer seller,
+ * decided by the order side) through offer → terms → contract → funding gate.
+ */
+export async function runMakerSwap(
+	order: LimitOrder,
+	takerFp: string,
+	onUpdate: (r: MakerResponse) => void,
+	slot = 0
+): Promise<MakerResponse> {
+	const role = makerRole(order);
+	const toResponse = (p: SwapProgress): MakerResponse => ({
+		orderId: order.id,
+		takerFp,
+		role,
+		phase: p.phase,
+		gate: p.gate,
+		contractAddress: p.contractAddress,
+		message: `${role}: ${p.message}`,
+		at: Date.now()
+	});
+	const final = await runSwapRole(role, order, takerFp, {
+		slot,
+		onProgress: (p) => onUpdate(toResponse(p))
+	});
+	return toResponse(final);
 }
