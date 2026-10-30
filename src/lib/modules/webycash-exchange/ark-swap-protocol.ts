@@ -13,6 +13,7 @@
  * ARK_FUNDING_INSUFFICIENT and the seller at ARK_AWAITING_PROVIDER_FUNDING.
  */
 import { getExtroClient } from '$lib/extro';
+import { getSelfIdentity } from '$lib/extro/self-identity';
 import { newRequestId, type ArkPrepareTerms, type WireProviderMaterial } from '$lib/extro/commands';
 import { getRuntimeConfig } from '$lib/extro/runtime-config';
 import { loadArkOverview } from '$lib/ark/ark-view';
@@ -131,17 +132,8 @@ function fillAmountRawFor(order: LimitOrder): bigint {
 }
 
 async function selfIdentity(slot: number): Promise<{ fpHex: string; pgpHex: string }> {
-	const id = await getExtroClient().send({
-		request_id: newRequestId(),
-		op: { kind: 'Wallet', cmd: { op: 'DeriveIdentity', slot } }
-	});
-	if (id.kind !== 'Ok' || id.body.kind !== 'Identity') {
-		throw new Error('DeriveIdentity failed — unlock the wallet first');
-	}
-	return {
-		fpHex: id.body.fingerprint_hex.toLowerCase(),
-		pgpHex: bytesToHex(id.body.verifying_key).toLowerCase()
-	};
+	const id = await getSelfIdentity(getExtroClient(), slot);
+	return { fpHex: id.fingerprintHex, pgpHex: bytesToHex(id.verifyingKey).toLowerCase() };
 }
 
 async function poll<T>(

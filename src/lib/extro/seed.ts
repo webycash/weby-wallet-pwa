@@ -20,6 +20,7 @@ import { getExtroClient } from './index';
 import { newRequestId, isOk } from './commands';
 import { joinExtroNetwork, markExtroDisconnected } from './connection';
 import { getRuntimeConfig } from './runtime-config';
+import { clearSelfIdentity } from './self-identity';
 
 // Throwaway seal passphrase (see module note): the envelope is never persisted
 // or re-opened, so this value guards nothing — it only satisfies `Import`'s
@@ -45,6 +46,7 @@ export async function seedExtroWallet(mnemonic: string | null): Promise<boolean>
 			op: { kind: 'Wallet', cmd: { op: 'Import', mnemonic, passphrase: SESSION_PASSPHRASE } }
 		});
 		if (!isOk(res)) throw new Error(`${res.code}: ${res.message}`);
+		clearSelfIdentity();
 		seeded = await joinExtroNetwork(getExtroClient(), getRuntimeConfig());
 		return seeded;
 	} catch (error) {
@@ -56,6 +58,7 @@ export async function seedExtroWallet(mnemonic: string | null): Promise<boolean>
 /** Clear the per-load seed latch (call on PWA lock) so the next unlock re-seeds. */
 export function resetExtroSeed(): void {
 	seeded = false;
+	clearSelfIdentity();
 	markExtroDisconnected();
 	try {
 		void getExtroClient().send({

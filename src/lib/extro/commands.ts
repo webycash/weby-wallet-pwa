@@ -179,6 +179,8 @@ export type WalletCommand =
 	| { op: 'Import'; mnemonic: string; passphrase: Uint8Array }
 	| { op: 'Unlock'; sealed_seed: Uint8Array; passphrase: Uint8Array }
 	| { op: 'DeriveIdentity'; slot: number }
+	/** Read-only: sign `payload` with the slot identity key (no registry write). */
+	| { op: 'SignAttestation'; slot: number; payload: Uint8Array }
 	| {
 			op: 'DeriveFamilyHandle';
 			family: WireFamily;
@@ -505,6 +507,7 @@ export type ErrorCode =
 export type ResponseBody =
 	| { kind: 'Empty' }
 	| { kind: 'Identity'; fingerprint_hex: string; verifying_key: Uint8Array; slot: number }
+	| { kind: 'Attestation'; signature: Uint8Array; verifying_key: Uint8Array; fingerprint_hex: string }
 	| {
 			kind: 'CapTokenIssued';
 			token: Uint8Array;

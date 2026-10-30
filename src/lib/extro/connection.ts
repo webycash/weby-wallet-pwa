@@ -3,6 +3,7 @@ import { writable } from 'svelte/store';
 import type { ExtroClient } from './client';
 import { isOk, newRequestId, type ResponseBody } from './commands';
 import type { ExtroRuntimeConfig } from './runtime-config';
+import { getSelfIdentity, rememberSelfIdentity } from './self-identity';
 
 export type ExtroConnectionPhase =
 	| 'idle'
@@ -187,14 +188,20 @@ export async function joinExtroNetwork(
 					connected: false,
 					attempt: 0
 				});
-				await expectBody(
-					client,
-					{
-						request_id: newRequestId(),
-						op: { kind: 'Wallet', cmd: { op: 'DeriveIdentity', slot: 0 } }
-					},
-					'Identity'
-				);
+				const derived = await client.send({
+					request_id: newRequestId(),
+					op: { kind: 'Wallet', cmd: { op: 'DeriveIdentity', slot: 0 } }
+				});
+				if (isOk(derived) && derived.body.kind === 'Identity') {
+					rememberSelfIdentity({
+						fingerprintHex: derived.body.fingerprint_hex,
+						verifyingKey: derived.body.verifying_key,
+						slot: 0
+					});
+				} else {
+					// Repeat join on the same unlock: slot already registered.
+					await getSelfIdentity(client, 0);
+				}
 			}
 
 			const delays = options.delaysMs ?? [0, 750, 2500];

@@ -9,6 +9,7 @@
  */
 
 import { getExtroClient } from '$lib/extro';
+import { getSelfIdentity } from '$lib/extro/self-identity';
 import { newRequestId, type WireProviderMaterial } from '$lib/extro/commands';
 import { getRuntimeConfig } from '$lib/extro/runtime-config';
 import {
@@ -54,15 +55,9 @@ async function deriveBearerSellerIdentity(): Promise<{
 	pgpHex: string;
 	cancelHex: string;
 }> {
-	const id = await getExtroClient().send({
-		request_id: newRequestId(),
-		op: { kind: 'Wallet', cmd: { op: 'DeriveIdentity', slot: 0 } }
-	});
-	if (id.kind !== 'Ok' || id.body.kind !== 'Identity') {
-		throw new Error('DeriveIdentity failed — unlock the wallet before Accept→prepare');
-	}
-	const fpHex = id.body.fingerprint_hex.toLowerCase();
-	const pgpHex = bytesToHex(id.body.verifying_key).toLowerCase();
+	const id = await getSelfIdentity(getExtroClient(), 0);
+	const fpHex = id.fingerprintHex;
+	const pgpHex = bytesToHex(id.verifyingKey).toLowerCase();
 	return { fpHex, pgpHex, cancelHex: pgpHex };
 }
 

@@ -41,6 +41,7 @@
 	import { getRuntimeConfig } from '$lib/extro/runtime-config';
 	import { buildProductRunSwapInput } from '$lib/modules/webycash-exchange/build-product-run-swap-input';
 	import { getExtroClient } from '$lib/extro';
+	import { getSelfIdentity } from '$lib/extro/self-identity';
 	import { newRequestId } from '$lib/extro/commands';
 	import { extroConnection } from '$lib/extro/connection';
 	import { nav } from '$lib/stores/navigation.svelte';
@@ -83,16 +84,14 @@
 	let pollTimer: ReturnType<typeof setInterval> | null = null;
 	let polling = false;
 
+	let selfFpError: string | null = null;
 	const loadSelfFp = async () => {
 		if (selfFp) return selfFp;
 		try {
-			const id = await getExtroClient().send({
-				request_id: newRequestId(),
-				op: { kind: 'Wallet', cmd: { op: 'DeriveIdentity', slot: 0 } }
-			});
-			if (id.kind === 'Ok' && id.body.kind === 'Identity') selfFp = id.body.fingerprint_hex.toLowerCase();
-		} catch {
-			/* locked */
+			selfFp = (await getSelfIdentity(getExtroClient(), 0)).fingerprintHex;
+			selfFpError = null;
+		} catch (e) {
+			selfFpError = e instanceof Error ? e.message : String(e);
 		}
 		return selfFp;
 	};
@@ -112,7 +111,7 @@
 	const runMakerResponder = async () => {
 		const me = await loadSelfFp();
 		if (!me) {
-			responderDiag = 'self fingerprint unavailable (wallet locked?)';
+			responderDiag = `self fingerprint unavailable: ${selfFpError ?? 'unknown'}`;
 			return;
 		}
 		const own = [...orderbook.bids, ...orderbook.asks].filter(
