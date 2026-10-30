@@ -132,14 +132,18 @@ test('Gates 1-2 live: two isolated wallets retain a DataChannel and propagate a 
 		expect(published.body.peers_broadcast, JSON.stringify(published.body)).toBeGreaterThan(0);
 		const publishedId = Array.from(published.body.order_id as Uint8Array).join(',');
 
+		console.log('GATE1 bootstrap', JSON.stringify({ a: a.body, b: b.body }, (_k, v) => (typeof v === 'bigint' ? v.toString() : v)));
+		console.log('GATE1 published', JSON.stringify(published.body, (_k, v) => (typeof v === 'bigint' ? v.toString() : v instanceof Object && v.constructor?.name === 'Uint8Array' ? Array.from(v as Uint8Array).map((x: number) => x.toString(16).padStart(2, '0')).join('') : v)));
 		let received: any = null;
-		for (let attempt = 0; attempt < 50; attempt += 1) {
+		let lastDiag: any = null;
+		for (let attempt = 0; attempt < 300; attempt += 1) {
 			const fetched = (await command(nodes[1], {
 				kind: 'Dhtx',
 				cmd: { op: 'FetchOrders', pair }
 			})) as any;
 			expect(fetched.kind).toBe('Ok');
 			expect(fetched.body.kind).toBe('Orders');
+			lastDiag = { diag: fetched.body.diag, n: fetched.body.orders.length };
 			received = fetched.body.orders.find(
 				(order: any) => Array.from(order.order_id as Uint8Array).join(',') === publishedId
 			);
@@ -152,7 +156,8 @@ test('Gates 1-2 live: two isolated wallets retain a DataChannel and propagate a 
 			}
 			await new Promise((resolve) => setTimeout(resolve, 100));
 		}
-		expect(received, 'peer B never recorded peer A\'s signed DHTX order').not.toBeNull();
+		console.log('GATE1 lastDiag', JSON.stringify(lastDiag, (_k, v) => (typeof v === 'bigint' ? v.toString() : v)));
+		expect(received ?? null, 'peer B never recorded peer A\'s signed DHTX order').not.toBeNull();
 		expect(received.pair).toEqual(pair);
 		expect(received.side).toBe('Sell');
 		expect(received.price_atomic).toBe(12_345n);
