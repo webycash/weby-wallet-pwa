@@ -141,7 +141,21 @@ async function connectOnce(
 	// at least one real open channel of either kind; never treat counts-only
 	// rendezvous data as a connection.
 	if (!joined.connected && joined.peers_connected === 0) {
-		throw new Error('bootstrap completed without an open keyserver or roster-peer DataChannel');
+		// Not an error: the signed rendezvous offer is published and pinned, we
+		// are just the first wallet online. The peer-rendezvous loop keeps
+		// re-offering until a roster peer answers.
+		record({
+			phase: 'connecting',
+			message: 'Bootstrapped — waiting for peers',
+			connected: false,
+			attempt,
+			roster_count: joined.roster_count,
+			peers_connected: 0,
+			dhtx_seeds_count: joined.dhtx_seeds_count
+		});
+		// Pinned + offer published, but no open channel yet: report "not
+		// connected" honestly; the rendezvous loop takes it from here.
+		return false;
 	}
 	record({
 		phase: 'connected',
@@ -190,7 +204,7 @@ export async function joinExtroNetwork(
 				try {
 					const connected = await connectOnce(client, config, index + 1);
 					installReconnectListeners();
-					startPeerRendezvous(client, config);
+					startPeerRendezvous(client, config, true);
 					return connected;
 				} catch (error) {
 					lastError = error;
@@ -202,6 +216,10 @@ export async function joinExtroNetwork(
 					});
 				}
 			}
+			// Keep trying in the background from page load: the rendezvous loop
+			// re-runs the full pin/discover/bootstrap until it succeeds.
+			installReconnectListeners();
+			startPeerRendezvous(client, config, false);
 			throw lastError;
 		} catch (error) {
 			record({
@@ -249,22 +267,45 @@ export function markExtroDisconnected(message = 'Wallet locked'): void {
  * every newly connected peer.
  */
 let rendezvousRunning = false;
-const RENDEZVOUS_MAX_ATTEMPTS = 80;
+/** Unbounded while the page/wallet is alive; cadence backs off to ~10 s. */
+function rendezvousDelay(attempt: number): number {
+	const base = attempt <= 40 ? 1500 : attempt <= 120 ? 4000 : 8000;
+	return base + Math.random() * 2500;
+}
 
-export function startPeerRendezvous(client: ExtroClient, config: ExtroRuntimeConfig): void {
+export function startPeerRendezvous(
+	client: ExtroClient,
+	config: ExtroRuntimeConfig,
+	pinned = true
+): void {
 	if (rendezvousRunning) return;
 	let peers = 0;
 	extroConnection.subscribe((s) => (peers = s.peers_connected))();
 	if (peers > 0) return;
 	rendezvousRunning = true;
+	let isPinned = pinned;
 	void (async () => {
 		try {
-			for (let attempt = 1; attempt <= RENDEZVOUS_MAX_ATTEMPTS; attempt += 1) {
+			for (let attempt = 1; ; attempt += 1) {
 				if (currentClient !== client) return; // locked / switched wallet
-				await new Promise((resolve) => setTimeout(resolve, 1500 + Math.random() * 2500));
+				await new Promise((resolve) => setTimeout(resolve, rendezvousDelay(attempt)));
 				let known = 0;
 				extroConnection.subscribe((s) => (known = s.peers_connected))();
 				if (known > 0) return;
+				if (!isPinned) {
+					try {
+						await connectOnce(client, config, attempt);
+						isPinned = true;
+						continue;
+					} catch (error) {
+						record({
+							phase: 'disconnected',
+							message: `Retrying Extro connect (${attempt}): ${error instanceof Error ? error.message : String(error)}`,
+							connected: false
+						});
+						continue;
+					}
+				}
 				try {
 					const joined = await expectBody(
 						client,
