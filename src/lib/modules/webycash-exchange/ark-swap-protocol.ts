@@ -33,6 +33,7 @@ import {
 	buildArkPrepareTermsFromProvider,
 	expectationFromTerms,
 	orderIdToPrepareOrderId,
+	PREPARE_MAX_TTL_SECS,
 	submitDualSignedPrepare
 } from './accept-prepare';
 import { fetchSwapMsgs } from './accept-run-swap';
@@ -244,7 +245,7 @@ export function assertProviderOwnedTerms(input: {
 	if (terms.ark_amount_sats !== input.arkAmountSats) fail('Ark amount differs from the order');
 	if (!terms.bearer_seller_ark_destination) fail('bearer seller Ark destination');
 	const now = Math.floor(Date.now() / 1000);
-	if (terms.expires_at_unix <= now || terms.expires_at_unix > now + 3700) fail('expiry window');
+	if (terms.expires_at_unix <= now || terms.expires_at_unix > now + PREPARE_MAX_TTL_SECS + 120) fail('expiry window');
 }
 
 async function deriveContract(
@@ -413,7 +414,7 @@ export async function runBearerSellerSide(
 		providerArkDestination,
 		bearerSellerArkDestination: overview.arkAddress,
 		arkAmountSats: arkAmountSatsFor(order),
-		expiresAtUnix: Math.min(Math.max(1, Math.trunc(order.expiresAt)), Math.floor(Date.now() / 1000) + 3600)
+		expiresAtUnix: Math.min(Math.max(1, Math.trunc(order.expiresAt)), Math.floor(Date.now() / 1000) + PREPARE_MAX_TTL_SECS)
 	});
 	const signed = await signSwapPrepare(terms, slot);
 	await relaySwapPrepareSignature({

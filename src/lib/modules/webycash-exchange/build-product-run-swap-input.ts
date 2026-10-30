@@ -21,6 +21,7 @@ import {
 	bearerSellerCountersignAndRelayPrepare,
 	buildArkPrepareTermsFromProvider,
 	expectationFromTerms,
+	PREPARE_MAX_TTL_SECS,
 	providerSignAndRelayPrepare,
 	submitDualSignedPrepare
 } from './accept-prepare';
@@ -98,7 +99,7 @@ export async function buildProductRunSwapInput(
 	const nonce = await sha256(new TextEncoder().encode(`nonce:${order.id}`));
 	const expiresAtUnix = Math.min(
 		Math.max(1, Math.trunc(order.expiresAt)),
-		Math.floor(Date.now() / 1000) + 3600
+		Math.floor(Date.now() / 1000) + PREPARE_MAX_TTL_SECS
 	);
 
 	const bearer = await deriveBearerSellerIdentity();

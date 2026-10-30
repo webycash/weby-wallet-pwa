@@ -54,6 +54,9 @@ const toPrepareNetwork = (
 };
 
 /** Pad a 16-byte DHTX order id to the 32-byte prepare order_id (16 zero ‖ 16 id). */
+/** Referee /v1/swap/prepare rejects expiries more than 600 s ahead; keep a margin. */
+export const PREPARE_MAX_TTL_SECS = 540;
+
 export function orderIdToPrepareOrderId(orderId16: Uint8Array): Uint8Array {
 	if (orderId16.length !== 16) throw new Error('DHTX order id must be 16 bytes');
 	const out = new Uint8Array(32);
