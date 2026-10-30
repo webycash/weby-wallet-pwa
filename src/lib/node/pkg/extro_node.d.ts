@@ -102,8 +102,8 @@ export interface InitOutput {
     readonly extrocall_dial: (a: number) => number;
     readonly extrocall_offer_sdp: (a: number, b: number) => void;
     readonly extrocall_remote_tracks: (a: number) => number;
-    readonly __wasm_bindgen_func_elem_2779: (a: number, b: number, c: number, d: number) => void;
-    readonly __wasm_bindgen_func_elem_2794: (a: number, b: number, c: number, d: number) => void;
+    readonly __wasm_bindgen_func_elem_2784: (a: number, b: number, c: number, d: number) => void;
+    readonly __wasm_bindgen_func_elem_2799: (a: number, b: number, c: number, d: number) => void;
     readonly __wasm_bindgen_func_elem_552: (a: number, b: number, c: number) => void;
     readonly __wasm_bindgen_func_elem_552_2: (a: number, b: number, c: number) => void;
     readonly __wasm_bindgen_func_elem_552_3: (a: number, b: number, c: number) => void;
