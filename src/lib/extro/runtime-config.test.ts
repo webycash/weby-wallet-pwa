@@ -120,7 +120,7 @@ describe('strict runtime configuration', () => {
 		ark_network: 'bitcoin',
 		ark_asp_url: 'https://arkade.computer',
 		ark_signer_pk_hex: '8202bebddeb1f7442803897a85eaf3ce9254d07df0172fc3725ab5f0d097779c',
-		ark_info_digest_hex: 'aa35278a87c17be041985c364c6ad8f8d30b87653e3e9c28a3aa9a9fb397854e',
+		ark_info_digest_hex: '6f4148f0aafe75ff8046f314d75a87ddf17ad0659f37af55746498104fde3589',
 		ark_checkpoint_tapscript_hex:
 			'039e0440b27520b43a8363118c084a04d4f6a50ebfa58e81957f8cceceb2aee0ab64c9fd2d9977ac',
 		ark_unilateral_exit_delay: 605184
