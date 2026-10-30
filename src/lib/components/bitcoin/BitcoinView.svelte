@@ -13,6 +13,7 @@
 	import ActionPills from '../shell/ActionPills.svelte';
 	import AddressCard from '../shell/AddressCard.svelte';
 	import ComingSoon from '../shell/ComingSoon.svelte';
+	import ArkView from './ArkView.svelte';
 	import RailActionForm from '../shell/RailActionForm.svelte';
 	import Loader from '$lib/components/ui/Loader.svelte';
 
@@ -94,7 +95,7 @@
 		}}
 	/>
 {:else if view === 'ark'}
-	<ComingSoon icon={Anchor} title="ARK" detail="Lock and unilateral exit arrive with extro-node's ARK verify/settle." />
+	<ArkView />
 {:else if view === 'history'}
 	<ComingSoon icon={History} title="History" detail="Per-asset history arrives with extro-node's wallet summaries." />
 {/if}

@@ -37,6 +37,7 @@
 	import { setReferee, HttpRefereeClient } from '$lib/modules/webycash-exchange';
 	import { configuredAdapterMode } from '$lib/extro/config';
 	import { getRuntimeConfig } from '$lib/extro/runtime-config';
+	import { arkStatus } from '$lib/ark/ark-status.svelte';
 
 	let { pendingWebcash = '', onLock = () => {}, onInstall }: {
 		pendingWebcash?: string;
@@ -308,6 +309,17 @@
 				{#if miningMounted && canMineWallet}
 					<div class={activeTab === 'webcash' && activeView === 'mining' ? 'animate-fade-in' : 'hidden'}>
 						<MiningView {network} {canMineWallet} onBalanceUpdate={refresh} />
+					</div>
+				{/if}
+
+				{#if arkStatus.ok === false && arkStatus.reason && !/disabled in runtime configuration/.test(arkStatus.reason)}
+					<div data-testid="ark-disabled-warning" role="alert"
+						class="mb-4 rounded-2xl bg-amber-500/10 ring-1 ring-amber-500/30 px-4 py-3 text-[13px] text-foreground">
+						<p class="font-medium">Bitcoin ARK is temporarily disabled</p>
+						<p class="text-muted-foreground mt-0.5">The Ark operator no longer matches this release's pinned configuration, so Ark payments and Ark swaps are off. Webcash, vouchers and RGB still work.</p>
+						{#if arkStatus.receivedDigest}
+							<p class="mt-1 font-mono text-[11px] text-muted-foreground break-all">operator digest {arkStatus.receivedDigest}</p>
+						{/if}
 					</div>
 				{/if}
 

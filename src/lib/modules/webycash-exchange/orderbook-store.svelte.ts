@@ -20,6 +20,7 @@ import { evaluatePair, type AssetClass } from './pair-policy';
 import { MOCK_PAIRS, pairKey } from './mock-data';
 import { recordObservation } from './market-data';
 import { getExtroClient } from '$lib/extro';
+import { notePeersObserved } from '$lib/extro/connection';
 import { newRequestId, type WireOrder } from '$lib/extro/commands';
 import type { LimitOrder, MarketWalk, Side, TradingPair } from './types';
 
@@ -215,6 +216,7 @@ export async function refreshBook(): Promise<void> {
 			// the e2e diagnosis. Cast through unknown — commands.ts has not yet
 			// declared the field on the Orders body type.
 			state.diag = ((resp.body as unknown as { diag?: RecvDiag }).diag ?? null);
+			if (state.diag?.peers_connected) notePeersObserved(state.diag.peers_connected);
 			// Record a REAL observation of the book (mid + resting depth) into the
 			// historic series that backs the candle/volume charts — no mocks.
 			const depth = [...orderbook.bids, ...orderbook.asks].reduce((s, o) => s + o.amount, 0);

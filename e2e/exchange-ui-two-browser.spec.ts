@@ -33,7 +33,13 @@ async function onboard(browser: Browser, who: string, mnemonic: string) {
 	});
 	page.on('pageerror', (e) => note(who, 'pageerror', e.message.slice(0, 400)));
 	await page.goto(`${BASE}/`);
-	await page.getByText('I accept the terms').click();
+	// ToS: wait for the dialog explicitly (it renders after the WASM boot) and
+	// tick it via the checkbox role when present, else the label text.
+	const tos = page.getByText('I accept the terms');
+	await tos.waitFor({ timeout: 60_000 });
+	const box = page.getByRole('checkbox').first();
+	if (await box.isVisible().catch(() => false)) await box.check().catch(() => tos.click());
+	else await tos.click();
 	await page.getByRole('button', { name: /^Continue$/ }).click();
 	await page.getByRole('button', { name: /Recover/ }).first().click();
 	await page.getByPlaceholder('24 words or 64-char hex...').fill(mnemonic);
@@ -48,6 +54,54 @@ async function onboard(browser: Browser, who: string, mnemonic: string) {
 	await shot(page, who, '01-onboarded');
 	note(who, 'onboarded');
 	return { context, page };
+}
+
+async function connection(page: Page) {
+	return page.evaluate(() => {
+		const raw = localStorage.getItem('extro_connection_status_v1');
+		return raw ? JSON.parse(raw) : null;
+	});
+}
+
+async function waitPeers(page: Page, who: string, timeoutMs = 240_000) {
+	const t0 = Date.now();
+	let st: any = null;
+	while (Date.now() - t0 < timeoutMs) {
+		st = await connection(page);
+		if (st && Number(st.peers_connected) > 0) break;
+		await page.waitForTimeout(3000);
+	}
+	note(who, 'connection', st);
+	return st;
+}
+
+/** UI-read balances: Webcash hero + Bitcoin→ARK view (off-chain + boarding). */
+async function balances(page: Page, who: string, step: string) {
+	const out: Record<string, unknown> = {};
+	try {
+		await page.getByRole('button', { name: /^Webcash$/ }).first().click();
+		await page.waitForTimeout(1500);
+		out.webcash = await page.locator('p.text-6xl').first().innerText({ timeout: 10_000 });
+	} catch (e) {
+		out.webcash_error = String(e).slice(0, 200);
+	}
+	try {
+		await page.getByRole('button', { name: /^Bitcoin$/ }).first().click();
+		await page.getByRole('button', { name: /^ARK$/ }).first().click();
+		const ark = page.getByTestId('ark-view');
+		await ark.waitFor({ timeout: 20_000 });
+		await page
+			.locator('[data-testid="ark-balance"], [data-testid="ark-error"]')
+			.first()
+			.waitFor({ timeout: 45_000 })
+			.catch(() => {});
+		out.ark = await ark.innerText();
+	} catch (e) {
+		out.ark_error = String(e).slice(0, 200);
+	}
+	note(who, `balances-${step}`, out);
+	await shot(page, who, `balances-${step}`);
+	return out;
 }
 
 async function openTrade(page: Page, who: string, pairText: RegExp) {
@@ -82,6 +136,14 @@ for (const dir of [
 		const a = await onboard(browser, `A-${dir.name}`, MNEMONICS[0]);
 		const b = await onboard(browser, `B-${dir.name}`, MNEMONICS[1]);
 		try {
+			result.balancesBefore = {
+				A: await balances(a.page, `A-${dir.name}`, 'before'),
+				B: await balances(b.page, `B-${dir.name}`, 'before')
+			};
+			result.connection = {
+				A: await waitPeers(a.page, `A-${dir.name}`),
+				B: await waitPeers(b.page, `B-${dir.name}`, 30_000)
+			};
 			await openTrade(a.page, `A-${dir.name}`, dir.pair);
 			await openTrade(b.page, `B-${dir.name}`, dir.pair);
 			// Maker A publishes.
@@ -108,7 +170,16 @@ for (const dir of [
 				await b.page.getByPlaceholder('0.00').nth(1).fill('1000');
 				await b.page.getByRole('button', { name: new RegExp(`Place ${takerSide.toLowerCase()} limit`, 'i') }).click();
 				result.accept = await banner(b.page, `B-${dir.name}`, '05-accept', 120_000);
+				// Maker side: the responder panel on A.
+				const mr = a.page.getByTestId('maker-responder');
+				await mr.waitFor({ timeout: 60_000 }).catch(() => {});
+				result.makerResponder = (await mr.isVisible()) ? await mr.innerText() : null;
+				await shot(a.page, `A-${dir.name}`, '06-maker-responder');
 			}
+			result.balancesAfter = {
+				A: await balances(a.page, `A-${dir.name}`, 'after'),
+				B: await balances(b.page, `B-${dir.name}`, 'after')
+			};
 			result.settled = /settled/i.test(JSON.stringify(result.accept ?? '')) && !/gate|stopped/i.test(JSON.stringify(result.accept ?? ''));
 		} finally {
 			result.status = result.settled ? 'PASS' : 'FAIL';

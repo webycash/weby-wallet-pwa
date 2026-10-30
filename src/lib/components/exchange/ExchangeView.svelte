@@ -5,7 +5,7 @@
 	 * (not synthetic local trade ids). Settlement claims stop at named Ark gates
 	 * while ark_enabled=false / ProviderMaterial Unsupported.
 	 */
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { get } from 'svelte/store';
 	import {
 		orderbook,
@@ -23,6 +23,11 @@
 	import { publishOrderFee } from '$lib/modules/webycash-exchange/publish';
 	import { pushStatus } from '$lib/modules/webycash-exchange/push-store.svelte';
 	import { discoverSeedersFromDhtx } from '$lib/modules/webycash-exchange/seeder-discovery';
+	import {
+		pollAcceptsForOwnOrders,
+		respondToAccept,
+		type MakerResponse
+	} from '$lib/modules/webycash-exchange/maker-responder';
 	import { attemptAcceptAndRunSwap } from '$lib/modules/webycash-exchange/accept-run-swap';
 	import { buildProductRunSwapInput } from '$lib/modules/webycash-exchange/build-product-run-swap-input';
 	import { getExtroClient } from '$lib/extro';
@@ -48,20 +53,77 @@
 		if (kind !== 'error') setTimeout(() => (banner = null), 6000);
 	};
 
+	let selfFp = $state<string | null>(null);
+	let makerResponses = $state<MakerResponse[]>([]);
+	const handledAccepts = new Set<string>();
+	let pollTimer: ReturnType<typeof setInterval> | null = null;
+	let polling = false;
+
+	const loadSelfFp = async () => {
+		if (selfFp) return selfFp;
+		try {
+			const id = await getExtroClient().send({
+				request_id: newRequestId(),
+				op: { kind: 'Wallet', cmd: { op: 'DeriveIdentity', slot: 0 } }
+			});
+			if (id.kind === 'Ok' && id.body.kind === 'Identity') selfFp = id.body.fingerprint_hex.toLowerCase();
+		} catch {
+			/* locked */
+		}
+		return selfFp;
+	};
+
 	const refreshSeeders = () => {
 		const conn = get(extroConnection);
 		const peers = conn.peers_connected || orderbook.diag?.peers_connected || 0;
 		const live = [...orderbook.bids, ...orderbook.asks];
-		seeders = discoverSeedersFromDhtx({ orders: live, peersConnected: peers });
+		seeders = discoverSeedersFromDhtx({
+			orders: live,
+			peersConnected: peers,
+			selfFingerprint: selfFp ?? undefined
+		});
+	};
+
+	/** Maker responder: auto-respond to Accepts on this wallet's own orders. */
+	const runMakerResponder = async () => {
+		const me = await loadSelfFp();
+		if (!me) return;
+		const own = [...orderbook.bids, ...orderbook.asks].filter(
+			(o) => o.makerFingerprint.toLowerCase() === me
+		);
+		if (own.length === 0) return;
+		const fresh = await pollAcceptsForOwnOrders(own, handledAccepts);
+		for (const { order, takerFp } of fresh) {
+			handledAccepts.add(`${order.id}:${takerFp}`);
+			makerResponses = [
+				{ orderId: order.id, takerFp, phase: 'accept-received', message: 'Taker accepted your order — responding…', at: Date.now() },
+				...makerResponses.filter((r) => r.orderId !== order.id)
+			];
+			const res = await respondToAccept(order, takerFp, 0);
+			makerResponses = [res, ...makerResponses.filter((r) => r.orderId !== order.id)];
+			if (res.gate) lastGate = res.gate;
+		}
 	};
 
 	const refreshAll = async () => {
-		await refreshBook();
-		refreshSeeders();
+		if (polling) return;
+		polling = true;
+		try {
+			await loadSelfFp();
+			await refreshBook();
+			refreshSeeders();
+			await runMakerResponder();
+		} finally {
+			polling = false;
+		}
 	};
 
 	onMount(() => {
 		void refreshAll();
+		pollTimer = setInterval(() => void refreshAll(), 4000);
+	});
+	onDestroy(() => {
+		if (pollTimer) clearInterval(pollTimer);
 	});
 
 	const oppositeSide = (side: Side): Side => (side === 'buy' ? 'sell' : 'buy');
@@ -158,8 +220,26 @@
 	};
 
 	const onPublish = async (a: { side: Side; price: number; amount: number }) => {
+		await loadSelfFp();
 		refreshSeeders();
 		const orderValue = Math.round(a.price * a.amount);
+		const pubArgs = {
+			slot: 0,
+			side: a.side,
+			priceAtomic: BigInt(Math.max(0, Math.trunc(a.price))),
+			amountAtomic: BigInt(Math.max(0, Math.trunc(a.amount))),
+			expiresAt: Math.floor(Date.now() / 1000) + 3600
+		};
+		if (seeders.length === 0) {
+			// First maker on an empty book: self-seed (no other seeder to pay).
+			// The node holds the order and pushes it to every peer that connects.
+			const pub = await publishOrder(pubArgs);
+			if (pub.ok) {
+				flash(`Order published to ${pub.peersBroadcast} peer(s) — self-seeded (first maker, no fee).`);
+				refreshSeeders();
+			} else flash(`Order broadcast failed: ${pub.error}`, 'error');
+			return;
+		}
 		const res = await publishOrderFee(getExtroClient(), { orderValue, seeders, slot: 0 });
 		if (!res.ok) {
 			if (res.reason === 'no-active-seeders')
@@ -169,13 +249,7 @@
 			else flash('Publishing failed during fee payment.', 'error');
 			return;
 		}
-		const pub = await publishOrder({
-			slot: 0,
-			side: a.side,
-			priceAtomic: BigInt(Math.max(0, Math.trunc(a.price))),
-			amountAtomic: BigInt(Math.max(0, Math.trunc(a.amount))),
-			expiresAt: Math.floor(Date.now() / 1000) + 3600
-		});
+		const pub = await publishOrder(pubArgs);
 		if (pub.ok) {
 			flash(
 				`Order published to ${pub.peersBroadcast} peer(s) — fee paid to ${res.shares.length} seeder(s).`
@@ -240,6 +314,19 @@
 			data-testid="named-ark-gate"
 			class="rounded-xl bg-warning/10 px-3 py-2 text-[11px] text-warning font-mono break-all">
 			{lastGate}
+		</div>
+	{/if}
+
+	{#if makerResponses.length > 0}
+		<div data-testid="maker-responder" class="rounded-xl bg-muted/30 px-3 py-2 text-[11px] space-y-1">
+			<div class="font-semibold text-[12px]">Your orders — taker activity</div>
+			{#each makerResponses as r (r.orderId)}
+				<div data-testid="maker-response" data-phase={r.phase} class="font-mono break-all">
+					{r.orderId.slice(0, 8)}… ← taker {r.takerFp.slice(0, 10)}… · {r.phase}{r.providerPubkey
+						? ` · provider key ${r.providerPubkey.slice(0, 12)}…`
+						: ''} · {r.message}
+				</div>
+			{/each}
 		</div>
 	{/if}
 

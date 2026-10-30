@@ -190,6 +190,7 @@ export async function joinExtroNetwork(
 				try {
 					const connected = await connectOnce(client, config, index + 1);
 					installReconnectListeners();
+					startPeerRendezvous(client, config);
 					return connected;
 				} catch (error) {
 					lastError = error;
@@ -236,4 +237,78 @@ export function markExtroDisconnected(message = 'Wallet locked'): void {
 	currentClient = null;
 	currentConfig = null;
 	record({ phase: 'disconnected', message, connected: false, attempt: 0 });
+}
+
+/**
+ * Peer rendezvous: a Bootstrap only stays answerable for ~15 s (the node polls
+ * its answer mailbox that long), so two wallets opened more than a few seconds
+ * apart never meet. While no roster peer is open, re-publish a fresh offer on a
+ * jittered cadence (answering any offers already in the roster) until a peer
+ * DataChannel opens. Re-bootstrap is additive in extro-node (new dialers are
+ * registered; existing peers are kept) and pushes our live-order snapshot to
+ * every newly connected peer.
+ */
+let rendezvousRunning = false;
+const RENDEZVOUS_MAX_ATTEMPTS = 80;
+
+export function startPeerRendezvous(client: ExtroClient, config: ExtroRuntimeConfig): void {
+	if (rendezvousRunning) return;
+	let peers = 0;
+	extroConnection.subscribe((s) => (peers = s.peers_connected))();
+	if (peers > 0) return;
+	rendezvousRunning = true;
+	void (async () => {
+		try {
+			for (let attempt = 1; attempt <= RENDEZVOUS_MAX_ATTEMPTS; attempt += 1) {
+				if (currentClient !== client) return; // locked / switched wallet
+				await new Promise((resolve) => setTimeout(resolve, 1500 + Math.random() * 2500));
+				let known = 0;
+				extroConnection.subscribe((s) => (known = s.peers_connected))();
+				if (known > 0) return;
+				try {
+					const joined = await expectBody(
+						client,
+						{
+							request_id: newRequestId(),
+							op: {
+								kind: 'Keyserver',
+								cmd: {
+									op: 'Bootstrap',
+									base_url: config.keyserver_url,
+									domain: config.keyserver_domain
+								}
+							}
+						},
+						'Bootstrapped'
+					);
+					if (joined.peers_connected > 0) {
+						record({
+							phase: 'connected',
+							message: `Connected to ${joined.peers_connected} peer(s)`,
+							connected: true,
+							roster_count: joined.roster_count,
+							peers_connected: joined.peers_connected,
+							dhtx_seeds_count: joined.dhtx_seeds_count
+						});
+						return;
+					}
+					record({ message: `Waiting for peers (rendezvous ${attempt})` });
+				} catch (error) {
+					record({
+						message: `Peer rendezvous ${attempt} failed: ${error instanceof Error ? error.message : String(error)}`
+					});
+				}
+			}
+		} finally {
+			rendezvousRunning = false;
+		}
+	})();
+}
+
+/** Record peers observed via DHTX diagnostics (stops the rendezvous loop). */
+export function notePeersObserved(peers: number): void {
+	if (peers <= 0) return;
+	let known = 0;
+	extroConnection.subscribe((s) => (known = s.peers_connected))();
+	if (peers !== known) record({ peers_connected: peers, connected: true });
 }

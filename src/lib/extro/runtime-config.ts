@@ -409,3 +409,23 @@ export function resetRuntimeConfigForTests(): void {
 export function setRuntimeConfigForTests(config: ExtroRuntimeConfig): void {
 	active = config;
 }
+
+/**
+ * Fail-soft: the live Ark operator did not match this release's pins. Ark is
+ * switched OFF for this session (all Ark trust fields cleared, exactly the
+ * shape `ark_enabled=false` requires) so no Ark money path can run, while
+ * Webcash / vouchers / RGB keep working. Never re-enables Ark.
+ */
+export function disableArkForSession(): ExtroRuntimeConfig {
+	if (!active) throw new RuntimeConfigError('configuration has not been loaded');
+	active = {
+		...active,
+		ark_enabled: false,
+		ark_asp_url: '',
+		ark_signer_pk_hex: '',
+		ark_info_digest_hex: '',
+		ark_checkpoint_tapscript_hex: '',
+		ark_unilateral_exit_delay: 0
+	};
+	return active;
+}

@@ -13,15 +13,18 @@ export function discoverSeedersFromDhtx(input: {
 	orders: readonly LimitOrder[];
 	peersConnected: number;
 	rail?: Seeder['rail'];
+	/** This wallet's own fingerprint: a maker never pays itself a seeding fee. */
+	selfFingerprint?: string;
 }): Seeder[] {
 	if (input.peersConnected <= 0) return [];
 	const rail = input.rail ?? 'webcash';
 	const seen = new Set<string>();
+	const self = input.selfFingerprint?.toLowerCase();
 	const seeders: Seeder[] = [];
 	for (const order of input.orders) {
 		if (order.source !== 'dhtx' && order.source !== 'peer') continue;
 		const fp = order.makerFingerprint.toLowerCase();
-		if (!/^[0-9a-f]{40}$/.test(fp) || seen.has(fp)) continue;
+		if (!/^[0-9a-f]{40}$/.test(fp) || seen.has(fp) || fp === self) continue;
 		seen.add(fp);
 		seeders.push({ fingerprint: fp, rail, active: true });
 	}

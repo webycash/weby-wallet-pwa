@@ -25,9 +25,9 @@
 	</div>
 
 	{#if !fee.allowed}
-		<div class="rounded-xl bg-destructive/10 px-3 py-2 text-[12px] text-destructive">
+		<div class="rounded-xl {fee.blockedReason === 'no-active-seeders' ? 'bg-primary/8 text-primary' : 'bg-destructive/10 text-destructive'} px-3 py-2 text-[12px]">
 			{#if fee.blockedReason === 'no-active-seeders'}
-				No active seeders are available to seed this order. Publishing is blocked until at least one seeder is active.
+				No other seeders yet — you'll be the first maker. Your node self-seeds this order (no fee) and relays it to every peer that connects.
 			{:else}
 				A seeder requested an unsupported fee rail. Only Webcash and Bitcoin ARK are accepted.
 			{/if}
