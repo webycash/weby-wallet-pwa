@@ -20,8 +20,12 @@ import { loadArkOverview } from '$lib/ark/ark-view';
 import {
 	GATE_ARK_AWAITING_PROVIDER_FUNDING,
 	GATE_ARK_FUNDING_INSUFFICIENT,
+	GATE_SETTLE_SIGNER_PENDING,
 	NamedArkGateError
 } from '$lib/ark/named-gates';
+import { assertFundedLockedRef, resolveFundedLockedRef, type ArkIndexerReader } from '$lib/ark/funded-ref';
+import { fundingRefsFromTemplates } from '$lib/ark/provider-material';
+import type { VerifiedArkContractPlan } from '$lib/ark/swap-contract';
 import {
 	buildArkSwapContract,
 	deriveVerifiedArkContractPlan,
@@ -36,7 +40,7 @@ import {
 	PREPARE_MAX_TTL_SECS,
 	submitDualSignedPrepare
 } from './accept-prepare';
-import { fetchSwapMsgs } from './accept-run-swap';
+import { fetchSwapMsgs, probeProviderMaterial } from './accept-run-swap';
 import { HttpRefereeClient } from './referee-client';
 import {
 	countersignSwapPrepare,
@@ -355,14 +359,45 @@ export async function runProviderSide(
 	});
 	const funded = await fundArkSwapContract(wallet as never, contract);
 	emit({ phase: 'funded', message: `funded via Ark tx ${funded.arkTxId}`, ...facts });
-	// Settle/refund template signing over the funded VTXO is the next step; the
-	// seller keeps waiting for the material until it is published.
-	return emit({
-		phase: 'gate',
-		gate: `ARK_SETTLE_SIGNER_PENDING: funded ${funded.arkTxId}; provider material publication follows settle/refund templating`,
-		message: 'funded; settle/refund templating pending',
-		...facts
+
+	// Publish provider material bound to the exact funded outpoint: settle/refund
+	// template digests over (plan, locked_ref) + the WASM MuSig2 pubkey/nonces for
+	// fill `order_id:counterparty_fp` (the same nonces the later partial-sign uses).
+	const lockedRef = await resolveFundedLockedRef(await arkIndexer(), contract, funded.arkTxId, {
+		intervalMs
 	});
+	const refs = await fundingRefsFromTemplates(contract.plan, lockedRef);
+	const sent = await probeProviderMaterial(order, counterpartyFpHex, slot, refs);
+	if (!sent.ok) throw Object.assign(new NamedArkGateError(sent.gate), { facts });
+	emit({ phase: 'material-sent', message: `provider material sent for ${lockedRef}`, ...facts });
+	// Next: referee settle ceremony (referee nonce/partial) → WasmProviderCosignBackend.
+	throw Object.assign(
+		new NamedArkGateError(`${GATE_SETTLE_SIGNER_PENDING} (locked_ref=${lockedRef}, settle=${refs.txSettleHashHex})`),
+		{ facts }
+	);
+}
+
+async function arkIndexer(): Promise<ArkIndexerReader> {
+	const { RestIndexerProvider } = await import('@arkade-os/sdk');
+	return new RestIndexerProvider(getRuntimeConfig().ark_asp_url) as unknown as ArkIndexerReader;
+}
+
+/**
+ * Seller-side check of published provider material: the hashes must equal the
+ * seller's OWN settle/refund templates over (verified plan, locked_ref).
+ */
+export async function verifyProviderMaterialAgainstPlan(
+	material: Pick<WireProviderMaterial, 'locked_ref' | 'tx_settle_hash_hex' | 'tx_refund_hash_hex'>,
+	plan: VerifiedArkContractPlan
+): Promise<{ lockedRef: string; txSettleHashHex: string; txRefundHashHex: string }> {
+	const own = await fundingRefsFromTemplates(plan, material.locked_ref);
+	if (material.tx_settle_hash_hex.toLowerCase() !== own.txSettleHashHex) {
+		throw new Error('provider settle template hash does not match the referee-verified plan');
+	}
+	if (material.tx_refund_hash_hex.toLowerCase() !== own.txRefundHashHex) {
+		throw new Error('provider refund template hash does not match the referee-verified plan');
+	}
+	return { lockedRef: own.lockedRef, txSettleHashHex: own.txSettleHashHex, txRefundHashHex: own.txRefundHashHex };
 }
 
 /** Bearer-seller side: wait for the provider offer, build + sign the terms, prepare. */
@@ -473,11 +508,17 @@ export async function runBearerSellerSide(
 			{ facts }
 		);
 	}
-	return emit({
+	const checked = await verifyProviderMaterialAgainstPlan(material, contract.plan);
+	await assertFundedLockedRef(await arkIndexer(), contract, checked.lockedRef);
+	emit({
 		phase: 'material-received',
-		message: `provider funded ${material.locked_ref}`,
+		message: `provider funded ${checked.lockedRef}; settle/refund hashes match own templates`,
 		...facts
 	});
+	throw Object.assign(
+		new NamedArkGateError(`${GATE_SETTLE_SIGNER_PENDING} (locked_ref=${checked.lockedRef}, settle=${checked.txSettleHashHex})`),
+		{ facts }
+	);
 }
 
 /** Run whichever role this wallet holds; converts errors/gates into a terminal progress. */
