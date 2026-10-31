@@ -3,6 +3,7 @@
 	import { loadArkOverview, type ArkOverview } from '$lib/ark/ark-view';
 	import { arkStatus } from '$lib/ark/ark-status.svelte';
 	import Loader from '$lib/components/ui/Loader.svelte';
+	import { boardArk } from '$lib/ark/board';
 
 	let data = $state<ArkOverview | null>(null);
 	let error = $state<string | null>(null);
@@ -22,6 +23,22 @@
 	$effect(() => {
 		void load();
 	});
+	let boarding = $state(false);
+	let boardMsg = $state<string | null>(null);
+	const board = async () => {
+		if (!data) return;
+		boarding = true;
+		boardMsg = 'Joining the next ASP round…';
+		try {
+			const r = await boardArk(data.boardingAddress, (e) => (boardMsg = `ASP round: ${e.type}`));
+			boardMsg = `Boarded ${r.boardedSats.toLocaleString()} sat · Ark tx ${r.arkTxId}`;
+			await load();
+		} catch (e) {
+			boardMsg = `Boarding failed: ${e instanceof Error ? e.message : String(e)}`;
+		} finally {
+			boarding = false;
+		}
+	};
 	const fmt = (s: number) => `${s.toLocaleString()} sat`;
 	const copy = (t: string) => navigator.clipboard?.writeText(t);
 </script>
@@ -50,6 +67,15 @@
 					? ` · ${fmt(data.boardingUnconfirmedSats)} unconfirmed`
 					: ''}
 			</div>
+			{#if data.boardingSats > 0}
+				<button
+					data-testid="ark-board"
+					class="mt-1 rounded-md border border-border px-3 py-1 text-[12px]"
+					onclick={board}
+					disabled={boarding}>{boarding ? 'Boarding…' : 'Board via ASP'}</button
+				>
+			{/if}
+			{#if boardMsg}<div class="text-[11px] break-all" data-testid="ark-board-message">{boardMsg}</div>{/if}
 		</div>
 		<div class="rounded-2xl bg-muted/20 px-4 py-3 space-y-2 text-[11px]">
 			<div>
