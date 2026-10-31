@@ -418,7 +418,7 @@ export function defaultSettleTransport(deps: { fetchFn?: typeof fetch } = {}): S
 			const base = cfg().webcash_server_url.replace(/\/+$/, '');
 			const r = await fetchFn(`${base}/api/v1/health_check`, {
 				method: 'POST',
-				headers: { 'content-type': 'application/json' },
+				// No JSON content-type (webcash.org CORS preflight rejects it); text/plain body.
 				body: JSON.stringify([publicWebcash])
 			});
 			if (!r.ok) throw new Error(`health_check: ${r.status}`);

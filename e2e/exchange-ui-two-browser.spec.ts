@@ -3,7 +3,7 @@
  * A: Markets → pair → Trade → Publish order. B: Markets → pair → Trade → sees order → Place limit (Accept→runSwap).
  * Records every banner / named gate as evidence. Never asserts a fake "settled".
  */
-import { expect, test, type Browser, type Page } from '@playwright/test';
+import { chromium, expect, test, type Browser, type Page } from '@playwright/test';
 import fs from 'node:fs';
 
 const BASE = (process.env.E2E_BASE_URL ?? 'https://dev.weby.cash/wallet').replace(/\/$/, '');
@@ -36,7 +36,11 @@ async function shot(page: Page, who: string, step: string) {
 }
 
 async function onboard(browser: Browser, who: string, mnemonic: string) {
-	const context = await browser.newContext();
+	// x17: E2E_PROFILE_ROOT => persistent profile per browser so IndexedDB (contract
+	// journal, reserved bearer) survives a harness exit for manual recovery.
+	const context = process.env.E2E_PROFILE_ROOT
+		? await chromium.launchPersistentContext(`${process.env.E2E_PROFILE_ROOT}/${who}`, { headless: true })
+		: await browser.newContext();
 	const page = await context.newPage();
 	// Full console + keyserver traffic capture, one file per browser (never
 	// secrets: lines that look like key material are dropped).
@@ -173,9 +177,11 @@ async function banner(page: Page, who: string, step: string, timeout = 60_000) {
 	return { text, gate };
 }
 
-const TERMINAL = new Set(['gate', 'error', 'settled', 'material-received']);
+// x17: 'material-received' is NOT terminal (seller continues; closing there killed live swaps).
+const TERMINAL = new Set(['gate', 'error', 'settled', 'refunded', 'stopped']);
+const PHASE_TIMEOUT_MS = Number(process.env.E2E_PHASE_TIMEOUT_MS ?? '300000');
 
-async function terminalPhase(page: Page, testId: string, who: string, step: string, timeoutMs = 300_000) {
+async function terminalPhase(page: Page, testId: string, who: string, step: string, timeoutMs = PHASE_TIMEOUT_MS) {
 	const t0 = Date.now();
 	let phase: string | null = null;
 	let text: string | null = null;
@@ -204,7 +210,7 @@ for (const dir of [
 	{ name: 'ark-to-webcash', pair: /Webcash.*(Ark|ARK)|(Ark|ARK).*Webcash/, makerSide: 'Buy' }
 ] as const) {
 	test(`exchange UI two-browser ${dir.name}`, async ({ browser }) => {
-		test.setTimeout(900_000);
+		test.setTimeout(Number(process.env.E2E_TEST_TIMEOUT_MS ?? '900000'));
 		const result: Record<string, unknown> = { direction: dir.name, base: BASE, order: { amount: ORDER_AMOUNT, price: ORDER_PRICE } };
 		const a = await onboard(browser, `A-${dir.name}`, MNEMONICS[0]);
 		const b = await onboard(browser, `B-${dir.name}`, MNEMONICS[1]);

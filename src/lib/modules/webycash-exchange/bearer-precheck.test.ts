@@ -26,6 +26,14 @@ describe('railTokenStatus (webcash.org health_check)', () => {
 		expect(f).toHaveBeenCalledWith('https://webcash.org/api/v1/health_check', expect.objectContaining({ method: 'POST', body: JSON.stringify([H]) }));
 		await expect(railTokenStatus('https://webcash.org', `e1:secret:${'00'.repeat(32)}`, f as never)).rejects.toThrow(/public/);
 	});
+	it('sends a CORS-simple request (no JSON content-type: webcash.org preflight allows only x-requested-with)', async () => {
+		const f = rail({ spent: false, amount: '100' });
+		await railTokenStatus('https://webcash.org', H, f as never);
+		const init = (f.mock.calls[0] as unknown as [string, RequestInit])[1];
+		const h = new Headers(init.headers);
+		expect(h.has('content-type')).toBe(false);
+		expect(typeof init.body).toBe('string');
+	});
 });
 
 describe('assertBearerLegIssued', () => {

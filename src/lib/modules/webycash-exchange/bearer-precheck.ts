@@ -32,7 +32,8 @@ export async function railTokenStatus(
 	const base = railBase.replace(/\/+$/, '');
 	const r = await fetchFn(`${base}/api/v1/health_check`, {
 		method: 'POST',
-		headers: { 'content-type': 'application/json' },
+		// No JSON content-type: webcash.org CORS allows only x-requested-with, so a
+		// preflighted request fails in browsers; a string body (text/plain) is simple.
 		body: JSON.stringify([publicWebcash])
 	});
 	if (!r.ok) throw new Error(`health_check HTTP ${r.status}`);
