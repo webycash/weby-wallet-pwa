@@ -1,8 +1,42 @@
-// DEV-only Worker serving the static PWA at dev.weby.cash/wallet.
+// Worker serving the static PWA under /wallet (dev: dev.weby.cash/wallet;
+// staging/production: their own wrangler config) and its runtime config.
 // Assets live under /wallet/* (built with BASE_PATH=/wallet, nested in the
 // asset dir under wallet/). Unmatched client-side routes fall back to the
 // SPA shell at /wallet/index.html (adapter-static fallback).
 import { parseRuntimeConfig, runtimeConfigFromPublicEnv } from '@extro/node/runtime-config';
+import { mintCloudflareTurnServers } from './worker/turn-relay.mjs';
+
+/** TURN relays for the runtime config. `cloudflare` mints short-lived
+ *  credentials per request (mainnet tiers); `static` passes
+ *  PUBLIC_TURN_SERVERS_JSON through (development only). */
+async function turnServers(env, request) {
+  switch (env.PUBLIC_TURN_PROVIDER ?? 'static') {
+    case 'cloudflare': {
+      if (env.TURN_MINT_LIMITER) {
+        const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
+        const { success } = await env.TURN_MINT_LIMITER.limit({ key: ip });
+        if (!success) throw new HttpError(429, 'TURN credential rate limit exceeded');
+      }
+      return mintCloudflareTurnServers(env);
+    }
+    case 'static':
+      if (env.PUBLIC_DEPLOYMENT !== 'development') {
+        throw new Error('static TURN credentials are development-only');
+      }
+      return null; // runtimeConfigFromPublicEnv maps PUBLIC_TURN_SERVERS_JSON
+    default:
+      throw new Error(`unknown PUBLIC_TURN_PROVIDER: ${env.PUBLIC_TURN_PROVIDER}`);
+  }
+}
+
+class HttpError extends Error {
+  constructor(status, message) {
+    super(message);
+    this.status = status;
+  }
+}
+
+const NO_STORE = { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' };
 
 export default {
   async fetch(request, env) {
@@ -10,22 +44,22 @@ export default {
     if (url.pathname === '/wallet/runtime-config.json') {
       // Same PUBLIC_* mapping and strict validation the app applies, from
       // @extro/node; an invalid or incomplete tier config is never served.
+      // Fail closed: no runtime config means the wallet refuses to boot (no
+      // silent fallback to a public relay). Details are logged, not served.
       let config;
       try {
-        config = parseRuntimeConfig(runtimeConfigFromPublicEnv(env));
+        const minted = await turnServers(env, request);
+        const source = runtimeConfigFromPublicEnv(
+          minted === null ? env : { ...env, PUBLIC_TURN_SERVERS_JSON: '[]' }
+        );
+        if (minted !== null) source.turn_servers = minted;
+        config = parseRuntimeConfig(source);
       } catch (error) {
         console.error('[runtime-config] refusing to serve:', String(error));
-        return new Response('runtime configuration is invalid', {
-          status: 500,
-          headers: { 'Cache-Control': 'no-store' },
-        });
+        const status = error instanceof HttpError ? error.status : 500;
+        return Response.json({ error: 'runtime config unavailable' }, { status, headers: NO_STORE });
       }
-      return Response.json(config, {
-        headers: {
-          'Cache-Control': 'no-store',
-          'X-Content-Type-Options': 'nosniff',
-        },
-      });
+      return Response.json(config, { headers: NO_STORE });
     }
     const res = await env.ASSETS.fetch(request);
     if (res.status !== 404) return res;

@@ -1,14 +1,40 @@
 {
-  "schema": 1,
-  "profile": "development-only",
-  "warning": "Deterministic toxic waste: never use for mainnet or public funds.",
-  "source": {
-    "repository": "git@github.com:extronet/extro-circuits.git",
-    "commit": "5a768cc51d5c51e1bab102acee0c5cad39507f73",
-    "command": "cargo run --release --locked --bin dev_ceremony"
-  },
-  "files": {
-    "pk_bearer_payload.bin": "15748a9e9908772a680b690053557ce6e84577545a6db7b7248412ac79c19353",
-    "pk_conditional_leg.bin": "100be69a5225c8bdf73f7349d4ed705d277e9b059ce789e29d8287dc099e59e4"
+  "schema": 2,
+  "profiles": {
+    "development-only": {
+      "dir": "circuits-dev",
+      "warning": "Deterministic toxic waste: never use for mainnet or public funds.",
+      "source": {
+        "repository": "git@github.com:extronet/extro-circuits.git",
+        "commit": "5a768cc51d5c51e1bab102acee0c5cad39507f73",
+        "command": "cargo run --release --locked --bin dev_ceremony"
+      },
+      "files": {
+        "pk_bearer_payload.bin": "15748a9e9908772a680b690053557ce6e84577545a6db7b7248412ac79c19353",
+        "pk_conditional_leg.bin": "100be69a5225c8bdf73f7349d4ed705d277e9b059ce789e29d8287dc099e59e4"
+      },
+      "tiers": ["development"],
+      "vk_sha256": {
+        "bearer_payload": "ecd299b3326e682106a31a39decf1fb43c0d5b960eb40baa2975691f406f77c1",
+        "conditional_leg": "8efdd75f738658f3da0308fac3cbf6912c1324e815d863548c7e82ba39d07f1d"
+      }
+    },
+    "mpc-2026-10-31": {
+      "dir": "circuits-mpc",
+      "source": {
+        "repository": "git@github.com:extronet/extro-circuits.git",
+        "commit": "267a5f9b0dae8f90bd7fbca220d00306e327efff",
+        "command": "ceremony/verify.sh (multi-party phase-2, PSE PPoT 0080, beacon = Bitcoin block 974032)"
+      },
+      "files": {
+        "pk_bearer_payload.bin": "c228404b2f5f7cab20dcf3ce3523678b86a5f8700081cf713948f13d52b016f4",
+        "pk_conditional_leg.bin": "4cff96e08298492bf59f39a69bb588ddb370e5dd8ffb3d92e9121cad37884328"
+      },
+      "tiers": ["staging", "production"],
+      "vk_sha256": {
+        "bearer_payload": "7de9aac9e4e4e880d32eacb06c717c9c59f1d251ebc71de1daddbf76acd66220",
+        "conditional_leg": "084837739c4fa0c0e12a60da8aabb6d0fdf198d9ce7c443ce00bc27271710db2"
+      }
+    }
   }
 }

@@ -23,6 +23,13 @@
 // swap.
 
 import { proveSwapInitiate } from '$lib/extro/prover';
+import { getRuntimeConfig } from '$lib/extro/release-config';
+import {
+	BEARER_PK_FILE,
+	CONDITIONAL_PK_FILE,
+	zkpArtifacts,
+	type ZkpArtifactSet
+} from '$lib/extro/zkp-artifacts';
 import {
 	confirmArkSwapFunding,
 	type ArkFundingReader,
@@ -38,18 +45,13 @@ import {
 import type { RefereeClient } from './referee-client';
 import type { LimitOrder } from './types';
 
-/**
- * Where the development proving keys are served from. Release assembly runs
- * `npm run install:zkp` with the ceremony output directory; the keys are never
- * silently sourced from a sibling checkout or treated as production-safe.
- */
-const BEARER_PK_PATH = '/circuits-dev/pk_bearer_payload.bin';
-const CONDITIONAL_PK_PATH = '/circuits-dev/pk_conditional_leg.bin';
-
-/** Proving-key URLs under the app's base path (the wallet is served at `/wallet`). */
-export function proofKeyUrls(base: string): { bearer: string; conditional: string } {
-	const b = base.replace(/\/+$/, '');
-	return { bearer: `${b}${BEARER_PK_PATH}`, conditional: `${b}${CONDITIONAL_PK_PATH}` };
+/** Proving-key URLs of `artifacts` under the app's base path (the wallet is served at `/wallet`). */
+export function proofKeyUrls(
+	base: string,
+	artifacts: ZkpArtifactSet
+): { bearer: string; conditional: string } {
+	const b = `${base.replace(/\/+$/, '')}/${artifacts.dir}`;
+	return { bearer: `${b}/${BEARER_PK_FILE}`, conditional: `${b}/${CONDITIONAL_PK_FILE}` };
 }
 
 async function appBase(): Promise<string> {
@@ -92,9 +94,13 @@ export interface ProofKeys {
 // cache is a module-level PROMISE (not a singleton object) so concurrent callers
 // share one in-flight fetch and a failed fetch is retried on the next call.
 
-let keysPromise: Promise<ProofKeys> | null = null;
+let keysPromise: { profile: string; keys: Promise<ProofKeys> } | null = null;
 
-async function fetchKey(url: string, fetchFn: typeof fetch): Promise<Uint8Array> {
+function hex(bytes: ArrayBuffer): string {
+	return Array.from(new Uint8Array(bytes), (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function fetchKey(url: string, sha256: string, fetchFn: typeof fetch): Promise<Uint8Array> {
 	const r = await fetchFn(url);
 	if (!r.ok) throw new Error(`fetch ${url}: ${r.status} ${r.statusText}`);
 	// A missing asset is answered by the SPA fallback (redirect → index.html);
@@ -103,24 +109,40 @@ async function fetchKey(url: string, fetchFn: typeof fetch): Promise<Uint8Array>
 	if (r.redirected || /text\/html/i.test(ct)) {
 		throw new Error(`fetch ${url}: proving key missing (got ${ct || 'redirect'})`);
 	}
-	return new Uint8Array(await r.arrayBuffer());
+	const bytes = new Uint8Array(await r.arrayBuffer());
+	const actual = hex(await crypto.subtle.digest('SHA-256', bytes));
+	if (actual !== sha256) {
+		throw new Error(`fetch ${url}: proving key is not the pinned artifact (sha256 ${actual})`);
+	}
+	return bytes;
 }
 
-/** Fetch (and cache) the two dev Groth16 proving keys. */
-export function loadProofKeys(fetchFn: typeof fetch = fetch): Promise<ProofKeys> {
-	if (!keysPromise) {
-		keysPromise = appBase()
-			.then((base) => {
-				const urls = proofKeyUrls(base);
-				return Promise.all([fetchKey(urls.bearer, fetchFn), fetchKey(urls.conditional, fetchFn)]);
+/**
+ * Fetch (and cache) the two Groth16 proving keys pinned for the deployment's
+ * ZKP profile (`zkp_profile` of the runtime config unless given).
+ */
+export function loadProofKeys(
+	fetchFn: typeof fetch = fetch,
+	profile: string = getRuntimeConfig().zkp_profile
+): Promise<ProofKeys> {
+	if (!keysPromise || keysPromise.profile !== profile) {
+		const keys = Promise.resolve()
+			.then(async () => {
+				const artifacts = zkpArtifacts(profile);
+				const urls = proofKeyUrls(await appBase(), artifacts);
+				return Promise.all([
+					fetchKey(urls.bearer, artifacts.bearerSha256, fetchFn),
+					fetchKey(urls.conditional, artifacts.conditionalSha256, fetchFn)
+				]);
 			})
 			.then(([bearerPk, conditionalPk]) => ({ bearerPk, conditionalPk }))
 			.catch((e) => {
-				keysPromise = null; // allow retry on the next call
+				if (keysPromise?.keys === keys) keysPromise = null; // allow retry on the next call
 				throw e;
 			});
+		keysPromise = { profile, keys };
 	}
-	return keysPromise;
+	return keysPromise.keys;
 }
 
 /** Test/reset hook: drop the cached proving keys. */

@@ -38,6 +38,8 @@ PUBLIC_ZKP_PROFILE = "development-only"
 PUBLIC_ZKP_BEARER_VK_SHA256 = "ecd299b3326e682106a31a39decf1fb43c0d5b960eb40baa2975691f406f77c1"
 PUBLIC_ZKP_CONDITIONAL_VK_SHA256 = "8efdd75f738658f3da0308fac3cbf6912c1324e815d863548c7e82ba39d07f1d"
 PUBLIC_ICE_SERVERS_JSON = '["stun:stun.l.google.com:19302","stun:stun.cloudflare.com:3478"]'
+# Development only: static public relay (the Worker refuses `static` on mainnet tiers).
+PUBLIC_TURN_PROVIDER = "static"
 PUBLIC_TURN_SERVERS_JSON = '[{"url":"turn:openrelay.metered.ca:443","username":"openrelayproject","credential":"openrelayproject"}]'
 # Origins whose hub CapToken postMessages this node answers (exact origins).
 PUBLIC_HUB_BRIDGE_ORIGINS_JSON = '["https://dev.extro.life","https://dev.extro.network","https://dev.weby.cash"]'
