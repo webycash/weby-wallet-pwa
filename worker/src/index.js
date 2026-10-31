@@ -6,7 +6,8 @@
  * HTML with dynamic OG meta tags + a dynamically generated PNG gift-card
  * image showing the exact amount.
  *
- * The worker verifies webcash against the webcash.org API:
+ * The worker reads the public token's rail status through extro-node
+ * (Rail WebcashTokenStatus, webylib wire — see webcash-status.js):
  * - Valid (unspent) -> card shows "REDEEM"
  * - Spent -> card shows "INVALID"
  *
@@ -23,6 +24,9 @@ import interBold from './Inter-Bold.woff2';
 import interRegular from './Inter-Regular.woff2';
 
 import { LOGO_CIRCLE, LOGO_TEXT } from './logo.js';
+import { loadExtroNodeWasm } from '@extro/node';
+import extroNodeWasm from '@extro/node/wasm/extro_node_bg.wasm';
+import { createSpentChecker } from './webcash-status.js';
 
 let wasmReady = false;
 
@@ -34,42 +38,18 @@ function esc(s) {
   return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-// --- Webcash verification helpers ---
-// The worker never handles secrets — it receives the pre-computed public
-// webcash string (e.g. "e1.00000000:public:hash...") from the client and
-// passes it directly to the read-only health_check endpoint.
+// --- Webcash verification (extro-node Rail(WebcashTokenStatus), see webcash-status.js) ---
+// The release config is the wallet's own runtime-config.json from the origin
+// this worker fronts, so the OG read boots the exact release the wallet runs.
 
-function apiUrl(network) {
-  return network === 'testnet'
-    ? 'https://weby.cash/api/webcash/testnet/api/v1'
-    : 'https://webcash.org/api/v1';
-}
-
-async function checkSpent(network, publicWc) {
-  if (!publicWc) return null;
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 4000);
-
-  try {
-    const res = await fetch(`${apiUrl(network)}/health_check`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify([publicWc]),
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
-
-    if (!res.ok) return null;
-    const data = await res.json();
-    const result = data.results?.[publicWc];
-    if (!result || result.spent === null || result.spent === undefined) return null;
-    return result.spent;
-  } catch {
-    clearTimeout(timeout);
-    return null;
-  }
-}
+const checkSpent = createSpentChecker({
+  load: () => loadExtroNodeWasm(extroNodeWasm),
+  loadConfig: async () => {
+    const res = await fetch(`${ORIGIN}/weby-wallet-pwa/runtime-config.json`, { cf: { cacheTtl: 300 } });
+    if (!res.ok) throw new Error(`runtime-config.json: HTTP ${res.status}`);
+    return res.json();
+  },
+});
 
 // --- SVG card generators ---
 

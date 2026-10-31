@@ -11,6 +11,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@extro/node": "github:extronet/extro-node#ecbd9d267ab2e7825cf6a30893800eb20f2637bf",
     "@resvg/resvg-wasm": "^2.6.2",
     "wrangler": "^4.83.0"
   }

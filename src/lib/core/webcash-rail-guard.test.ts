@@ -55,6 +55,21 @@ describe('webcash rail guard', () => {
 		expect(offenders).toEqual([]);
 	});
 
+	it('the OG worker has no rail transport of its own: it reads token status via extro-node', () => {
+		const worker = walk(join(ROOT, 'worker/src'))
+			.map((p) => ({ rel: relative(ROOT, p).replaceAll('\\', '/'), text: readFileSync(p, 'utf8') }))
+			.filter((f) => !isTest(f.rel));
+		const code = (t: string) =>
+			t.split('\n').filter((l) => !/^\s*(\*|\/\/|\/\*)/.test(l)).join('\n');
+		const offenders = worker
+			.filter((f) => /health_check|\/api\/v1\b|\/(?:replace|burn)['"`]/.test(code(f.text)))
+			.map((f) => f.rel);
+		expect(offenders).toEqual([]);
+		const status = worker.find((f) => f.rel === 'worker/src/webcash-status.js');
+		expect(status?.text).toContain("op: 'WebcashTokenStatus'");
+		expect(worker.find((f) => f.rel === 'worker/src/index.js')?.text).toContain('createSpentChecker(');
+	});
+
 	it('the shared TS client has no transport of its own: it dispatches extro-node ops', () => {
 		const helper = files.find((f) => f.rel === HELPER)!.text;
 		expect(helper).not.toMatch(/\bfetch\s*\(|XMLHttpRequest|\/api\/v1\//);
@@ -62,7 +77,7 @@ describe('webcash rail guard', () => {
 	});
 
 	it('the shipped extro-node WASM has no JSON content-type literal', () => {
-		const wasm = readFileSync(join(ROOT, 'src/lib/node/pkg/extro_node_bg.wasm'));
+		const wasm = readFileSync(join(ROOT, 'node_modules/@extro/node/js/wasm/extro_node_bg.wasm'));
 		expect(wasm.includes(Buffer.from('application/json'))).toBe(false);
 		// webylib wire's CORS-simple POST content type is compiled in.
 		expect(wasm.includes(Buffer.from('text/plain;charset=UTF-8'))).toBe(true);

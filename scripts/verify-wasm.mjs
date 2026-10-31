@@ -7,6 +7,20 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const manifest = JSON.parse(await readFile(resolve(root, 'wasm-artifacts.json'), 'utf8'));
 const failures = [];
 
+// extro-node arrives as the @extro/node git dependency: every lockfile that
+// ships it (the wallet, and the OG worker that reads token status with it)
+// must resolve exactly the commit this manifest pins (its files are hashed below).
+for (const lockPath of ['package-lock.json', 'worker/package-lock.json']) {
+  const lock = JSON.parse(await readFile(resolve(root, lockPath), 'utf8'));
+  const resolved = lock.packages?.['node_modules/@extro/node']?.resolved ?? '';
+  const lockedCommit = resolved.split('#')[1];
+  if (lockedCommit !== manifest.sources.extroNode.commit) {
+    failures.push(
+      `${lockPath} resolves @extro/node at ${lockedCommit ?? '(missing)'}, manifest pins ${manifest.sources.extroNode.commit}`
+    );
+  }
+}
+
 for (const [relativePath, expected] of Object.entries(manifest.files)) {
   let bytes;
   try {
