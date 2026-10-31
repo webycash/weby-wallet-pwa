@@ -43,7 +43,8 @@ const development = () => ({
 	ice_servers: ['stun:stun.cloudflare.com:3478'],
 	turn_servers: [
 		{ url: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
-	]
+	],
+	hub_bridge_origins: []
 });
 
 const pub = (c: string) => `e1:public:${c.repeat(64)}`;

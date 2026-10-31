@@ -44,7 +44,8 @@ const development = () => ({
 			username: 'openrelayproject',
 			credential: 'openrelayproject'
 		}
-	]
+	],
+	hub_bridge_origins: []
 });
 
 describe('P0 network store defaults', () => {

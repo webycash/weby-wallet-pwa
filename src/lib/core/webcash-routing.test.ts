@@ -35,7 +35,8 @@ const developmentConfig = (webcash_server_url: string): ExtroRuntimeConfig =>
 		zkp_bearer_vk_sha256: 'ecd299b3326e682106a31a39decf1fb43c0d5b960eb40baa2975691f406f77c1',
 		zkp_conditional_vk_sha256: '8efdd75f738658f3da0308fac3cbf6912c1324e815d863548c7e82ba39d07f1d',
 		ice_servers: ['stun:stun.cloudflare.com:3478'],
-		turn_servers: []
+		turn_servers: [],
+		hub_bridge_origins: []
 	}) as ExtroRuntimeConfig;
 
 describe('P0 webcash routing', () => {

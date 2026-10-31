@@ -31,7 +31,8 @@ const config: ExtroRuntimeConfig = {
 	zkp_bearer_vk_sha256: '44'.repeat(32),
 	zkp_conditional_vk_sha256: '55'.repeat(32),
 	ice_servers: ['stun:stun.example.com:3478'],
-	turn_servers: []
+	turn_servers: [],
+	hub_bridge_origins: []
 };
 
 const ok = (command: ExtroCommand, body: ResponseBody): ExtroResponse => ({

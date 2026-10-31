@@ -54,7 +54,8 @@ const config: ExtroRuntimeConfig = {
 	zkp_bearer_vk_sha256: '18'.repeat(32),
 	zkp_conditional_vk_sha256: '19'.repeat(32),
 	ice_servers: [],
-	turn_servers: []
+	turn_servers: [],
+	hub_bridge_origins: []
 };
 
 describe('WebyCash Ark contract', () => {

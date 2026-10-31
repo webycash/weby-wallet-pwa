@@ -5,7 +5,7 @@ import { configureExtro } from '$lib/extro';
 import { configuredAdapterMode } from '$lib/extro/config';
 import { disableArkForSession, loadRuntimeConfig } from '$lib/extro/release-config';
 import { syncNetworkFromRuntimeConfig } from '$lib/stores/network.svelte';
-import { installHubBridgeListener, DEFAULT_HUB_BRIDGE_ORIGINS } from '@extro/node';
+import { installConfiguredHubBridge } from '@extro/node';
 
 export const ssr = false;
 export const prerender = true;
@@ -63,17 +63,16 @@ export const load = async ({ fetch }) => {
 				bundled: { bootConfig: config }
 			});
 		}
+		// GATE 7-CAP: hub CapToken postMessage listener, answering only the
+		// origins this deployment's runtime-config.json lists (none = off).
+		const hubBridge = client ? installConfiguredHubBridge(client, config) : null;
 		// DEV diagnostic: expose the authoritative app client so it can be probed
 		// from the page console (dynamic `import('/src/lib/extro')` resolves to a
 		// SEPARATE module instance whose singleton defaults to mock — unusable for
 		// inspecting the real bundled client). Remove before ship.
 		if ((import.meta.env.DEV || config.deployment === 'development') && client) {
 			(window as unknown as { __extro?: unknown }).__extro = client;
-			// GATE 7-CAP: hub CapToken postMessage listener (dev only).
-			const hubBridge = installHubBridgeListener(client, {
-				allowedOrigins: [...DEFAULT_HUB_BRIDGE_ORIGINS],
-			});
-			(window as unknown as { __extroHubBridge?: { stop: () => void } }).__extroHubBridge =
+			(window as unknown as { __extroHubBridge?: { stop: () => void } | null }).__extroHubBridge =
 				hubBridge;
 		}
 		// 'cross-domain' needs explicit crossDomain options wired by the caller;
