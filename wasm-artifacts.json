@@ -16,10 +16,10 @@
     "src/lib/node/pkg/extro_node_bg.wasm": "b682674617c336de5d588b467fbecb2e96d7297f21252fea32a159bfcb93efff",
     "src/lib/node/pkg/extro_node_bg.wasm.d.ts": "49387828d3af7291319556c1bf0d9de8cea7541c64f9244b437a763d4aa29b34",
     "src/lib/node/pkg/package.json": "e03f89fc29b76891ab435c631ea0fa651e97b219e58ed1a7b6712d630d287d50",
-    "crates/wallet-wasm/pkg/wallet_wasm.js": "c6a0b8296496a11322a7c3fda6a3a50f77498852c7f4665edb97ef2b636eb974",
-    "crates/wallet-wasm/pkg/wallet_wasm.d.ts": "e1b1270636efad286cc672a41ed01b373414c30daaad0cc0486f5d06c215eb67",
-    "crates/wallet-wasm/pkg/wallet_wasm_bg.wasm": "fc7055a192807dd87ffaeccb146e13c802d0a5214fcee4f69fef9ba75eb2ef83",
-    "crates/wallet-wasm/pkg/wallet_wasm_bg.wasm.d.ts": "64adb4078f7e01ca1330a2da9f27dfeddf591d6cd716734d80c52f0b145237a8",
+    "crates/wallet-wasm/pkg/wallet_wasm.js": "8610d4c65461d10e1cac88521c4056d5fbaaf523fee0d05a2db6d92593e54d1d",
+    "crates/wallet-wasm/pkg/wallet_wasm.d.ts": "4eb413ac1e803cc2fdf9ad6e8b6afe27df8e7a98ec14bfa59210f399290c82b1",
+    "crates/wallet-wasm/pkg/wallet_wasm_bg.wasm": "77314d548a9a46e530f0c123279eecbd14a2a92a47037554dd084afcce44e8c4",
+    "crates/wallet-wasm/pkg/wallet_wasm_bg.wasm.d.ts": "4b24fef7ef0ca654ab3c3da1246b77accc3269ab1d825ff117bec89193018c7f",
     "crates/wallet-wasm/pkg/package.json": "80c918fc02a14e2539e8def0ef9b6d98a3750c920f052400b8c5191ca7583a5e"
   }
 }

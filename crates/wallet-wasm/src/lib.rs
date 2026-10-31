@@ -253,6 +253,57 @@ pub async fn gpu_mine(s: &str, n: &str) -> Result<String, JsError> {
     serde_json::to_string(&result).map_err(e)
 }
 
+// ── CPU Mining (WASM, no WebGPU required) ───────────────────────
+// Same work unit + report/claim path as the GPU miner (harmoniis-wallet);
+// only the nonce search runs on the CPU. Secrets never leave WASM: the
+// random keep secret is replaced by the HD RECEIVE secret on claim.
+
+fn leading_zero_bits(h: &[u8]) -> u32 {
+    let mut bits = 0u32;
+    for b in h { if *b == 0 { bits += 8; continue; } bits += b.leading_zeros(); break; }
+    bits
+}
+
+/// Mine one CPU batch of up to `max_attempts` nonces against the configured
+/// Webcash server's `/api/v1/target`; on a solution, submit the mining report
+/// and claim it into the wallet. Returns the same JSON shape as `gpu_mine`.
+#[wasm_bindgen]
+pub async fn cpu_mine(s: &str, n: &str, max_attempts: u32) -> Result<String, JsError> {
+    use harmoniis_wallet::miner::protocol::MiningProtocol;
+    use harmoniis_wallet::miner::work_unit::WorkUnit;
+    use sha2::Digest;
+    let network = net(n)?;
+    let wl = w(s, n)?;
+    let target = MiningProtocol::from_network(&network).map_err(e)?.get_target().await.map_err(e)?;
+    let work = WorkUnit::new(target.difficulty, target.mining_amount, target.subsidy_amount);
+    let table = NonceTable::new();
+    let limit = max_attempts.clamp(1, 1_000_000);
+    let mut attempted: u64 = 0;
+    'outer: for n1 in 0u16..1000 {
+        for n2 in 0u16..1000 {
+            if attempted >= limit as u64 { break 'outer; }
+            attempted += 1;
+            let preimage = work.preimage_string(&table, n1, n2);
+            let hash: [u8; 32] = sha2::Sha256::digest(preimage.as_bytes()).into();
+            let achieved = leading_zero_bits(&hash);
+            if achieved >= target.difficulty {
+                harmoniis_wallet::wallet::webcash::submit_and_claim_mining_solution(
+                    &wl, &network, &preimage, &hash, &work.keep_secret.to_string(),
+                ).await.map_err(e)?;
+                return serde_json::to_string(&serde_json::json!({
+                    "found": true, "state": wl.to_json().map_err(e)?, "attempted": attempted,
+                    "difficulty": target.difficulty, "mining_amount": target.mining_amount.to_string(),
+                    "hash_hex": hex::encode(hash), "difficulty_achieved": achieved,
+                })).map_err(e);
+            }
+        }
+    }
+    serde_json::to_string(&serde_json::json!({
+        "found": false, "state": wl.to_json().map_err(e)?, "attempted": attempted,
+        "difficulty": target.difficulty, "mining_amount": target.mining_amount.to_string(),
+    })).map_err(e)
+}
+
 // ── Mining session snapshot ─────────────────────────────────────
 
 #[wasm_bindgen]

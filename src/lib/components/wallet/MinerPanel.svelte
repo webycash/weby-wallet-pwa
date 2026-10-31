@@ -101,20 +101,30 @@
 	};
 
 	onMount(async () => {
-		if ('gpu' in navigator) {
-			gpuAvailable = true;
+		// CPU (WASM) mining is always available; WebGPU is preferred when an
+		// adapter actually initializes. gpu_init() returns '' when no adapter.
+		gpuAvailable = true;
+		if ('gpu' in navigator && !cpuForced()) {
 			gpuInitializing = true;
 			try {
 				const wasm = await getWasm();
-				const name = await wasm.gpu_init();
-				gpuName = name || 'WebGPU';
-				useGpu = true;
+				const name = await Promise.race([
+					wasm.gpu_init(),
+					new Promise<string>((r) => setTimeout(() => r(''), 10_000)),
+				]);
+				gpuName = name;
+				useGpu = !!name;
 			} catch (e) { console.warn('GPU init failed:', e); }
 			gpuInitializing = false;
 		}
+		// Network stats come from the configured Webcash server only (dev must
+		// never call the production host).
 		try {
-			const res = await fetch('https://webcash.org/stats');
-			netStats = await res.json();
+			const base = getRuntimeConfig().webcash_server_url?.replace(/\/$/, '');
+			if (base) {
+				const res = await fetch(`${base}/stats`);
+				if (res.ok) netStats = await res.json();
+			}
 		} catch { /* stats are optional */ }
 
 		document.addEventListener('visibilitychange', handleMinerVisibility);
@@ -141,6 +151,62 @@
 			stopKeepAlive();
 		}
 	});
+
+	// `?miner=cpu` (or localStorage weby_miner_backend=cpu) forces the CPU path.
+	const cpuForced = (): boolean => {
+		try {
+			return new URLSearchParams(location.search).get('miner') === 'cpu'
+				|| localStorage.getItem('weby_miner_backend') === 'cpu';
+		} catch { return false; }
+	};
+
+	// CPU mining in WASM: same target/report/claim path as GPU, nonce search
+	// on the main thread in bounded batches so the UI stays responsive.
+	const CPU_BATCH = 50_000;
+	const mineCpu = async () => {
+		if (isMining()) return;
+		error = ''; result = ''; resultHash = '';
+		running = true;
+		setMining(true);
+		await startKeepAlive();
+		solutionsFound = 0; solutionsSubmitted = 0; totalAttempts = 0;
+		try {
+			const wasm = await getWasm();
+			const startTime = Date.now();
+			mineStartTime = startTime;
+			while (running) {
+				const freshState = await getRawState();
+				if (!freshState) { error = 'No wallet'; break; }
+				const res = JSON.parse(await wasm.cpu_mine(freshState, resolveWebcashWasmNetwork(getRuntimeConfig()), CPU_BATCH));
+				if (res.found && res.state) await setRawState(res.state);
+				if (res.difficulty) difficulty = res.difficulty;
+				if (res.mining_amount) miningAmount = res.mining_amount;
+				totalAttempts += res.attempted ?? 0;
+				const elapsed = (Date.now() - startTime) / 1000;
+				hashRate = Math.round(totalAttempts / Math.max(elapsed, 0.001));
+				uptimeSecs = elapsed;
+				if (res.found) {
+					solutionsFound++;
+					solutionsSubmitted++;
+					resultHash = res.hash_hex;
+					history = [...history, {
+						time: new Date().toLocaleTimeString(),
+						hash: res.hash_hex,
+						difficulty: res.difficulty_achieved,
+						amount: miningAmount,
+						submitted: true,
+					}];
+					onBalanceUpdate();
+					saveSnapshot();
+				}
+				await new Promise((r) => setTimeout(r, 0));
+			}
+		} catch (e: any) { error = e.message || 'CPU mining failed'; }
+		running = false;
+		setMining(false);
+		stopKeepAlive();
+		saveSnapshot();
+	};
 
 	const mineGpu = async (resume?: any) => {
 		if (isMining()) return; // guard against concurrent GPU access
@@ -226,6 +292,7 @@
 			return;
 		}
 		if (useGpu) await mineGpu();
+		else await mineCpu();
 	};
 </script>
 
@@ -240,7 +307,7 @@
 			{:else if useGpu}
 				<span class="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">{gpuName}</span>
 			{:else}
-				<span class="text-[10px] px-2 py-0.5 rounded-full bg-muted/60 text-muted-foreground font-medium">GPU</span>
+				<span class="text-[10px] px-2 py-0.5 rounded-full bg-muted/60 text-muted-foreground font-medium">CPU</span>
 			{/if}
 		</div>
 		<button onclick={toggle} disabled={gpuInitializing || !gpuAvailable}
@@ -290,7 +357,7 @@
 			</div>
 			<div class="rounded-2xl bg-card p-3.5">
 				<p class="text-[10px] text-muted-foreground mb-1 tracking-wide">Backend</p>
-				<p class="text-[14px] font-medium text-foreground">WebGPU</p>
+				<p class="text-[14px] font-medium text-foreground">{useGpu ? 'WebGPU' : 'CPU (WASM)'}</p>
 			</div>
 			<div class="rounded-2xl bg-card p-3.5">
 				<p class="text-[10px] text-muted-foreground mb-1 tracking-wide">Uptime</p>
