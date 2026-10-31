@@ -33,7 +33,7 @@ import {
 	GATE_SETTLE_RELEASE_PENDING,
 	NamedArkGateError
 } from '$lib/ark/named-gates';
-import { assertRefereeCeremony, verifyCeremonyPartial } from '$lib/ark/settle-ceremony';
+import { assertRefereeCeremony, verifyCeremonyPartial } from '$lib/ark/ceremony';
 import {
 	assertOwnerKeyBinding,
 	providerAggregateRefund,
@@ -212,9 +212,10 @@ async function assertCeremonyReady(input: {
 }): Promise<void> {
 	try {
 		await assertRefereeCeremony(refereeFromConfig().referee, input.prepared.refereeMusig2Pubshare);
-		assertOwnerKeyBinding({
+		await assertOwnerKeyBinding({
 			refereePubkeyHex: input.prepared.refereeMusig2Pubshare,
 			providerPubkeyHex: input.providerMusig2PubkeyHex,
+			swap: input.contract.plan,
 			aggregateOwnerKey: input.contract.plan.aggregateOwnerKey
 		});
 	} catch (e) {
@@ -579,9 +580,10 @@ export async function runProviderSide(
 		}
 		let inputs;
 		try {
-			inputs = settleCeremonyInputs({
+			inputs = await settleCeremonyInputs({
 				prepared,
 				material: ownMaterial,
+				swap: contract.plan,
 				lockedRef,
 				settleHashHex: refs.txSettleHashHex,
 				aggregateOwnerKey: contract.plan.aggregateOwnerKey
@@ -670,9 +672,10 @@ export async function runProviderSide(
 		// aggregate under Q and broadcast the refund to the provider destination.
 		let refundSigs: string;
 		try {
-			const refundInputs = refundCeremonyInputs({
+			const refundInputs = await refundCeremonyInputs({
 				prepared,
 				material: ownMaterial,
+				swap: contract.plan,
 				lockedRef,
 				refundHashHex: refs.txRefundHashHex,
 				aggregateOwnerKey: contract.plan.aggregateOwnerKey
@@ -989,9 +992,10 @@ export async function runBearerSellerSide(
 	});
 	let inputs;
 	try {
-		inputs = settleCeremonyInputs({
+		inputs = await settleCeremonyInputs({
 			prepared: verified,
 			material,
+			swap: contract.plan,
 			lockedRef: checked.lockedRef,
 			settleHashHex: checked.txSettleHashHex,
 			aggregateOwnerKey: contract.plan.aggregateOwnerKey
@@ -1024,7 +1028,7 @@ export async function runBearerSellerSide(
 		let initFacts;
 		let publicWebcash: string;
 		try {
-			verifyCeremonyPartial(inputs, 'provider', pp.partialHex);
+			await verifyCeremonyPartial(inputs, 'provider', pp.partialHex);
 			const bearer = await bearerLegFromWallet(slot, 0, fillAmountRawFor(order));
 			publicWebcash = `e${bearer.bearerAmount}:public:${bytesToHex(bearer.publicTokenHash)}`;
 			const encSecretForProvider = await transport.sealBearerSecret({
@@ -1127,7 +1131,7 @@ export async function runBearerSellerSide(
 	}
 	let settleSignatureHex: string;
 	try {
-		settleSignatureHex = sellerAggregateSettle({
+		settleSignatureHex = await sellerAggregateSettle({
 			inputs,
 			release: delivered.release,
 			providerPartialHex: delivered.providerPartialHex,

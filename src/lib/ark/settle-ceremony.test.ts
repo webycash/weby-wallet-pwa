@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import vector from './settle-ceremony.vector.json';
 import {
 	HEX_SIGHASH_CAPABILITY,
@@ -11,13 +11,6 @@ import {
 	verifyCeremonyPartial,
 	type CeremonyInputs
 } from './settle-ceremony';
-import {
-	assertOwnerKeyBinding,
-	providerSignSettle,
-	sellerAggregateSettle,
-	settleCeremonyInputs,
-	type ProviderPartialSigner
-} from './settle-step';
 
 const hex = (h: string) => Uint8Array.from(h.match(/../g) ?? [], (b) => Number.parseInt(b, 16));
 const inputs: CeremonyInputs = {
@@ -136,77 +129,6 @@ describe('assertRefereeCeremony (fail closed against older referees)', () => {
 		await expect(
 			assertRefereeCeremony({ pubkey: () => Promise.reject(new Error('503')) }, vector.referee_pubkey_hex)
 		).rejects.toThrow(/ARK_REFEREE_CEREMONY_UNAVAILABLE.*503/);
-	});
-});
-
-describe('settle step wiring', () => {
-	const prepared = { refereeMusig2Pubshare: vector.referee_pubkey_hex, refereeSettleNoncePub: vector.referee_nonce_hex };
-	const material = {
-		provider_musig2_pubkey: vector.provider_pubkey_hex,
-		settle_nonce_pub: vector.provider_nonce_hex,
-		locked_ref: LOCKED,
-		tx_settle_hash_hex: vector.sighash_hex
-	};
-	const build = () =>
-		settleCeremonyInputs({ prepared, material, lockedRef: LOCKED, settleHashHex: vector.sighash_hex, aggregateOwnerKey: Q });
-
-	it('binds prepared + material to Q', () => {
-		expect(build()).toEqual(inputs);
-		expect(() =>
-			assertOwnerKeyBinding({ refereePubkeyHex: prepared.refereeMusig2Pubshare, providerPubkeyHex: material.provider_musig2_pubkey, aggregateOwnerKey: Q })
-		).not.toThrow();
-	});
-
-	it('refuses material for another outpoint / sighash, or a wrong Q', () => {
-		expect(() =>
-			settleCeremonyInputs({ prepared, material, lockedRef: `${'cd'.repeat(32)}:0`, settleHashHex: vector.sighash_hex, aggregateOwnerKey: Q })
-		).toThrow(/ARK_SETTLE_CEREMONY_INVALID.*locked_ref/);
-		expect(() =>
-			settleCeremonyInputs({ prepared, material, lockedRef: LOCKED, settleHashHex: 'a5'.repeat(32), aggregateOwnerKey: Q })
-		).toThrow(/ARK_SETTLE_CEREMONY_INVALID.*settle hash/);
-		expect(() =>
-			settleCeremonyInputs({ prepared, material, lockedRef: LOCKED, settleHashHex: vector.sighash_hex, aggregateOwnerKey: hex('22'.repeat(32)) })
-		).toThrow(/ARK_SETTLE_CEREMONY_INVALID/);
-	});
-
-	it('provider signs via the WASM op with the extro-node fill id and self-verifies', async () => {
-		const sign = vi.fn(async (_input: Parameters<ProviderPartialSigner>[0]) => vector.provider_partial_hex);
-		const orderIdHex = '0f'.repeat(16);
-		const fp = 'AB'.repeat(20);
-		await expect(providerSignSettle({ slot: 3, orderIdHex, counterpartyFpHex: fp, inputs: build(), sign })).resolves.toBe(
-			vector.provider_partial_hex
-		);
-		const arg = sign.mock.calls[0][0];
-		expect(arg).toMatchObject({
-			slot: 3,
-			fillId: `${orderIdHex}:${'ab'.repeat(20)}`,
-			session: 'settle',
-			refereePkHex: vector.referee_pubkey_hex,
-			refereeNonceHex: vector.referee_nonce_hex
-		});
-		expect(Array.from(arg.msg)).toEqual(Array.from(hex(vector.sighash_hex)));
-	});
-
-	it('provider refuses a WASM partial that does not verify', async () => {
-		const sign = async () => flip(vector.provider_partial_hex);
-		await expect(
-			providerSignSettle({ slot: 0, orderIdHex: '0f'.repeat(16), counterpartyFpHex: 'ab'.repeat(20), inputs: build(), sign })
-		).rejects.toThrow(/ARK_SETTLE_CEREMONY_INVALID.*provider partial/);
-	});
-
-	it('seller aggregates a ReleaseSettle for its own VTXO and refuses a foreign one', () => {
-		const release = { refereePartialHex: vector.referee_partial_hex, providerEncPartialB64: 'AAEC', aspVtxoRef: LOCKED };
-		expect(
-			sellerAggregateSettle({ inputs: build(), release, providerPartialHex: vector.provider_partial_hex, lockedRef: LOCKED })
-		).toBe(vector.signature_hex);
-		expect(() =>
-			sellerAggregateSettle({
-				inputs: build(),
-				release: { ...release, aspVtxoRef: `${'cd'.repeat(32)}:1` },
-				providerPartialHex: vector.provider_partial_hex,
-				lockedRef: LOCKED
-			})
-		).toThrow(/different VTXO/);
 	});
 });
 

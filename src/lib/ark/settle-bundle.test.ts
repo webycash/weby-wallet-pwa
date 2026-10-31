@@ -1,10 +1,16 @@
 /**
  * End-to-end sighash-bundle-v1 ceremony over the REAL Arkade settle/refund
- * spends (test-only scalars): partial bundles verify, aggregate under Q, and
- * the presigned identity accepts exactly the two [checkpoint, ark] sighashes.
+ * spends (test-only scalars): partial bundles verify and aggregate under the
+ * per-swap tweaked Q in the real extro-node WASM (`Op::Ark`), and the
+ * presigned identity accepts exactly the two [checkpoint, ark] sighashes.
  */
-import { describe, expect, it } from 'vitest';
-import { Session, nonceAggregate, nonceGen } from '@scure/btc-signer/musig2.js';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { nonceAggregate, nonceGen } from '@scure/btc-signer/musig2.js';
+import { bootArkNode } from './ark-node.testkit';
+
+const node = vi.hoisted(() => ({ client: null as unknown }));
+vi.mock('$lib/extro', () => ({ getExtroClient: () => node.client }));
+
 import { schnorr } from '@noble/curves/secp256k1.js';
 import { fundingRefsFromSpends, presignedIdentity, splitAggregateBundle } from './settle-tx';
 import {
@@ -14,8 +20,12 @@ import {
 	TEST_Q,
 	TEST_REFEREE_PUB,
 	TEST_REFEREE_SK,
+	TEST_REQUEST_COMMITMENT,
+	TEST_SWAP_ID,
+	testSigningSession,
 	testSwapContract
 } from './settle-tx.fixture';
+import { swapOwnerKey } from './ceremony';
 import {
 	providerAggregateRefund,
 	refundCeremonyInputs,
@@ -28,7 +38,7 @@ const unhex = (h: string) => Uint8Array.from(h.match(/../g) ?? [], (b) => Number
 const LOCKED = `${'5a'.repeat(32)}:1`;
 const contract = testSwapContract();
 const refs = fundingRefsFromSpends(contract, LOCKED, TEST_CHECKPOINT_HEX);
-const keys = [TEST_REFEREE_PUB, TEST_PROVIDER_PUB];
+const swap = { swapId: TEST_SWAP_ID, requestCommitment: TEST_REQUEST_COMMITMENT };
 
 /** Per-message nonces for one signer over the 2-message bundle. */
 function nonces(pub: Uint8Array, sk: Uint8Array, bundleHex: string) {
@@ -44,18 +54,33 @@ function partials(
 	return [0, 1]
 		.map((i) => {
 			const pubs = which === 0 ? [mine[i].public, other[i].public] : [other[i].public, mine[i].public];
-			const s = new Session(nonceAggregate(pubs), keys, unhex(bundleHex.slice(i * 64, i * 64 + 64)));
+			const s = testSigningSession(
+				nonceAggregate(pubs),
+				unhex(bundleHex.slice(i * 64, i * 64 + 64)),
+				TEST_SWAP_ID,
+				TEST_REQUEST_COMMITMENT
+			);
 			return hx(s.sign(mine[i].secret, sk));
 		})
 		.join('');
 }
 const pubHex = (n: ReturnType<typeof nonces>) => n.map((x) => hx(x.public)).join('');
 
+beforeAll(async () => {
+	node.client = await bootArkNode();
+});
+
 describe('sighash-bundle-v1 over real Arkade spends', () => {
-	it('settle: seller aggregates both partial bundles into broadcastable signatures', () => {
+	it('the simulated signers\' tweaked Q is the extro-node SwapOwnerKey (C1)', async () => {
+		await expect(
+			swapOwnerKey({ refereePubkeyHex: hx(TEST_REFEREE_PUB), providerPubkeyHex: hx(TEST_PROVIDER_PUB), ...swap })
+		).resolves.toEqual(TEST_Q);
+	});
+
+	it('settle: seller aggregates both partial bundles into broadcastable signatures', async () => {
 		const rn = nonces(TEST_REFEREE_PUB, TEST_REFEREE_SK, refs.txSettleHashHex);
 		const pn = nonces(TEST_PROVIDER_PUB, TEST_PROVIDER_SK, refs.txSettleHashHex);
-		const inputs = settleCeremonyInputs({
+		const inputs = await settleCeremonyInputs({
 			prepared: { refereeMusig2Pubshare: hx(TEST_REFEREE_PUB), refereeSettleNoncePub: pubHex(rn) },
 			material: {
 				provider_musig2_pubkey: hx(TEST_PROVIDER_PUB),
@@ -63,11 +88,12 @@ describe('sighash-bundle-v1 over real Arkade spends', () => {
 				locked_ref: LOCKED,
 				tx_settle_hash_hex: refs.txSettleHashHex
 			},
+			swap,
 			lockedRef: LOCKED,
 			settleHashHex: refs.txSettleHashHex,
 			aggregateOwnerKey: TEST_Q
 		} as never);
-		const sigs = sellerAggregateSettle({
+		const sigs = await sellerAggregateSettle({
 			inputs,
 			release: {
 				refereePartialHex: partials(0, rn, pn, refs.txSettleHashHex),
@@ -90,7 +116,7 @@ describe('sighash-bundle-v1 over real Arkade spends', () => {
 	it('refund: provider verifies the referee partial, signs with the refund nonce and aggregates', async () => {
 		const rn = nonces(TEST_REFEREE_PUB, TEST_REFEREE_SK, refs.txRefundHashHex);
 		const pn = nonces(TEST_PROVIDER_PUB, TEST_PROVIDER_SK, refs.txRefundHashHex);
-		const inputs = refundCeremonyInputs({
+		const inputs = await refundCeremonyInputs({
 			prepared: { refereeMusig2Pubshare: hx(TEST_REFEREE_PUB), refereeRefundNoncePub: pubHex(rn) },
 			material: {
 				provider_musig2_pubkey: hx(TEST_PROVIDER_PUB),
@@ -98,6 +124,7 @@ describe('sighash-bundle-v1 over real Arkade spends', () => {
 				locked_ref: LOCKED,
 				tx_refund_hash_hex: refs.txRefundHashHex
 			},
+			swap,
 			lockedRef: LOCKED,
 			refundHashHex: refs.txRefundHashHex,
 			aggregateOwnerKey: TEST_Q
@@ -124,7 +151,7 @@ describe('sighash-bundle-v1 over real Arkade spends', () => {
 	it('refund: rejects a referee partial over the settle bundle', async () => {
 		const rn = nonces(TEST_REFEREE_PUB, TEST_REFEREE_SK, refs.txRefundHashHex);
 		const pn = nonces(TEST_PROVIDER_PUB, TEST_PROVIDER_SK, refs.txRefundHashHex);
-		const inputs = refundCeremonyInputs({
+		const inputs = await refundCeremonyInputs({
 			prepared: { refereeMusig2Pubshare: hx(TEST_REFEREE_PUB), refereeRefundNoncePub: pubHex(rn) },
 			material: {
 				provider_musig2_pubkey: hx(TEST_PROVIDER_PUB),
@@ -132,6 +159,7 @@ describe('sighash-bundle-v1 over real Arkade spends', () => {
 				locked_ref: LOCKED,
 				tx_refund_hash_hex: refs.txRefundHashHex
 			},
+			swap,
 			lockedRef: LOCKED,
 			refundHashHex: refs.txRefundHashHex,
 			aggregateOwnerKey: TEST_Q

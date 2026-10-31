@@ -29,6 +29,10 @@ export async function wasmProviderPartialSign(input: {
 	fillId: string;
 	session: 'settle' | 'refund';
 	refereePkHex: string;
+	/** The swap the 2-of-2 key is tweaked to (audit C1). */
+	swapId: string;
+	/** The swap's 32-byte prepare request commitment (audit C1). */
+	requestCommitment: Uint8Array;
 	refereeNonceHex: string;
 	msg: Uint8Array;
 }): Promise<string> {
@@ -47,6 +51,8 @@ export async function wasmProviderPartialSign(input: {
 				fill_id: input.fillId,
 				session: input.session,
 				referee_pk_hex: input.refereePkHex,
+				swap_id: input.swapId,
+				request_commitment: input.requestCommitment.slice(),
 				referee_nonce_hex: input.refereeNonceHex,
 				msg: input.msg.slice()
 			}
@@ -67,6 +73,10 @@ export type WasmCosignOpts = {
 	fillId: string;
 	/** Referee 2-of-2 pubshare (33-byte compressed hex). */
 	refereePkHex: string;
+	/** The swap the 2-of-2 key is tweaked to (audit C1). */
+	swapId: string;
+	/** The swap's 32-byte prepare request commitment (audit C1). */
+	requestCommitment: Uint8Array;
 	/** Referee public nonce for the settle session (66-byte hex), from the referee settle ceremony. */
 	refereeSettleNonceHex: string;
 };
@@ -82,6 +92,8 @@ export class WasmProviderCosignBackend implements DedicatedCosignBackend {
 			fillId: this.opts.fillId,
 			session: 'settle',
 			refereePkHex: this.opts.refereePkHex,
+			swapId: this.opts.swapId,
+			requestCommitment: this.opts.requestCommitment,
 			refereeNonceHex: this.opts.refereeSettleNonceHex,
 			msg: hexToBytes(template.templateDigestHex)
 		});

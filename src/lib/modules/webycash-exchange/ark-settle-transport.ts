@@ -27,7 +27,7 @@ import { getExtroClient } from '$lib/extro';
 import { newRequestId } from '@extro/node';
 import { getRuntimeConfig } from '$lib/extro/release-config';
 import { ExtroWebcashRailClient, type WebcashTokenStatusOp } from '$lib/core/webcash-rail-client';
-import { parseReleaseSettle, type ReleaseSettle } from '$lib/ark/settle-ceremony';
+import { parseReleaseSettle, type ReleaseSettle } from '$lib/ark/ceremony';
 import type { ArkSpend } from '$lib/ark/settle-tx';
 import type { TwoProofFacts } from './swap-facts';
 
