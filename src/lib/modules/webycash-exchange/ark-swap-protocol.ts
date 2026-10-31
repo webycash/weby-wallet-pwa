@@ -66,6 +66,7 @@ import {
 import { fetchSwapMsgs, probeProviderMaterial, providerMaterialFromWire } from './accept-run-swap';
 import { frameConditionalPayload, type SettleTransport } from './ark-settle-transport';
 import { bearerLegFromWallet, buildSwapInitiateFacts } from './swap-facts';
+import { assertBearerLegIssued, awaitRefereePrecheck, submitBearerPrecheck } from './bearer-precheck';
 import { HttpRefereeClient } from './referee-client';
 import {
 	countersignSwapPrepare,
@@ -94,6 +95,8 @@ export type SwapPhase =
 	| 'awaiting-prepared'
 	| 'contract-derived'
 	| 'ceremony-ready'
+	| 'precheck-submitted'
+	| 'precheck-passed'
 	| 'funding'
 	| 'funded'
 	| 'material-sent'
@@ -203,7 +206,7 @@ export function arkAmountSatsFor(order: LimitOrder): bigint {
 	return BigInt(sats);
 }
 
-function fillAmountRawFor(order: LimitOrder): bigint {
+export function fillAmountRawFor(order: LimitOrder): bigint {
 	const baseIsArk = order.pair.base === 'BitcoinArk';
 	const raw = baseIsArk ? Math.round(order.price * order.amount) : Math.trunc(order.amount);
 	return BigInt(Math.max(1, raw));
@@ -438,6 +441,21 @@ export async function runProviderSide(
 			{ facts }
 		);
 	}
+	// Fund ONLY after the referee attests a passing pre-check for BOTH legs
+	// (bearer H live + unspent on the rail, provider terms). Fails closed.
+	try {
+		const health = await refereeFromConfig().referee.pubkey();
+		await awaitRefereePrecheck({
+			refereeUrl: getRuntimeConfig().referee_url,
+			swapId: contract.plan.swapId,
+			capabilities: health.capabilities,
+			timeoutMs: stepTimeoutMs,
+			intervalMs
+		});
+	} catch (e) {
+		throw Object.assign(new NamedArkGateError((e as Error).message), { facts });
+	}
+	emit({ phase: 'precheck-passed', message: 'referee pre-check passed for both legs', ...facts });
 	emit({ phase: 'funding', message: 'funding the 2-of-2 VTXO from the WASM-signed Ark wallet', ...facts });
 	const { Wallet } = await import('@arkade-os/sdk');
 	const wallet = await Wallet.create({
@@ -764,6 +782,28 @@ export async function runBearerSellerSide(
 	});
 	emit({ phase: 'ceremony-ready', message: 'referee serves settle-ceremony-v1; KeyAgg(referee, provider) = Q', ...facts });
 
+	// Before the provider may fund: the bearer leg must be a live, unspent
+	// token from the real wallet balance (never minted/mined here), and the
+	// referee must record the pre-check the provider waits on.
+	try {
+		const leg = await bearerLegFromWallet(slot, 0, fillAmountRawFor(order));
+		const legPublic = `e${leg.bearerAmount}:public:${bytesToHex(leg.publicTokenHash)}`;
+		await assertBearerLegIssued({
+			railBase: getRuntimeConfig().webcash_server_url,
+			publicWebcash: legPublic,
+			fillAmount: leg.bearerAmount
+		});
+		const health = await refereeFromConfig().referee.pubkey();
+		await submitBearerPrecheck({
+			refereeUrl: getRuntimeConfig().referee_url,
+			swapId: contract.plan.swapId,
+			publicWebcash: legPublic,
+			capabilities: health.capabilities
+		});
+	} catch (e) {
+		throw Object.assign(new NamedArkGateError((e as Error).message), { facts });
+	}
+	emit({ phase: 'precheck-submitted', message: 'bearer leg verified unspent; referee pre-check submitted', ...facts });
 	emit({ phase: 'awaiting-material', message: 'waiting for the provider to fund the contract', ...facts });
 	const material = await poll(
 		'awaiting provider funding',

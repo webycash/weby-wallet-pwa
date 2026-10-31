@@ -39,7 +39,15 @@ const state = vi.hoisted(() => ({
 	balance: '0',
 	q: '',
 	refundHash: '',
-	initFacts: null as unknown
+	initFacts: null as unknown,
+	precheck: vi.fn(async () => ({ swap_id: 'swap-1', bearer: { ok: true }, provider: { ok: true } })),
+	legIssued: vi.fn(async () => ({ amount: '100' })),
+	submitPrecheck: vi.fn(async () => undefined)
+}));
+vi.mock('./bearer-precheck', () => ({
+	awaitRefereePrecheck: state.precheck,
+	assertBearerLegIssued: state.legIssued,
+	submitBearerPrecheck: state.submitPrecheck
 }));
 
 vi.mock('$lib/extro/runtime-config', () => ({ getRuntimeConfig: () => CFG }));
@@ -216,9 +224,30 @@ beforeEach(() => {
 	state.q = vector.owner_q_xonly_hex;
 	state.refundHash = 'a5'.repeat(32);
 	state.initFacts = null;
+	state.precheck.mockReset();
+	state.precheck.mockResolvedValue({ swap_id: 'swap-1', bearer: { ok: true }, provider: { ok: true } });
+	state.legIssued.mockReset();
+	state.legIssued.mockResolvedValue({ amount: '100' });
+	state.submitPrecheck.mockReset();
+	state.submitPrecheck.mockResolvedValue(undefined);
 });
 
 describe('provider side', () => {
+	it('never funds until the referee pre-check passes for both legs', async () => {
+		state.balance = '1000000';
+		state.material = offer();
+		state.precheck.mockRejectedValue(
+			new Error('REFEREE_PRECHECK_PENDING: the referee has not attested a passing pre-check (bearer: H unknown to rail)')
+		);
+		const log: SwapProgress[] = [];
+		const out = await runSwapRole('provider', order, SELLER_FP, { ...fast, onProgress: (p) => log.push(p) });
+		expect(out.phase).toBe('gate');
+		expect(out.gate).toMatch(/^REFEREE_PRECHECK_PENDING/);
+		expect(phases(log)).not.toContain('funding');
+		expect(state.walletCreate).not.toHaveBeenCalled();
+		expect(state.precheck).toHaveBeenCalledWith(expect.objectContaining({ swapId: 'swap-1' }));
+	});
+
 	it('stops BEFORE funding when the referee is the current (capability-less) build', async () => {
 		state.refereePubkey = { ed25519_pubkey_hex: CFG.referee_vk_hex, musig2_pubshare_hex: vector.referee_pubkey_hex, referee_version: 'old' };
 		state.balance = '1000000';
@@ -372,6 +401,16 @@ describe('provider side', () => {
 });
 
 describe('bearer-seller side', () => {
+	it('stops before the provider may fund when its bearer H was never issued (spent:null)', async () => {
+		state.msgs = [offer()];
+		state.legIssued.mockRejectedValue(new Error('BEARER_LEG_NOT_ISSUED: the bearer webcash H is unknown to the rail'));
+		const log: SwapProgress[] = [];
+		const out = await runSwapRole('bearer-seller', order, PROVIDER_FP, { ...fast, onProgress: (p) => log.push(p) });
+		expect(out.gate).toMatch(/^BEARER_LEG_NOT_ISSUED/);
+		expect(phases(log)).not.toContain('awaiting-material');
+		expect(state.submitPrecheck).not.toHaveBeenCalled();
+	});
+
 	it('stops at REFEREE_CEREMONY_UNAVAILABLE before waiting for funding on the old referee', async () => {
 		state.refereePubkey = { ed25519_pubkey_hex: CFG.referee_vk_hex, musig2_pubshare_hex: vector.referee_pubkey_hex };
 		state.msgs = [offer()];

@@ -77,3 +77,15 @@ export class NamedArkGateError extends Error {
 export function isNamedArkGateError(e: unknown): e is NamedArkGateError {
 	return e instanceof NamedArkGateError;
 }
+
+/** The taker's bearer leg H is not a live token on the webcash rail (`spent:null` = never issued). */
+export const GATE_BEARER_LEG_NOT_ISSUED =
+	'BEARER_LEG_NOT_ISSUED: the bearer webcash H is unknown to the rail (health_check spent:null); fund the bearer leg from the real wallet balance first — nothing is minted or mined';
+
+/** The taker's bearer leg H is already spent, or its face amount does not cover the fill. */
+export const GATE_BEARER_LEG_UNUSABLE =
+	'BEARER_LEG_UNUSABLE: the bearer webcash H is spent or below the order fill amount; refusing to proceed';
+
+/** Maker funding gate: the referee has not attested a passing pre-check for BOTH legs. */
+export const GATE_REFEREE_PRECHECK_PENDING =
+	'REFEREE_PRECHECK_PENDING: the referee has not attested a passing pre-check for both legs (bearer H unspent on the rail + provider terms); the 2-of-2 VTXO was NOT funded';

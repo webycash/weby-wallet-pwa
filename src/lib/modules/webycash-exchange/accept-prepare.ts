@@ -76,7 +76,8 @@ export type BuildPrepareTermsInput = {
 	bearerSellerCancelPubkeyHex: string;
 	providerArkDestination: string;
 	bearerSellerArkDestination: string;
-	arkAmountSats?: bigint;
+	/** Ark leg size from the order (no default — a hardcoded amount is a product bug). */
+	arkAmountSats: bigint;
 	ttlSeconds?: number;
 	/** Absolute expiry; when set, overrides ttlSeconds-based now+ttl (needed for dual-party byte identity). */
 	expiresAtUnix?: number;
@@ -85,6 +86,11 @@ export type BuildPrepareTermsInput = {
 };
 
 /** Assemble ArkPrepareTerms from genuine ProviderMaterial + runtime Ark pins. */
+function positiveSats(v: bigint): bigint {
+	if (typeof v !== 'bigint' || v <= 0n) throw new Error('arkAmountSats must be a positive order-derived amount');
+	return v;
+}
+
 export function buildArkPrepareTermsFromProvider(input: BuildPrepareTermsInput): ArkPrepareTerms {
 	const cfg = getRuntimeConfig();
 	if (!cfg.ark_enabled) {
@@ -120,7 +126,7 @@ export function buildArkPrepareTermsFromProvider(input: BuildPrepareTermsInput):
 		ark_operator_signer_pk: hexToBytes(cfg.ark_signer_pk_hex, 32, 'ark_signer_pk_hex'),
 		ark_operator_info_digest: hexToBytes(cfg.ark_info_digest_hex, 32, 'ark_info_digest_hex'),
 		ark_unilateral_exit_delay: BigInt(cfg.ark_unilateral_exit_delay),
-		ark_amount_sats: input.arkAmountSats ?? 25_000n,
+		ark_amount_sats: positiveSats(input.arkAmountSats),
 		provider_ark_destination: input.providerArkDestination,
 		bearer_seller_ark_destination: input.bearerSellerArkDestination,
 		idempotency_key: idempotencyKey,
