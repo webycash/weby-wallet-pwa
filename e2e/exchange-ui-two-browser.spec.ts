@@ -35,10 +35,26 @@ async function shot(page: Page, who: string, step: string) {
 async function onboard(browser: Browser, who: string, mnemonic: string) {
 	const context = await browser.newContext();
 	const page = await context.newPage();
+	// Full console + keyserver traffic capture, one file per browser (never
+	// secrets: lines that look like key material are dropped).
+	fs.mkdirSync(OUT, { recursive: true });
+	const clog = `${OUT}/console-${who}.log`;
+	const SECRETISH = /mnemonic|seed|secret|private|xprv|passphrase/i;
+	const t0 = Date.now();
+	const cw = (line: string) => {
+		if (!SECRETISH.test(line)) fs.appendFileSync(clog, `${new Date().toISOString()} +${Date.now() - t0}ms ${line}\n`);
+	};
 	page.on('console', (m) => {
+		cw(`console.${m.type()}: ${m.text().slice(0, 600)}`);
 		if (m.type() === 'error' || /gate|swap|order|seeder|peer/i.test(m.text()))
 			note(who, 'console', `${m.type()}: ${m.text().slice(0, 400)}`);
 	});
+	page.on('response', (r) => {
+		const u = new URL(r.url());
+		if (/extro\.network$/.test(u.hostname) && !/\.(js|css|wasm|png|svg|woff2?)$/.test(u.pathname))
+			cw(`net ${r.request().method()} ${u.pathname} ${r.status()}`);
+	});
+	page.on('requestfailed', (r) => cw(`netfail ${r.method()} ${r.url().slice(0, 200)} ${r.failure()?.errorText}`));
 	page.on('pageerror', (e) => note(who, 'pageerror', e.message.slice(0, 400)));
 	await page.goto(`${BASE}/`);
 	// ToS: wait for the dialog explicitly (it renders after the WASM boot) and
@@ -61,7 +77,27 @@ async function onboard(browser: Browser, who: string, mnemonic: string) {
 	await page.getByRole('button', { name: /^Exchange$/ }).first().waitFor({ timeout: 60_000 });
 	await shot(page, who, '01-onboarded');
 	note(who, 'onboarded');
-	return { context, page };
+	// Connection timeline from onboarding: every status change + time to first peer.
+	const timeline: { ms: number; phase: string; message: string; peers: number; roster: number }[] = [];
+	const conn = { onboardedAt: Date.now(), firstPeerMs: null as number | null, timeline };
+	void (async () => {
+		let last = '';
+		while (!page.isClosed()) {
+			const st = await connection(page).catch(() => null);
+			if (st) {
+				const key = `${st.phase}|${st.message}|${st.peers_connected}`;
+				if (key !== last) {
+					last = key;
+					const e = { ms: Date.now() - conn.onboardedAt, phase: st.phase, message: st.message, peers: Number(st.peers_connected ?? 0), roster: Number(st.roster_count ?? 0) };
+					timeline.push(e);
+					cw(`conn ${JSON.stringify(e)}`);
+				}
+				if (conn.firstPeerMs === null && Number(st.peers_connected) > 0) conn.firstPeerMs = Date.now() - conn.onboardedAt;
+			}
+			await new Promise((r) => setTimeout(r, 1000));
+		}
+	})();
+	return { context, page, conn };
 }
 
 async function connection(page: Page) {
@@ -178,6 +214,15 @@ for (const dir of [
 				A: await waitPeers(a.page, `A-${dir.name}`),
 				B: await waitPeers(b.page, `B-${dir.name}`, 30_000)
 			};
+			result.connectMs = { A: a.conn.firstPeerMs, B: b.conn.firstPeerMs };
+			result.connTimeline = { A: a.conn.timeline, B: b.conn.timeline };
+			note('both', 'connect-ms', result.connectMs);
+			if (process.env.E2E_CONNECT_ONLY === '1') {
+				result.connectOnly = true;
+				result.settled = Boolean(a.conn.firstPeerMs !== null && b.conn.firstPeerMs !== null);
+				expect(result.settled, `connect-only: ${JSON.stringify(result.connectMs)}`).toBe(true);
+				return;
+			}
 			await openTrade(a.page, `A-${dir.name}`, dir.pair);
 			await openTrade(b.page, `B-${dir.name}`, dir.pair);
 			// Maker A publishes.
