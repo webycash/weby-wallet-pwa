@@ -16,7 +16,12 @@ const OUT = process.env.E2E_EVIDENCE_DIR ?? 'test-results/mine-dev';
 const DEV_RAIL = 'https://dev.weby.cash/api/webcash';
 const TARGET = Number(process.env.E2E_MINE_TARGET ?? '1');
 const WHO = (process.env.E2E_MINE_WHO ?? 'A,B').split(',');
-const MNEMONICS: Record<string, string> = {
+const MNEMONICS: Record<string, string> = process.env.E2E_MNEMONICS_FILE
+	? (() => {
+			const j = JSON.parse(fs.readFileSync(process.env.E2E_MNEMONICS_FILE!, 'utf8'));
+			return { A: j.A, B: j.B };
+		})()
+	: {
 	A: 'legal winner thank year wave sausage worth useful legal winner thank year wave sausage worth useful legal winner thank year wave sausage worth title',
 	B: 'letter advice cage absurd amount doctor acoustic avoid letter advice cage absurd amount doctor acoustic avoid letter advice cage absurd amount doctor acoustic bless'
 };

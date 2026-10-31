@@ -43,8 +43,22 @@ import type { LimitOrder } from './types';
  * `npm run install:zkp` with the ceremony output directory; the keys are never
  * silently sourced from a sibling checkout or treated as production-safe.
  */
-const BEARER_PK_URL = '/circuits-dev/pk_bearer_payload.bin';
-const CONDITIONAL_PK_URL = '/circuits-dev/pk_conditional_leg.bin';
+const BEARER_PK_PATH = '/circuits-dev/pk_bearer_payload.bin';
+const CONDITIONAL_PK_PATH = '/circuits-dev/pk_conditional_leg.bin';
+
+/** Proving-key URLs under the app's base path (the wallet is served at `/wallet`). */
+export function proofKeyUrls(base: string): { bearer: string; conditional: string } {
+	const b = base.replace(/\/+$/, '');
+	return { bearer: `${b}${BEARER_PK_PATH}`, conditional: `${b}${CONDITIONAL_PK_PATH}` };
+}
+
+async function appBase(): Promise<string> {
+	try {
+		return (await import('$app/paths')).base ?? '';
+	} catch {
+		return '';
+	}
+}
 
 /** Coarse phase of the runner, surfaced to the UI alongside the Trade timeline. */
 export type SwapStage =
@@ -83,16 +97,23 @@ let keysPromise: Promise<ProofKeys> | null = null;
 async function fetchKey(url: string, fetchFn: typeof fetch): Promise<Uint8Array> {
 	const r = await fetchFn(url);
 	if (!r.ok) throw new Error(`fetch ${url}: ${r.status} ${r.statusText}`);
+	// A missing asset is answered by the SPA fallback (redirect → index.html);
+	// feeding that HTML to the prover surfaces only as "proving failed".
+	const ct = r.headers?.get?.('content-type') ?? '';
+	if (r.redirected || /text\/html/i.test(ct)) {
+		throw new Error(`fetch ${url}: proving key missing (got ${ct || 'redirect'})`);
+	}
 	return new Uint8Array(await r.arrayBuffer());
 }
 
 /** Fetch (and cache) the two dev Groth16 proving keys. */
 export function loadProofKeys(fetchFn: typeof fetch = fetch): Promise<ProofKeys> {
 	if (!keysPromise) {
-		keysPromise = Promise.all([
-			fetchKey(BEARER_PK_URL, fetchFn),
-			fetchKey(CONDITIONAL_PK_URL, fetchFn)
-		])
+		keysPromise = appBase()
+			.then((base) => {
+				const urls = proofKeyUrls(base);
+				return Promise.all([fetchKey(urls.bearer, fetchFn), fetchKey(urls.conditional, fetchFn)]);
+			})
 			.then(([bearerPk, conditionalPk]) => ({ bearerPk, conditionalPk }))
 			.catch((e) => {
 				keysPromise = null; // allow retry on the next call

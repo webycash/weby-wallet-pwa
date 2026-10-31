@@ -8,6 +8,9 @@ import fs from 'node:fs';
 
 const BASE = (process.env.E2E_BASE_URL ?? 'https://dev.weby.cash/wallet').replace(/\/$/, '');
 const OUT = process.env.E2E_EVIDENCE_DIR ?? 'test-results/exchange-ui';
+// Order size: the pair base is Ark, so amount = sats (≥ ASP dust 330) and price = webcash per sat.
+const ORDER_AMOUNT = process.env.E2E_ORDER_AMOUNT ?? '1';
+const ORDER_PRICE = process.env.E2E_ORDER_PRICE ?? '1000';
 const DEFAULT_MNEMONICS = [
 	'legal winner thank year wave sausage worth useful legal winner thank year wave sausage worth useful legal winner thank year wave sausage worth title',
 	'letter advice cage absurd amount doctor acoustic avoid letter advice cage absurd amount doctor acoustic avoid letter advice cage absurd amount doctor acoustic bless'
@@ -202,7 +205,7 @@ for (const dir of [
 ] as const) {
 	test(`exchange UI two-browser ${dir.name}`, async ({ browser }) => {
 		test.setTimeout(900_000);
-		const result: Record<string, unknown> = { direction: dir.name, base: BASE };
+		const result: Record<string, unknown> = { direction: dir.name, base: BASE, order: { amount: ORDER_AMOUNT, price: ORDER_PRICE } };
 		const a = await onboard(browser, `A-${dir.name}`, MNEMONICS[0]);
 		const b = await onboard(browser, `B-${dir.name}`, MNEMONICS[1]);
 		try {
@@ -227,8 +230,8 @@ for (const dir of [
 			await openTrade(b.page, `B-${dir.name}`, dir.pair);
 			// Maker A publishes.
 			await a.page.getByRole('button', { name: new RegExp(`^${dir.makerSide}$`) }).click();
-			await a.page.getByPlaceholder('0.00').nth(0).fill('1');
-			await a.page.getByPlaceholder('0.00').nth(1).fill('1000');
+			await a.page.getByPlaceholder('0.00').nth(0).fill(ORDER_AMOUNT);
+			await a.page.getByPlaceholder('0.00').nth(1).fill(ORDER_PRICE);
 			await a.page.getByRole('button', { name: /Publish order/ }).click();
 			result.publish = await banner(a.page, `A-${dir.name}`, '03-publish');
 			const published = /Order published to/.test(String((result.publish as any).text));
@@ -239,14 +242,14 @@ for (const dir of [
 				for (let i = 0; i < 30 && !seen; i++) {
 					await b.page.getByRole('button', { name: /Refresh|refresh/ }).first().click().catch(() => {});
 					await b.page.waitForTimeout(2000);
-					seen = /1,000|1000/.test(await b.page.locator('body').innerText());
+					seen = new RegExp(`${Number(ORDER_AMOUNT).toLocaleString('en-US')}|${ORDER_AMOUNT}`).test(await b.page.locator('body').innerText());
 				}
 				result.discovered = seen;
 				await shot(b.page, `B-${dir.name}`, '04-discover');
 				const takerSide = dir.makerSide === 'Sell' ? 'Buy' : 'Sell';
 				await b.page.getByRole('button', { name: new RegExp(`^${takerSide}$`) }).click();
-				await b.page.getByPlaceholder('0.00').nth(0).fill('1');
-				await b.page.getByPlaceholder('0.00').nth(1).fill('1000');
+				await b.page.getByPlaceholder('0.00').nth(0).fill(ORDER_AMOUNT);
+				await b.page.getByPlaceholder('0.00').nth(1).fill(ORDER_PRICE);
 				await b.page.getByRole('button', { name: new RegExp(`Place ${takerSide.toLowerCase()} limit`, 'i') }).click();
 				// Both roles run concurrently: taker B (accept → its role) and maker A
 				// (background responder → its role). Wait for a terminal phase on each.
