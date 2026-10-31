@@ -134,6 +134,37 @@ export const voucherRedeem = (secret: string) => {
 	return dispatchRail({ op: 'VoucherRedeem', server_url: e.voucherUrl, secret }, 'RailRedeemed');
 };
 
+// ── Webcash ─────────────────────────────────────────────────────────────────
+
+/**
+ * Reserve a swap bearer leg from the REAL webcash balance (never mints): spends
+ * `inputs` into the webcash-family scalar at (slot 0, `index`). The caller MUST
+ * persist the returned `secret` + `change` into the webcash wallet store and
+ * drop the spent `inputs`. Functional on wasm (NetEffect::Https).
+ */
+export const webcashReserve = (args: {
+	index: number;
+	amount: string;
+	inputs: string[];
+	serverUrl: string;
+}) => {
+	if (!Number.isInteger(args.index) || args.index < 0 || args.index >= 64)
+		return Promise.resolve<RailOutcome<never>>({
+			state: 'error',
+			message: `webcash reserve: index ${args.index} outside the bearer scan gap (0..63)`
+		});
+	return dispatchRail(
+		{
+			op: 'ReserveWebcash',
+			index: args.index,
+			amount: args.amount,
+			inputs: args.inputs,
+			server_url: args.serverUrl
+		},
+		'WebcashReserved'
+	);
+};
+
 // ── RGB ────────────────────────────────────────────────────────────────────--
 
 import type { WireRgbFlavor } from './commands';

@@ -513,6 +513,22 @@ export type RailCommand =
 			amount: string;
 			/** Webcash-server base URL (e.g. `"http://localhost:8181"`). */
 			server_url: string;
+	  }
+	| {
+			/**
+			 * Reserve a swap bearer leg from the wallet's REAL webcash balance: one
+			 * conservation-exact `/replace` spending `inputs` into the webcash-family
+			 * scalar at (slot 0, index) for exactly `amount`, plus a deterministic
+			 * change output. Never mints; idempotent on replay. `index` < 64.
+			 */
+			op: 'ReserveWebcash';
+			index: number;
+			/** Amount to reserve (e.g. `"0.001"`). */
+			amount: string;
+			/** Balance secret tokens to spend (`e{amount}:secret:{hex}`). */
+			inputs: string[];
+			/** Webcash-server base URL (e.g. `"https://webcash.org"`). */
+			server_url: string;
 	  };
 
 // ── Responses ─────────────────────────────────────────────────────────────────
@@ -723,6 +739,20 @@ export type ResponseBody =
 			index: number;
 			/** Whether the server reports the minted token unspent (mint confirmed). */
 			unspent: boolean;
+	  }
+	| {
+			/** A bearer leg reserved from the real balance (see `ReserveWebcash`). */
+			kind: 'WebcashReserved';
+			/** Reserved bearer secret (`e{amount}:secret:{hex(scalar)}`). */
+			secret: string;
+			/** `/health_check` token (`e{amount}:public:{H}`). */
+			public_token: string;
+			/** Change secret the wallet MUST store, or null when inputs matched exactly. */
+			change: string | null;
+			index: number;
+			unspent: boolean;
+			/** False when the reservation already existed (idempotent replay). */
+			replaced: boolean;
 	  };
 
 export interface FamilySummary {

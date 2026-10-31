@@ -201,6 +201,16 @@ export class MockExtroAdapter implements ExtroAdapter {
 							index: c.index,
 							unspent: true
 						});
+					case 'ReserveWebcash':
+						return ok({
+							kind: 'WebcashReserved',
+							secret: `e${c.amount}:secret:${'00'.repeat(32)}`,
+							public_token: `e${c.amount}:public:${'00'.repeat(32)}`,
+							change: null,
+							index: c.index,
+							unspent: true,
+							replaced: true
+						});
 				}
 			}
 			case 'Keyserver': {
