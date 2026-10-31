@@ -9,8 +9,16 @@
 // (extro-node `WasmBootConfigV2::validate`, `parseRuntimeConfig`) refuse such a
 // boot; this guard stops the config from being committed in the first place.
 //
-// Usage: node scripts/check-release-trust.mjs [file ...]   (default: ./wrangler*.toml)
+// It also pins the ceremony positively: a mainnet config must name a ZKP profile
+// that `zkp-artifacts.json` publishes for its tier, with exactly that profile's
+// VK fingerprints. With `--deploy` (run right before `wrangler deploy`) the
+// config must also be complete: no `REPLACE_ME` placeholder may remain.
+//
+// Usage: node scripts/check-release-trust.mjs [--deploy] [file ...]   (default: ./wrangler*.toml)
 import { readdirSync, readFileSync } from "node:fs";
+
+const manifest = JSON.parse(readFileSync("zkp-artifacts.json", "utf8"));
+const PLACEHOLDER = "REPLACE_ME";
 
 /** SHA-256 of the development ceremony VKs (extro-node DEV_CEREMONY_VK_FINGERPRINTS). */
 const DEV_VK_FINGERPRINTS = [
@@ -47,9 +55,12 @@ function deploymentOf(text) {
   return m ? m[1] : null;
 }
 
+const args = process.argv.slice(2);
+const deploy = args.includes("--deploy");
+const named = args.filter((a) => a !== "--deploy");
 const files =
-  process.argv.length > 2
-    ? process.argv.slice(2)
+  named.length > 0
+    ? named
     : readdirSync(".").filter((f) => /^wrangler.*\.toml$/.test(f));
 
 const allWrangler = readdirSync(".").filter((f) =>
@@ -83,7 +94,12 @@ for (const file of files) {
         `${file}: ${key} reuses the development trust pin (${dev})`,
       );
   }
+  violations.push(...ceremonyPinViolations(file, tier, vars(text)));
   text.split("\n").forEach((line, i) => {
+    if (deploy && !/^\s*#/.test(line) && line.includes(PLACEHOLDER))
+      violations.push(
+        `${file}:${i + 1}: unfilled ${PLACEHOLDER} in ${tier} deploy`,
+      );
     if (/^\s*#/.test(line)) return;
     for (const [needle, what] of FORBIDDEN) {
       if (line.toLowerCase().includes(needle)) {
@@ -93,6 +109,32 @@ for (const file of files) {
   });
 }
 
+/**
+ * A mainnet config's ZKP profile must be published for its tier in
+ * zkp-artifacts.json and carry exactly that profile's VK fingerprints (mirrors
+ * `parseRuntimeConfig` and extro-node `validate_mainnet_trust_set`).
+ */
+function ceremonyPinViolations(file, tier, v) {
+  const name = v.get("PUBLIC_ZKP_PROFILE");
+  if (name === undefined || name.includes(PLACEHOLDER)) return [];
+  const profile = Object.hasOwn(manifest.profiles, name)
+    ? manifest.profiles[name]
+    : undefined;
+  if (!profile?.tiers?.includes(tier))
+    return [
+      `${file}: PUBLIC_ZKP_PROFILE \`${name}\` is not a ceremony published for ${tier}`,
+    ];
+  const out = [];
+  for (const [key, pinned] of [
+    ["PUBLIC_ZKP_BEARER_VK_SHA256", profile.vk_sha256.bearer_payload],
+    ["PUBLIC_ZKP_CONDITIONAL_VK_SHA256", profile.vk_sha256.conditional_leg],
+  ]) {
+    if (v.get(key)?.toLowerCase() !== pinned)
+      out.push(`${file}: ${key} is not the pinned ${name} VK fingerprint`);
+  }
+  return out;
+}
+
 if (violations.length > 0) {
   console.error(
     "Release trust guard failed:\n" +
@@ -100,4 +142,6 @@ if (violations.length > 0) {
   );
   process.exit(1);
 }
-console.log(`Release trust guard: ${files.length} wrangler config(s) clean`);
+console.log(
+  `Release trust guard${deploy ? " (deploy)" : ""}: ${files.length} wrangler config(s) clean`,
+);

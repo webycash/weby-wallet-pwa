@@ -45,10 +45,11 @@ PUBLIC_ARK_SIGNER_PK_HEX = "8202bebddeb1f7442803897a85eaf3ce9254d07df0172fc3725a
 PUBLIC_ARK_INFO_DIGEST_HEX = "6f4148f0aafe75ff8046f314d75a87ddf17ad0659f37af55746498104fde3589"
 PUBLIC_ARK_CHECKPOINT_TAPSCRIPT_HEX = "039e0440b27520b43a8363118c084a04d4f6a50ebfa58e81957f8cceceb2aee0ab64c9fd2d9977ac"
 PUBLIC_ARK_UNILATERAL_EXIT_DELAY = "605184"
-# Production MPC-ceremony profile and its VK fingerprints.
-PUBLIC_ZKP_PROFILE = "REPLACE_ME"
-PUBLIC_ZKP_BEARER_VK_SHA256 = "REPLACE_ME"
-PUBLIC_ZKP_CONDITIONAL_VK_SHA256 = "REPLACE_ME"
+# Production MPC-ceremony profile and its VK fingerprints (extro-circuits
+# circuits-mpc/MANIFEST @267a5f9; reproducible with ceremony/verify.sh).
+PUBLIC_ZKP_PROFILE = "mpc-2026-10-31"
+PUBLIC_ZKP_BEARER_VK_SHA256 = "7de9aac9e4e4e880d32eacb06c717c9c59f1d251ebc71de1daddbf76acd66220"
+PUBLIC_ZKP_CONDITIONAL_VK_SHA256 = "084837739c4fa0c0e12a60da8aabb6d0fdf198d9ce7c443ce00bc27271710db2"
 PUBLIC_ICE_SERVERS_JSON = '["stun:stun.l.google.com:19302","stun:stun.cloudflare.com:3478"]'
 # Managed TURN: Cloudflare Realtime TURN credentials minted per runtime-config
 # request (worker/turn-relay.mjs), never static; public Open Relay is refused
