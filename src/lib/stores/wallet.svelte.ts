@@ -478,7 +478,7 @@ export const recoverWallet = async (gapLimit: number = 20): Promise<Result<{ rec
 	} catch (e) { return err(`Recovery failed: ${e}`); }
 };
 
-// ── Slot scanning (delegates to harmoniis-wallet) ──────────────
+// ── Slot scanning (webylib scan_slots + extro-node slot registry) ──────────────
 
 export const scanDeterministicSlots = async (maxSlots: number = 10, gapLimit: number = 20): Promise<Result<{ found: number; totalRecovered: number }>> => {
 	try {

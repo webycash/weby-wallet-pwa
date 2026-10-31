@@ -16,8 +16,6 @@ export function cpu_mine(s: string, n: string, max_attempts: number): Promise<st
 
 export function create_master_wallet(mnemonic_words?: string | null): string;
 
-export function create_mining_snapshot(): string;
-
 export function create_roaming_wallet(network: string, master_secret_hex: string, webcash_secrets_json: string, depths_json: string): Promise<string>;
 
 export function create_wallet(network: string, mnemonic_words?: string | null): Promise<string>;
@@ -31,7 +29,7 @@ export function derive_vault_key(mnemonic: string, purpose: string): string;
 export function derive_wallet_secret(m: string, family: string, label: string): string;
 
 /**
- * Full backup: master HarmoniiStore state + all webcash wallet states.
+ * Full backup: master state + all webcash wallet states.
  * `webcash_wallets_json` is a JSON object mapping label -> webylib MemStore JSON.
  */
 export function export_full_backup(m: string, webcash_wallets_json: string): string;
@@ -46,11 +44,14 @@ export function format_webcash(secret: string, amount: bigint): string;
 
 export function gpu_available(): boolean;
 
+/**
+ * Open the WebGPU miner; the adapter name, or "" when WebGPU is unavailable.
+ */
 export function gpu_init(): Promise<string>;
 
 /**
- * Mine one GPU batch. harmoniis-wallet supplies only the WebGPU nonce search
- * and its work-unit preimage format; target, report and claim are webylib.
+ * Mine one GPU batch. extro-node supplies the WebGPU nonce search and the
+ * work-unit preimage format; target, report and claim are webylib.
  * The claim inserts the random keep secret through `/replace` into the HD
  * RECEIVE chain, so the wallet never holds a non-HD secret.
  */
@@ -68,8 +69,6 @@ export function master_secret_hex(s: string, n: string): string;
 
 export function merge_outputs(s: string, n: string, max: number): Promise<string>;
 
-export function mining_snapshot_active(snapshot_json: string): boolean;
-
 export function mnemonic_from_hex(hex: string): string;
 
 export function parse_amount(s: string): bigint;
@@ -78,8 +77,6 @@ export function parse_webcash(s: string): any;
 
 export function pay_webcash(s: string, n: string, amount_wats: bigint): Promise<string>;
 
-export function record_mining_batch(snapshot_json: string, attempted: bigint, found: boolean, hash_hex: string, difficulty_achieved: number, amount: string): string;
-
 export function recover_wallet(s: string, n: string, gap: number): Promise<string>;
 
 export function remove_wallet(m: string, family: string, label: string): string;
@@ -87,7 +84,9 @@ export function remove_wallet(m: string, family: string, label: string): string;
 export function rename_wallet(m: string, family: string, old: string, _new: string): string;
 
 /**
- * Scan deterministic webcash slots for active wallets via server recovery.
+ * Scan deterministic webcash slots for active wallets (webylib
+ * `scan_slots`); active slots beyond `main` are registered under their
+ * existing label. Any server or registry failure fails the whole scan.
  */
 export function scan_webcash_slots(m: string, network: string, max_slots: number, gap_limit: number): Promise<string>;
 
@@ -108,7 +107,6 @@ export interface InitOutput {
     readonly check_wallet: (a: number, b: number, c: number, d: number) => number;
     readonly cpu_mine: (a: number, b: number, c: number, d: number, e: number) => number;
     readonly create_master_wallet: (a: number, b: number, c: number) => void;
-    readonly create_mining_snapshot: (a: number) => void;
     readonly create_roaming_wallet: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => number;
     readonly create_wallet: (a: number, b: number, c: number, d: number) => number;
     readonly derive_identity: (a: number, b: number, c: number) => void;
@@ -129,12 +127,10 @@ export interface InitOutput {
     readonly list_wallets: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly master_secret_hex: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly merge_outputs: (a: number, b: number, c: number, d: number, e: number) => number;
-    readonly mining_snapshot_active: (a: number, b: number) => number;
     readonly mnemonic_from_hex: (a: number, b: number, c: number) => void;
     readonly parse_amount: (a: number, b: number, c: number) => void;
     readonly parse_webcash: (a: number, b: number, c: number) => void;
     readonly pay_webcash: (a: number, b: number, c: number, d: number, e: bigint) => number;
-    readonly record_mining_batch: (a: number, b: number, c: number, d: bigint, e: number, f: number, g: number, h: number, i: number, j: number) => void;
     readonly recover_wallet: (a: number, b: number, c: number, d: number, e: number) => number;
     readonly remove_wallet: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => void;
     readonly rename_wallet: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => void;
@@ -143,10 +139,10 @@ export interface InitOutput {
     readonly verify_webcash: (a: number, b: number, c: number, d: number) => number;
     readonly wallet_balance: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly wallet_stats: (a: number, b: number, c: number, d: number, e: number) => void;
-    readonly __wasm_bindgen_func_elem_1835: (a: number, b: number, c: number, d: number) => void;
-    readonly __wasm_bindgen_func_elem_1896: (a: number, b: number, c: number, d: number) => void;
-    readonly __wasm_bindgen_func_elem_4137: (a: number, b: number, c: number) => void;
-    readonly __wasm_bindgen_func_elem_2969: (a: number, b: number) => void;
+    readonly __wasm_bindgen_func_elem_1547: (a: number, b: number, c: number, d: number) => void;
+    readonly __wasm_bindgen_func_elem_1607: (a: number, b: number, c: number, d: number) => void;
+    readonly __wasm_bindgen_func_elem_4034: (a: number, b: number, c: number) => void;
+    readonly __wasm_bindgen_func_elem_2665: (a: number, b: number) => void;
     readonly __wbindgen_export: (a: number, b: number) => number;
     readonly __wbindgen_export2: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_export3: (a: number) => void;

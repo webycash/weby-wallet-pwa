@@ -135,26 +135,6 @@ export function create_master_wallet(mnemonic_words) {
 }
 
 /**
- * @returns {string}
- */
-export function create_mining_snapshot() {
-    let deferred1_0;
-    let deferred1_1;
-    try {
-        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-        wasm.create_mining_snapshot(retptr);
-        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
-        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
-        deferred1_0 = r0;
-        deferred1_1 = r1;
-        return getStringFromWasm0(r0, r1);
-    } finally {
-        wasm.__wbindgen_add_to_stack_pointer(16);
-        wasm.__wbindgen_export4(deferred1_0, deferred1_1, 1);
-    }
-}
-
-/**
  * @param {string} network
  * @param {string} master_secret_hex
  * @param {string} webcash_secrets_json
@@ -323,7 +303,7 @@ export function derive_wallet_secret(m, family, label) {
 }
 
 /**
- * Full backup: master HarmoniiStore state + all webcash wallet states.
+ * Full backup: master state + all webcash wallet states.
  * `webcash_wallets_json` is a JSON object mapping label -> webylib MemStore JSON.
  * @param {string} m
  * @param {string} webcash_wallets_json
@@ -470,6 +450,7 @@ export function gpu_available() {
 }
 
 /**
+ * Open the WebGPU miner; the adapter name, or "" when WebGPU is unavailable.
  * @returns {Promise<string>}
  */
 export function gpu_init() {
@@ -478,8 +459,8 @@ export function gpu_init() {
 }
 
 /**
- * Mine one GPU batch. harmoniis-wallet supplies only the WebGPU nonce search
- * and its work-unit preimage format; target, report and claim are webylib.
+ * Mine one GPU batch. extro-node supplies the WebGPU nonce search and the
+ * work-unit preimage format; target, report and claim are webylib.
  * The claim inserts the random keep secret through `/replace` into the HD
  * RECEIVE chain, so the wallet never holds a non-HD secret.
  * @param {string} s
@@ -622,17 +603,6 @@ export function merge_outputs(s, n, max) {
 }
 
 /**
- * @param {string} snapshot_json
- * @returns {boolean}
- */
-export function mining_snapshot_active(snapshot_json) {
-    const ptr0 = passStringToWasm0(snapshot_json, wasm.__wbindgen_export, wasm.__wbindgen_export2);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.mining_snapshot_active(ptr0, len0);
-    return ret !== 0;
-}
-
-/**
  * @param {string} hex
  * @returns {string}
  */
@@ -720,46 +690,6 @@ export function pay_webcash(s, n, amount_wats) {
     const len1 = WASM_VECTOR_LEN;
     const ret = wasm.pay_webcash(ptr0, len0, ptr1, len1, amount_wats);
     return takeObject(ret);
-}
-
-/**
- * @param {string} snapshot_json
- * @param {bigint} attempted
- * @param {boolean} found
- * @param {string} hash_hex
- * @param {number} difficulty_achieved
- * @param {string} amount
- * @returns {string}
- */
-export function record_mining_batch(snapshot_json, attempted, found, hash_hex, difficulty_achieved, amount) {
-    let deferred5_0;
-    let deferred5_1;
-    try {
-        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-        const ptr0 = passStringToWasm0(snapshot_json, wasm.__wbindgen_export, wasm.__wbindgen_export2);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(hash_hex, wasm.__wbindgen_export, wasm.__wbindgen_export2);
-        const len1 = WASM_VECTOR_LEN;
-        const ptr2 = passStringToWasm0(amount, wasm.__wbindgen_export, wasm.__wbindgen_export2);
-        const len2 = WASM_VECTOR_LEN;
-        wasm.record_mining_batch(retptr, ptr0, len0, attempted, found, ptr1, len1, difficulty_achieved, ptr2, len2);
-        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
-        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
-        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
-        var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
-        var ptr4 = r0;
-        var len4 = r1;
-        if (r3) {
-            ptr4 = 0; len4 = 0;
-            throw takeObject(r2);
-        }
-        deferred5_0 = ptr4;
-        deferred5_1 = len4;
-        return getStringFromWasm0(ptr4, len4);
-    } finally {
-        wasm.__wbindgen_add_to_stack_pointer(16);
-        wasm.__wbindgen_export4(deferred5_0, deferred5_1, 1);
-    }
 }
 
 /**
@@ -855,7 +785,9 @@ export function rename_wallet(m, family, old, _new) {
 }
 
 /**
- * Scan deterministic webcash slots for active wallets via server recovery.
+ * Scan deterministic webcash slots for active wallets (webylib
+ * `scan_slots`); active slots beyond `main` are registered under their
+ * existing label. Any server or registry failure fails the whole scan.
  * @param {string} m
  * @param {string} network
  * @param {number} max_slots
@@ -1145,10 +1077,6 @@ function __wbg_get_imports() {
         __wbg_getRandomValues_c44a50d8cfdaebeb: function() { return handleError(function (arg0, arg1) {
             getObject(arg0).getRandomValues(getObject(arg1));
         }, arguments); },
-        __wbg_getTime_da7c55f52b71e8c6: function(arg0) {
-            const ret = getObject(arg0).getTime();
-            return ret;
-        },
         __wbg_get_1affdbdd5573b16a: function() { return handleError(function (arg0, arg1) {
             const ret = Reflect.get(getObject(arg0), getObject(arg1));
             return addHeapObject(ret);
@@ -1344,10 +1272,6 @@ function __wbg_get_imports() {
             const ret = getObject(arg0).navigator;
             return addHeapObject(ret);
         },
-        __wbg_new_0_4d657201ced14de3: function() {
-            const ret = new Date();
-            return addHeapObject(ret);
-        },
         __wbg_new_0c7403db6e782f19: function(arg0) {
             const ret = new Uint8Array(getObject(arg0));
             return addHeapObject(ret);
@@ -1387,7 +1311,7 @@ function __wbg_get_imports() {
                     const a = state0.a;
                     state0.a = 0;
                     try {
-                        return __wasm_bindgen_func_elem_1896(a, state0.b, arg0, arg1);
+                        return __wasm_bindgen_func_elem_1607(a, state0.b, arg0, arg1);
                     } finally {
                         state0.a = a;
                     }
@@ -1733,18 +1657,18 @@ function __wbg_get_imports() {
             getObject(arg0).writeBuffer(getObject(arg1), arg2, getArrayU8FromWasm0(arg3, arg4), arg5, arg6);
         }, arguments); },
         __wbindgen_cast_0000000000000001: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [Externref], shim_idx: 120, ret: Result(Unit), inner_ret: Some(Result(Unit)) }, mutable: true }) -> Externref`.
-            const ret = makeMutClosure(arg0, arg1, __wasm_bindgen_func_elem_1835);
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [Externref], shim_idx: 111, ret: Result(Unit), inner_ret: Some(Result(Unit)) }, mutable: true }) -> Externref`.
+            const ret = makeMutClosure(arg0, arg1, __wasm_bindgen_func_elem_1547);
             return addHeapObject(ret);
         },
         __wbindgen_cast_0000000000000002: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [Externref], shim_idx: 177, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-            const ret = makeMutClosure(arg0, arg1, __wasm_bindgen_func_elem_4137);
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [Externref], shim_idx: 168, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            const ret = makeMutClosure(arg0, arg1, __wasm_bindgen_func_elem_4034);
             return addHeapObject(ret);
         },
         __wbindgen_cast_0000000000000003: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [], shim_idx: 69, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-            const ret = makeMutClosure(arg0, arg1, __wasm_bindgen_func_elem_2969);
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [], shim_idx: 54, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            const ret = makeMutClosure(arg0, arg1, __wasm_bindgen_func_elem_2665);
             return addHeapObject(ret);
         },
         __wbindgen_cast_0000000000000004: function(arg0) {
@@ -1786,18 +1710,18 @@ function __wbg_get_imports() {
     };
 }
 
-function __wasm_bindgen_func_elem_2969(arg0, arg1) {
-    wasm.__wasm_bindgen_func_elem_2969(arg0, arg1);
+function __wasm_bindgen_func_elem_2665(arg0, arg1) {
+    wasm.__wasm_bindgen_func_elem_2665(arg0, arg1);
 }
 
-function __wasm_bindgen_func_elem_4137(arg0, arg1, arg2) {
-    wasm.__wasm_bindgen_func_elem_4137(arg0, arg1, addHeapObject(arg2));
+function __wasm_bindgen_func_elem_4034(arg0, arg1, arg2) {
+    wasm.__wasm_bindgen_func_elem_4034(arg0, arg1, addHeapObject(arg2));
 }
 
-function __wasm_bindgen_func_elem_1835(arg0, arg1, arg2) {
+function __wasm_bindgen_func_elem_1547(arg0, arg1, arg2) {
     try {
         const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-        wasm.__wasm_bindgen_func_elem_1835(retptr, arg0, arg1, addHeapObject(arg2));
+        wasm.__wasm_bindgen_func_elem_1547(retptr, arg0, arg1, addHeapObject(arg2));
         var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
         var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
         if (r1) {
@@ -1808,8 +1732,8 @@ function __wasm_bindgen_func_elem_1835(arg0, arg1, arg2) {
     }
 }
 
-function __wasm_bindgen_func_elem_1896(arg0, arg1, arg2, arg3) {
-    wasm.__wasm_bindgen_func_elem_1896(arg0, arg1, addHeapObject(arg2), addHeapObject(arg3));
+function __wasm_bindgen_func_elem_1607(arg0, arg1, arg2, arg3) {
+    wasm.__wasm_bindgen_func_elem_1607(arg0, arg1, addHeapObject(arg2), addHeapObject(arg3));
 }
 
 

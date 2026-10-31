@@ -14,7 +14,7 @@ The master wallet is NOT a webcash wallet. It is a keychain that *contains* webc
 
 ---
 
-## Level 1: Master Wallet (harmoniis-wallet)
+## Level 1: Master Wallet (extro-node `wallet::hd_root`)
 
 The master wallet holds a single **BIP39 mnemonic** (24 words, 256-bit entropy). From this mnemonic, all other keys are deterministically derived.
 

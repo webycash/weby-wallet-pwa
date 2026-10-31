@@ -36,6 +36,8 @@ jobs:
       - run: npm ci
       - name: Verify committed wasm-artifacts.json pins
         run: node scripts/verify-wasm.mjs
+      - name: wallet-wasm tests (harmoniis 0.1.121 compat vectors, slot scan, backups)
+        run: cd crates/wallet-wasm && wasm-pack test --node
       - run: cd crates/wallet-wasm && wasm-pack build --release --target web --out-dir pkg
       - run: wasm-opt --enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals -Oz -o crates/wallet-wasm/pkg/wallet_wasm_bg.wasm crates/wallet-wasm/pkg/wallet_wasm_bg.wasm
       - name: Refresh wallet-wasm hashes after CI rebuild (toolchain may differ from pin machine)

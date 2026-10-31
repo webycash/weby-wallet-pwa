@@ -55,7 +55,7 @@ Open `http://localhost:5173` in a browser with WebGPU support (Chrome 113+, Edge
 src/
 ├── lib/core/           Pure functional domain logic (no side effects)
 │   ├── types.ts        Algebraic types matching Rust structs
-│   ├── wasm.ts         WASM module loader (harmoniis-wallet)
+│   ├── wasm.ts         WASM module loader (wallet-wasm)
 │   ├── encryption.ts   WebAuthn passkey + password encryption
 │   ├── persistence.ts  IndexedDB + localStorage adapter
 │   ├── webcasa.ts      .webcash file format parser
@@ -72,19 +72,21 @@ src/
 └── service-worker.ts   Offline precaching strategy
 ```
 
-Wallet/mining operations use Rust compiled to WASM via `harmoniis-wallet`. The
+Wallet/mining operations use Rust compiled to WASM (`crates/wallet-wasm`) over
+`webylib` and `extro-node`. The
 Extro identity, keyserver bootstrap, WebRTC/DHTX order plane and prepare
 protocol use the separately pinned `extro-node` WASM package. The TypeScript
 layer owns UI, persistence, strict runtime configuration and orchestration.
 
 ## WASM Engine
 
-The wallet engine is powered by [`harmoniis-wallet`](https://github.com/harmoniis/harmoniis-wallet) compiled to WebAssembly. This provides:
+`crates/wallet-wasm` is a thin JSON binding compiled to WebAssembly. It owns no
+wallet logic:
 
-- **Master keychain**: BIP39 mnemonic → BIP32 hardened slot derivation (webcash, bitcoin, RGB, vouchers, PGP families)
-- **Webcash operations**: insert, pay, check, merge, recover (via [`webylib`](https://github.com/webycash/webylib))
-- **GPU mining**: wgpu SHA256 proof-of-work on WebGPU backend
-- **State management**: in-memory HarmoniiStore, serializable to JSON for IndexedDB persistence
+- **Master keychain + slot registry**: `extro-node` `wallet::hd_root` / `wallet::slot_registry` (BIP39 → BIP32 hardened slots: webcash, bitcoin, RGB, vouchers, PGP, vault). State JSON stays byte-compatible with the legacy master format (pinned by `tests/fixtures/harmoniis-0.1.121-master.json`).
+- **Webcash operations + slot scan**: insert, pay, check, merge, recover, `scan_slots` (via [`webylib`](https://github.com/webycash/webylib))
+- **GPU mining**: `extro-node` `mining` (WebGPU SHA256 kernel, work units)
+- **State management**: serializable JSON for IndexedDB persistence
 
 The WASM module is loaded on first interaction and cached by the service worker.
 
@@ -175,8 +177,8 @@ version before deployment; never guess a rollback target.
 
 - **Framework**: SvelteKit 2 + Svelte 5
 - **Styling**: Tailwind CSS 3 + shadcn-svelte
-- **WASM**: harmoniis-wallet (Rust → wasm32)
-- **GPU**: wgpu via WebGPU
+- **WASM**: wallet-wasm over webylib + extro-node (Rust → wasm32)
+- **GPU**: extro-node mining (wgpu/WebGPU)
 - **Build**: Vite 7 + vite-plugin-wasm
 
 ## License

@@ -11,10 +11,11 @@ wasm-opt = false
 crate-type = ["cdylib"]
 
 [dependencies]
-# The one webcash wallet core; same rev as extro-node.
-webylib = { git = "ssh://git@github.com/webycash/webylib.git", rev = "8b0057ca58b968bf6d3485b71482f1845edf0045", default-features = false, features = ["wasm"] }
-# HD keychain, master slot registry/backup, WebGPU nonce search only.
-harmoniis-wallet = { version = "=0.1.121", default-features = false, features = ["wasm", "gpu-wasm"] }
+# The one webcash wallet core; same rev as extro-node pins.
+webylib = { git = "ssh://git@github.com/webycash/webylib.git", rev = "db2d6238623cab27279b95509db05b06861b4fc4", default-features = false, features = ["wasm"] }
+# HD root, master slot registry, WebGPU miner + work-unit kernel.
+extro-node = { git = "ssh://git@github.com/extronet/extro-node.git", rev = "f01e965df5361992695859ce7bc9ef14041ae544", default-features = false, features = ["wallet", "mining-webgpu"] }
+zeroize = { version = "1", features = ["serde"] }
 sha2 = "0.10"
 wasm-bindgen-futures = "0.4"
 wasm-bindgen = "0.2"
@@ -24,11 +25,10 @@ serde-wasm-bindgen = "0.6"
 getrandom = { version = "0.2", features = ["js"] }
 getrandom_0_3 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
 hex = "0.4"
-chrono = { version = "0.4", default-features = false, features = ["clock"] }
+chrono = { version = "0.4", default-features = false, features = ["alloc"] }
 base64 = "0.22"
 js-sys = "0.3"
 web-sys = { version = "0.3", features = ["console"] }
-wgpu = { version = "29", features = ["webgpu"] }
 console_error_panic_hook = "0.1"
 
 [dev-dependencies]
