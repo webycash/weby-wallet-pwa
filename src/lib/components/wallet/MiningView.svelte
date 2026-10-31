@@ -1,5 +1,6 @@
 <script lang="ts">
 	import MinerPanel from './MinerPanel.svelte';
+	import IdentityRegistrationPanel from './IdentityRegistrationPanel.svelte';
 	import type { NetworkMode } from '$lib/core/types';
 
 	let { network, canMineWallet, onBalanceUpdate }: {
@@ -12,6 +13,7 @@
 <div class="animate-fade-in">
 	{#if canMineWallet}
 		<MinerPanel {network} {onBalanceUpdate} />
+		<IdentityRegistrationPanel {onBalanceUpdate} />
 	{:else}
 		<div class="rounded-xl border border-border p-8 text-center">
 			<p class="text-muted-foreground text-sm">Mining is only available on the main wallet.</p>

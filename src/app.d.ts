@@ -55,4 +55,5 @@ declare module '$wasm/wallet_wasm' {
 	export function gpu_init(): Promise<string>;
 	export function gpu_available(): boolean;
 	export function gpu_mine(state_json: string, network: string): Promise<string>;
+	export function cpu_mine(state_json: string, network: string, max_attempts: number): Promise<string>;
 }

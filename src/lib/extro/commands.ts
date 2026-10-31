@@ -171,7 +171,20 @@ export type KeyserverCommand =
 	 * native node returns `Unsupported`. Connecting roster peers + walking the
 	 * DHTX seeds is the later DHTX task; this brings up only the KS link.
 	 */
-	| { op: 'Bootstrap'; base_url: string; domain: string };
+	| { op: 'Bootstrap'; base_url: string; domain: string }
+	/**
+	 * Paid identity registration. The host wallet settles the fee and passes
+	 * the fresh single-use bearer secret; the node verifies the challenge
+	 * against the pinned anchor and signs with its slot-0 identity key.
+	 */
+	| {
+			op: 'Register';
+			base_url: string;
+			domain: string;
+			nickname: string;
+			rail: 'webcash' | 'voucher';
+			bearer_secret: string;
+	  };
 
 export interface ExtroCommand {
 	request_id: RequestId;
@@ -616,6 +629,7 @@ export type ResponseBody =
 			provider_partial?: { order_id: Uint8Array; locked_ref: string; sealed: Uint8Array } | null;
 	  }
 	| { kind: 'KeyserverPinned' }
+	| { kind: 'IdentityRegistered'; fingerprint_hex: string; nickname: string; registered_at_unix: number }
 	| { kind: 'Discovered'; fingerprint_hex: string; verified: boolean }
 	| {
 			/**

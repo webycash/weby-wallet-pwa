@@ -210,6 +210,13 @@ export class MockExtroAdapter implements ExtroAdapter {
 						return ok({ kind: 'KeyserverPinned' });
 					case 'Discover':
 						return ok({ kind: 'Discovered', fingerprint_hex: 'aa'.repeat(20), verified: false });
+					case 'Register':
+						return {
+							kind: 'Err',
+							request_id: command.request_id,
+							code: 'Unsupported',
+							message: 'mock node cannot register identities'
+						};
 					case 'Bootstrap':
 						return ok({
 							kind: 'Bootstrapped',
