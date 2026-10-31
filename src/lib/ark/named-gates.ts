@@ -51,6 +51,10 @@ export const GATE_SETTLE_CEREMONY_INVALID =
 export const GATE_SETTLE_RELEASE_PENDING =
 	'ARK_SETTLE_RELEASE_PENDING: settle ceremony bound to the contract owner key Q; awaiting the referee ReleaseSettle (two-proof initiate + provider-partial delivery are not wired into this flow yet)';
 
+/** Provider coop-refund-v1 (abort before insert) could not complete; funds stay in the 2-of-2 (provider CSV refund leaf remains). */
+export const GATE_COOP_REFUND_FAILED =
+	'ARK_COOP_REFUND_FAILED: the referee coop-refund-v1 cooperative refund did not complete; the VTXO stays locked under Q until retry or the provider CSV refund leaf';
+
 export type NamedArkGate =
 	| typeof GATE_ARK_FUNDING_INSUFFICIENT
 	| typeof GATE_ARK_AWAITING_PROVIDER_FUNDING

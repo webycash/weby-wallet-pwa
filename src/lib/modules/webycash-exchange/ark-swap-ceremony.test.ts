@@ -42,12 +42,15 @@ const state = vi.hoisted(() => ({
 	initFacts: null as unknown,
 	precheck: vi.fn(async () => ({ swap_id: 'swap-1', bearer: { ok: true }, provider: { ok: true } })),
 	legIssued: vi.fn(async () => ({ amount: '100' })),
-	submitPrecheck: vi.fn(async () => undefined)
+	submitPrecheck: vi.fn(async () => undefined),
+	coop: vi.fn()
 }));
+vi.mock('$lib/ark/coop-refund', () => ({ coopRefundAggregate: state.coop }));
 vi.mock('./bearer-precheck', () => ({
 	awaitRefereePrecheck: state.precheck,
 	assertBearerLegIssued: state.legIssued,
-	submitBearerPrecheck: state.submitPrecheck
+	submitBearerPrecheck: state.submitPrecheck,
+	railTokenStatus: async () => ({ status: 'unspent', amount: '1' })
 }));
 
 vi.mock('$lib/extro/runtime-config', () => ({ getRuntimeConfig: () => CFG }));
@@ -218,6 +221,7 @@ const fast = {
 	stepTimeoutMs: 200,
 	fundingWaitMs: 200,
 	intervalMs: 5,
+	maxBearerWebcash: '1000', // fixture bearer face is e100; production default cap is "1"
 	get contractJournal(): ContractJournalBackend {
 		return journal;
 	}
@@ -240,6 +244,8 @@ beforeEach(() => {
 	state.legIssued.mockResolvedValue({ amount: '100' });
 	state.submitPrecheck.mockReset();
 	state.submitPrecheck.mockResolvedValue(undefined);
+	state.coop.mockReset();
+	state.coop.mockRejectedValue(new Error('coop referee unreachable (test default)'));
 });
 
 describe('provider side', () => {
@@ -406,6 +412,61 @@ describe('provider side', () => {
 		);
 	});
 
+	it('abort (no referee outcome) → coop-refund-v1 with the committed terms, then submits the refund', async () => {
+		state.balance = '1000000';
+		state.walletCreate.mockResolvedValue({});
+		state.msgs = [offer()];
+		state.material = fundedMaterial();
+		state.coop.mockResolvedValue({ signaturesHex: 'c0'.repeat(128), phase: 'canceled', fillId: 'coop:x', inputs: {} });
+		const submitSpend = vi.fn(async () => 'f1'.repeat(32));
+		const log: SwapProgress[] = [];
+		const out = await runSwapRole('provider', order, SELLER_FP, {
+			...fast,
+			settleWaitMs: 30,
+			onProgress: (p: SwapProgress) => log.push(p),
+			providerPartialSigner: async () => vector.provider_partial_hex,
+			settleTransport: {
+				deliverProviderPartial: async () => undefined,
+				awaitProviderOutcome: async () => null,
+				submitSpend
+			}
+		} as never);
+		expect(out.phase).toBe('refunded');
+		expect(out.arkTxid).toBe('f1'.repeat(32));
+		expect(state.coop).toHaveBeenCalledTimes(1);
+		const [input] = state.coop.mock.calls[0] as unknown as [Record<string, unknown>];
+		expect(input).toMatchObject({ refereeUrl: CFG.referee_url, orderIdHex: ORDER_ID, slot: expect.any(Number) });
+		expect(input.expectCancelPubkeyHex).toMatch(/^[0-9a-f]{64}$/i);
+		expect(input.requestCommitmentHex).toMatch(/^[0-9a-f]{64}$/i);
+		expect(submitSpend).toHaveBeenCalledWith(
+			expect.objectContaining({ spend: expect.objectContaining({ kind: 'refund' }), aggregateSigsHex: 'c0'.repeat(128) })
+		);
+	});
+
+	it('abort with coop disabled or failing keeps the RELEASE_PENDING gate and never submits', async () => {
+		for (const coopRefund of [false, undefined] as const) {
+			state.balance = '1000000';
+			state.walletCreate.mockResolvedValue({});
+			state.msgs = [offer()];
+			state.material = fundedMaterial();
+			journal = memoryContractJournal();
+			const submitSpend = vi.fn(async () => 'f1'.repeat(32));
+			const out = await runSwapRole('provider', order, SELLER_FP, {
+				...fast,
+				settleWaitMs: 30,
+				coopRefund,
+				providerPartialSigner: async () => vector.provider_partial_hex,
+				settleTransport: {
+					deliverProviderPartial: async () => undefined,
+					awaitProviderOutcome: async () => null,
+					submitSpend
+				}
+			} as never);
+			expect(out.gate ?? out.message).toMatch(/RELEASE_PENDING/);
+			expect(submitSpend).not.toHaveBeenCalled();
+		}
+	});
+
 	it('refuses to sign a refund over a forged referee partial', async () => {
 		state.balance = '1000000';
 		state.walletCreate.mockResolvedValue({});
@@ -446,6 +507,13 @@ describe('provider side', () => {
 });
 
 describe('bearer-seller side', () => {
+	it('default per-direction cap (1 webcash) stops an e100 bearer leg before pre-check', async () => {
+		state.msgs = [offer()];
+		const { maxBearerWebcash: _cap, ...noCap } = fast as typeof fast & { maxBearerWebcash?: string };
+		const out = await runSwapRole('bearer-seller', order, PROVIDER_FP, noCap as never);
+		expect(out.message ?? out.gate).toMatch(/exceeds the per-direction cap 1/);
+		expect(state.submitPrecheck).not.toHaveBeenCalled();
+	});
 	it('stops before the provider may fund when its bearer H was never issued (spent:null)', async () => {
 		state.msgs = [offer()];
 		state.legIssued.mockRejectedValue(new Error('BEARER_LEG_NOT_ISSUED: the bearer webcash H is unknown to the rail'));

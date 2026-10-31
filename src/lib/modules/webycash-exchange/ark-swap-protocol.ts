@@ -55,6 +55,7 @@ import {
 	type ArkSwapContract
 } from '$lib/ark/swap-contract';
 import { WasmArkIdentity } from '$lib/ark/wasm-identity';
+import { coopRefundAggregate, type CoopRefundDeps } from '$lib/ark/coop-refund';
 import {
 	bytesHex,
 	CONTRACT_JOURNAL_VERSION,
@@ -73,7 +74,8 @@ import {
 import { fetchSwapMsgs, probeProviderMaterial, providerMaterialFromWire } from './accept-run-swap';
 import { frameConditionalPayload, type SettleTransport } from './ark-settle-transport';
 import { bearerLegFromWallet, buildSwapInitiateFacts } from './swap-facts';
-import { assertBearerLegIssued, awaitRefereePrecheck, submitBearerPrecheck } from './bearer-precheck';
+import { assertBearerLegIssued, awaitRefereePrecheck, railTokenStatus, submitBearerPrecheck } from './bearer-precheck';
+import { reserveBearerLeg, walletReserveDeps, type BearerReserveDeps } from './bearer-reserve';
 import { HttpRefereeClient } from './referee-client';
 import {
 	countersignSwapPrepare,
@@ -102,6 +104,7 @@ export type SwapPhase =
 	| 'awaiting-prepared'
 	| 'contract-derived'
 	| 'ceremony-ready'
+	| 'bearer-reserved'
 	| 'precheck-submitted'
 	| 'precheck-passed'
 	| 'funding'
@@ -116,6 +119,7 @@ export type SwapPhase =
 	| 'initiated'
 	| 'bearer-claimed'
 	| 'settled'
+	| 'coop-refunding'
 	| 'refund-aggregated'
 	| 'refunded'
 	| 'gate'
@@ -157,6 +161,12 @@ export type ProtocolOpts = {
 	providerPartialSigner?: ProviderPartialSigner;
 	/** Durable contract journal (default IndexedDB). Funding refuses without it. */
 	contractJournal?: ContractJournalBackend;
+	/** coop-refund-v1 after a post-funding abort (default on when submitSpend exists); `false` disables; object = test seams. */
+	coopRefund?: CoopRefundDeps | false;
+	/** Reserve the bearer leg from the real webcash wallet before the swap (default on); `false` = leg must pre-exist. */
+	bearerReserve?: BearerReserveDeps | false;
+	/** Per-direction bearer cap in webcash (default "1"). */
+	maxBearerWebcash?: string;
 };
 
 /** Persist the signed terms + referee response for this contract (read-back verified). */
@@ -531,149 +541,189 @@ export async function runProviderSide(
 		bytesHex(countersigned.requestCommitment)
 	);
 	emit({ phase: 'funded', message: `funded via Ark tx ${funded.arkTxId}`, ...facts });
-
-	// Publish provider material bound to the exact funded outpoint: settle/refund
-	// template digests over (plan, locked_ref) + the WASM MuSig2 pubkey/nonces for
-	// fill `order_id:counterparty_fp` (the same nonces the later partial-sign uses).
-	const lockedRef = await resolveFundedLockedRef(await arkIndexer(), contract, funded.arkTxId, {
-		intervalMs
-	});
-	// Real Arkade spends: tx_settle/refund_hash = [checkpoint, ark] BIP341 sighash bundles.
-	const refs = fundingRefsFromSpends(
-		contract,
-		lockedRef,
-		getRuntimeConfig().ark_checkpoint_tapscript_hex
-	);
-	const sent = await probeProviderMaterial(order, counterpartyFpHex, slot, {
-		lockedRef: refs.lockedRef,
-		txSettleHashHex: refs.txSettleHashHex,
-		txRefundHashHex: refs.txRefundHashHex
-	});
-	if (!sent.ok) throw Object.assign(new NamedArkGateError(sent.gate), { facts });
-	emit({ phase: 'material-sent', message: `provider material sent for ${lockedRef}`, ...facts });
-
-	// Settle ceremony: bind the published material (own key + settle nonce) and
-	// the referee's prepared pubshare/nonce to Q over the own settle sighash.
-	const ownMaterial = (await fetchSwapMsgs(order.id)).provider;
-	if (!ownMaterial || ownMaterial.locked_ref !== lockedRef) {
-		throw Object.assign(new Error('own provider material not recorded for the funded outpoint'), { facts });
-	}
-	let inputs;
+	// Abort safety: any failure after funding and before the referee delivered the
+	// insert falls back to coop-refund-v1 (fresh nonce + per-order cancel key).
+	// The referee enforces exclusivity: it refuses once the swap left pre-insert,
+	// and a coop refund consumes its Refund session and discards Settle.
+	let coopRefs: ReturnType<typeof fundingRefsFromSpends> | undefined;
+	let insertClaimed = false;
+	const coopTransport = opts.settleTransport ?? {};
 	try {
-		inputs = settleCeremonyInputs({
-			prepared,
-			material: ownMaterial,
-			lockedRef,
-			settleHashHex: refs.txSettleHashHex,
-			aggregateOwnerKey: contract.plan.aggregateOwnerKey
-		});
-	} catch (e) {
-		throw Object.assign(e as Error, { facts });
-	}
-	const transport = opts.settleTransport ?? {};
-	const deliver = transport.deliverProviderPartial;
-	if (!deliver) {
-		// No delivery channel: do NOT consume the single-use WASM settle nonce.
-		throw Object.assign(
-			new NamedArkGateError(`${GATE_SETTLE_RELEASE_PENDING} (locked_ref=${lockedRef}, settle=${refs.txSettleHashHex})`),
-			{ facts }
-		);
-	}
-	const partialHex = await providerSignSettle({
-		slot,
-		orderIdHex: order.id,
-		counterpartyFpHex,
-		inputs,
-		sign: opts.providerPartialSigner
-	}).catch((e) => {
-		throw Object.assign(e as Error, { facts });
-	});
-	emit({
-		phase: 'settle-partial-signed',
-		message: 'provider settle partial signed in-WASM and self-verified',
-		...facts
-	});
-	await deliver({
-		slot,
-		orderIdHex: order.id,
-		sellerFpHex: counterpartyFpHex,
-		sellerVkHex: terms.parties.bearer_seller_pgp_pubkey_hex.toLowerCase(),
-		swapId: contract.plan.swapId,
-		lockedRef,
-		partialHex
-	});
-	const deliveredP = emit({
-		phase: 'settle-partial-delivered',
-		message: `settle partial delivered for ${lockedRef}`,
-		...facts
-	});
-	const awaitOutcome = transport.awaitProviderOutcome;
-	if (!awaitOutcome) return deliveredP;
 
-	// Wait for the referee: the sealed bearer secret (insert-pull) or, on abort,
-	// a ReleaseRefund partial for the collaborative refund.
-	const outcome = await poll(
-		'awaiting referee insert / refund',
-		() => awaitOutcome({ slot, swapId: contract.plan.swapId, selfFpHex: me.fpHex }),
-		opts.settleWaitMs ?? 600_000,
-		intervalMs
-	).catch(() => null);
-	if (!outcome) {
-		throw Object.assign(
-			new NamedArkGateError(
-				`${GATE_SETTLE_RELEASE_PENDING} (awaiting referee insert, swap=${contract.plan.swapId})`
-			),
-			{ facts }
+		// Publish provider material bound to the exact funded outpoint: settle/refund
+		// template digests over (plan, locked_ref) + the WASM MuSig2 pubkey/nonces for
+		// fill `order_id:counterparty_fp` (the same nonces the later partial-sign uses).
+		const lockedRef = await resolveFundedLockedRef(await arkIndexer(), contract, funded.arkTxId, {
+			intervalMs
+		});
+		// Real Arkade spends: tx_settle/refund_hash = [checkpoint, ark] BIP341 sighash bundles.
+		const refs = fundingRefsFromSpends(
+			contract,
+			lockedRef,
+			getRuntimeConfig().ark_checkpoint_tapscript_hex
 		);
-	}
-	if (outcome.kind === 'insert') {
-		if (!transport.insertBearer) {
+		coopRefs = refs;
+		const sent = await probeProviderMaterial(order, counterpartyFpHex, slot, {
+			lockedRef: refs.lockedRef,
+			txSettleHashHex: refs.txSettleHashHex,
+			txRefundHashHex: refs.txRefundHashHex
+		});
+		if (!sent.ok) throw Object.assign(new NamedArkGateError(sent.gate), { facts });
+		emit({ phase: 'material-sent', message: `provider material sent for ${lockedRef}`, ...facts });
+
+		// Settle ceremony: bind the published material (own key + settle nonce) and
+		// the referee's prepared pubshare/nonce to Q over the own settle sighash.
+		const ownMaterial = (await fetchSwapMsgs(order.id)).provider;
+		if (!ownMaterial || ownMaterial.locked_ref !== lockedRef) {
+			throw Object.assign(new Error('own provider material not recorded for the funded outpoint'), { facts });
+		}
+		let inputs;
+		try {
+			inputs = settleCeremonyInputs({
+				prepared,
+				material: ownMaterial,
+				lockedRef,
+				settleHashHex: refs.txSettleHashHex,
+				aggregateOwnerKey: contract.plan.aggregateOwnerKey
+			});
+		} catch (e) {
+			throw Object.assign(e as Error, { facts });
+		}
+		const transport = opts.settleTransport ?? {};
+		const deliver = transport.deliverProviderPartial;
+		if (!deliver) {
+			// No delivery channel: do NOT consume the single-use WASM settle nonce.
 			throw Object.assign(
-				new NamedArkGateError(`${GATE_SETTLE_RELEASE_PENDING} (no bearer insert hook)`),
+				new NamedArkGateError(`${GATE_SETTLE_RELEASE_PENDING} (locked_ref=${lockedRef}, settle=${refs.txSettleHashHex})`),
 				{ facts }
 			);
 		}
-		await transport.insertBearer(outcome.webcash).catch((e) => {
-			throw Object.assign(
-				new Error(`bearer insert failed: ${e instanceof Error ? e.message : String(e)}`),
-				{ facts }
-			);
-		});
-		return emit({
-			phase: 'bearer-claimed',
-			message:
-				'bearer webcash opened in-WASM and inserted (H spent); the seller settles the Ark leg',
-			...facts
-		});
-	}
-	// Abort path: verify the referee refund partial, sign own refund partial,
-	// aggregate under Q and broadcast the refund to the provider destination.
-	let refundSigs: string;
-	try {
-		const refundInputs = refundCeremonyInputs({
-			prepared,
-			material: ownMaterial,
-			lockedRef,
-			refundHashHex: refs.txRefundHashHex,
-			aggregateOwnerKey: contract.plan.aggregateOwnerKey
-		});
-		refundSigs = await providerAggregateRefund({
+		const partialHex = await providerSignSettle({
 			slot,
 			orderIdHex: order.id,
 			counterpartyFpHex,
-			inputs: refundInputs,
-			refereePartialHex: outcome.refereePartialHex,
+			inputs,
 			sign: opts.providerPartialSigner
+		}).catch((e) => {
+			throw Object.assign(e as Error, { facts });
 		});
+		emit({
+			phase: 'settle-partial-signed',
+			message: 'provider settle partial signed in-WASM and self-verified',
+			...facts
+		});
+		await deliver({
+			slot,
+			orderIdHex: order.id,
+			sellerFpHex: counterpartyFpHex,
+			sellerVkHex: terms.parties.bearer_seller_pgp_pubkey_hex.toLowerCase(),
+			swapId: contract.plan.swapId,
+			lockedRef,
+			partialHex
+		});
+		const deliveredP = emit({
+			phase: 'settle-partial-delivered',
+			message: `settle partial delivered for ${lockedRef}`,
+			...facts
+		});
+		const awaitOutcome = transport.awaitProviderOutcome;
+		if (!awaitOutcome) return deliveredP;
+
+		// Wait for the referee: the sealed bearer secret (insert-pull) or, on abort,
+		// a ReleaseRefund partial for the collaborative refund.
+		const outcome = await poll(
+			'awaiting referee insert / refund',
+			() => awaitOutcome({ slot, swapId: contract.plan.swapId, selfFpHex: me.fpHex }),
+			opts.settleWaitMs ?? 600_000,
+			intervalMs
+		).catch(() => null);
+		if (!outcome) {
+			throw Object.assign(
+				new NamedArkGateError(
+					`${GATE_SETTLE_RELEASE_PENDING} (awaiting referee insert, swap=${contract.plan.swapId})`
+				),
+				{ facts }
+			);
+		}
+		if (outcome.kind === 'insert') {
+			insertClaimed = true;
+			if (!transport.insertBearer) {
+				throw Object.assign(
+					new NamedArkGateError(`${GATE_SETTLE_RELEASE_PENDING} (no bearer insert hook)`),
+					{ facts }
+				);
+			}
+			await transport.insertBearer(outcome.webcash).catch((e) => {
+				throw Object.assign(
+					new Error(`bearer insert failed: ${e instanceof Error ? e.message : String(e)}`),
+					{ facts }
+				);
+			});
+			return emit({
+				phase: 'bearer-claimed',
+				message:
+					'bearer webcash opened in-WASM and inserted (H spent); the seller settles the Ark leg',
+				...facts
+			});
+		}
+		// Abort path: verify the referee refund partial, sign own refund partial,
+		// aggregate under Q and broadcast the refund to the provider destination.
+		let refundSigs: string;
+		try {
+			const refundInputs = refundCeremonyInputs({
+				prepared,
+				material: ownMaterial,
+				lockedRef,
+				refundHashHex: refs.txRefundHashHex,
+				aggregateOwnerKey: contract.plan.aggregateOwnerKey
+			});
+			refundSigs = await providerAggregateRefund({
+				slot,
+				orderIdHex: order.id,
+				counterpartyFpHex,
+				inputs: refundInputs,
+				refereePartialHex: outcome.refereePartialHex,
+				sign: opts.providerPartialSigner
+			});
+		} catch (e) {
+			throw Object.assign(e as Error, { facts });
+		}
+		emit({
+			phase: 'refund-aggregated',
+			message: `refund aggregated under Q for ${lockedRef}`,
+			...facts
+		});
+		return submitOrStop(transport, refs.refund, contract, refundSigs, 'refunded', emit, facts);
 	} catch (e) {
-		throw Object.assign(e as Error, { facts });
+		if (insertClaimed || opts.coopRefund === false || !coopRefs || !coopTransport.submitSpend) throw e;
+		const cause = e instanceof Error ? e.message : String(e);
+		emit({ phase: 'coop-refunding', message: `aborting via referee coop-refund-v1 (${cause.slice(0, 160)})`, ...facts });
+		let coop;
+		try {
+			coop = await coopRefundAggregate(
+				{
+					refereeUrl: getRuntimeConfig().referee_url,
+					swapId: contract.plan.swapId,
+					slot,
+					orderIdHex: order.id,
+					requestCommitmentHex: bytesHex(countersigned.requestCommitment),
+					refundHashHex: coopRefs.txRefundHashHex,
+					aggregateOwnerKey: contract.plan.aggregateOwnerKey,
+					expectAmountSats: contract.plan.amountSats,
+					expectDestination: terms.provider_ark_destination,
+					expectCancelPubkeyHex: terms.parties.provider_cancel_pubkey_hex
+				},
+				opts.coopRefund ?? {}
+			);
+		} catch (ce) {
+			// Keep the original (possibly named) gate; append why coop could not help.
+			const err = e instanceof Error ? e : new Error(cause);
+			err.message = `${cause}; coop-refund failed: ${ce instanceof Error ? ce.message : String(ce)}`;
+			throw Object.assign(err, { facts });
+		}
+		emit({ phase: 'refund-aggregated', message: `coop refund aggregated under Q (referee phase ${coop.phase})`, ...facts });
+		return submitOrStop(coopTransport, coopRefs.refund, contract, coop.signaturesHex, 'refunded', emit, facts);
 	}
-	emit({
-		phase: 'refund-aggregated',
-		message: `refund aggregated under Q for ${lockedRef}`,
-		...facts
-	});
-	return submitOrStop(transport, refs.refund, contract, refundSigs, 'refunded', emit, facts);
 }
 
 async function submitOrStop(
@@ -869,6 +919,28 @@ export async function runBearerSellerSide(
 	try {
 		const leg = await bearerLegFromWallet(slot, 0, fillAmountRawFor(order));
 		const legPublic = `e${leg.bearerAmount}:public:${bytesToHex(leg.publicTokenHash)}`;
+		if (opts.bearerReserve !== false) {
+			const railBase = getRuntimeConfig().webcash_server_url;
+			const reserved = await reserveBearerLeg(
+				{
+					index: 0,
+					amount: leg.bearerAmount,
+					publicToken: legPublic,
+					serverUrl: railBase,
+					maxWebcash: opts.maxBearerWebcash ?? '1'
+				},
+				opts.bearerReserve ??
+					walletReserveDeps(async () => {
+						const st = await railTokenStatus(railBase, legPublic);
+						return st.status === 'unknown' ? 'absent' : st.status;
+					})
+			);
+			emit({
+				phase: 'bearer-reserved',
+				message: `bearer leg e${leg.bearerAmount} ${reserved.reused ? 'already reserved' : 'reserved from the webcash wallet'}`,
+				...facts
+			});
+		}
 		await assertBearerLegIssued({
 			railBase: getRuntimeConfig().webcash_server_url,
 			publicWebcash: legPublic,

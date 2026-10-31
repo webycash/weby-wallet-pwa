@@ -312,6 +312,20 @@ export type Scheme402Command =
 			referee_nonce_hex: string;
 			msg: Uint8Array;
 	  }
+	/** coop-refund-v1: fresh single-use refund nonce for a `coop:` fill (answers `ProviderMaterial`, empty settle_nonce). */
+	| { op: 'FreshRefundNonce'; slot: number; fill_id: string }
+	/** coop-refund-v1: sign the referee request with the per-order swap-cancel key (message built in-WASM). */
+	| {
+			op: 'SignCoopRefund';
+			slot: number;
+			order_id: Uint8Array;
+			swap_id: string;
+			request_commitment_hex: string;
+			action: 'terms' | 'refund';
+			sighash_bundle_hex: string;
+			nonce_bundle_hex: string;
+			expires_at_unix: number;
+	  }
 	/** Seal `plaintext` to a peer's Ed25519 identity key (`webycash/seal-x25519/v1`). */
 	| { op: 'SealToIdentity'; recipient_vk: Uint8Array; aad: Uint8Array; plaintext: Uint8Array }
 	/** Open a seal addressed to this wallet's identity key (needs an unlocked wallet). */
@@ -581,6 +595,7 @@ export type ResponseBody =
 	| { kind: 'ArkPublicKey'; compressed_hex: string; xonly_hex: string }
 	| { kind: 'ArkSchnorrSignature'; signature_hex: string; xonly_hex: string }
 	| { kind: 'ProviderPartial'; partial_hex: string }
+	| { kind: 'CoopRefundSignature'; signature_hex: string; cancel_pubkey_hex: string }
 	| { kind: 'SwapPrepareEnvelope'; bytes: Uint8Array }
 	| {
 			kind: 'SwapPrepared';
