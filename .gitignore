@@ -35,6 +35,7 @@ crates/wallet-wasm/pkg/
 /Cargo.lock
 /target/
 static/circuits-dev/
+static/circuits-mpc/
 dev-deploy/
 
 # Release-pinned extro-node package. The exact bytes are committed and checked
