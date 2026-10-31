@@ -442,7 +442,9 @@ export async function runProviderSide(
 	const { Wallet } = await import('@arkade-os/sdk');
 	const wallet = await Wallet.create({
 		identity: new WasmArkIdentity(slot),
-		arkServerUrl: getRuntimeConfig().ark_asp_url
+		arkServerUrl: getRuntimeConfig().ark_asp_url,
+		// No background auto-settle: it would race the funding spend for the same VTXOs.
+		settlementConfig: false
 	});
 	const funded = await fundArkSwapContract(wallet as never, contract);
 	emit({ phase: 'funded', message: `funded via Ark tx ${funded.arkTxId}`, ...facts });
