@@ -11,6 +11,9 @@ wasm-opt = false
 crate-type = ["cdylib"]
 
 [dependencies]
+# The one webcash wallet core; same rev as extro-node.
+webylib = { git = "ssh://git@github.com/webycash/webylib.git", rev = "8b0057ca58b968bf6d3485b71482f1845edf0045", default-features = false, features = ["wasm"] }
+# HD keychain, master slot registry/backup, WebGPU nonce search only.
 harmoniis-wallet = { version = "=0.1.121", default-features = false, features = ["wasm", "gpu-wasm"] }
 sha2 = "0.10"
 wasm-bindgen-futures = "0.4"
