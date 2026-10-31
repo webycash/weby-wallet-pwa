@@ -4,6 +4,7 @@
 	import { arkStatus } from '$lib/ark/ark-status.svelte';
 	import Loader from '$lib/components/ui/Loader.svelte';
 	import { boardArk } from '$lib/ark/board';
+	import { sendArk } from '$lib/ark/send';
 
 	let data = $state<ArkOverview | null>(null);
 	let error = $state<string | null>(null);
@@ -37,6 +38,30 @@
 			boardMsg = `Boarding failed: ${e instanceof Error ? e.message : String(e)}`;
 		} finally {
 			boarding = false;
+		}
+	};
+	let sendTo = $state('');
+	let sendAmt = $state('');
+	let sending = $state(false);
+	let sendMsg = $state<string | null>(null);
+	const send = async () => {
+		if (!data) return;
+		sending = true;
+		sendMsg = 'Sending via ASP…';
+		try {
+			const amount = sendAmt.trim() === '' ? data.offchainSats : Number(sendAmt.trim());
+			const r = await sendArk({
+				address: sendTo,
+				amount,
+				balanceSats: data.offchainSats,
+				ownAddress: data.arkAddress
+			});
+			sendMsg = `Sent ${r.amount.toLocaleString()} sat · Ark tx ${r.arkTxId}`;
+			await load();
+		} catch (e) {
+			sendMsg = `Send failed: ${e instanceof Error ? e.message : String(e)}`;
+		} finally {
+			sending = false;
 		}
 	};
 	const fmt = (s: number) => `${s.toLocaleString()} sat`;
@@ -77,6 +102,31 @@
 			{/if}
 			{#if boardMsg}<div class="text-[11px] break-all" data-testid="ark-board-message">{boardMsg}</div>{/if}
 		</div>
+		{#if data.offchainSats > 0}
+			<div class="rounded-2xl bg-muted/20 px-4 py-3 space-y-2 text-[11px]" data-testid="ark-send">
+				<div class="text-muted-foreground">Send off-chain (Ark)</div>
+				<input
+					data-testid="ark-send-address"
+					class="w-full rounded-md border border-border bg-transparent px-2 py-1 font-mono"
+					placeholder="ark1… destination"
+					bind:value={sendTo}
+				/>
+				<input
+					data-testid="ark-send-amount"
+					class="w-full rounded-md border border-border bg-transparent px-2 py-1"
+					inputmode="numeric"
+					placeholder={`sats (empty = all ${data.offchainSats})`}
+					bind:value={sendAmt}
+				/>
+				<button
+					data-testid="ark-send-submit"
+					class="rounded-md border border-border px-3 py-1 text-[12px]"
+					onclick={send}
+					disabled={sending || !sendTo.trim()}>{sending ? 'Sending…' : 'Send'}</button
+				>
+				{#if sendMsg}<div class="break-all" data-testid="ark-send-message">{sendMsg}</div>{/if}
+			</div>
+		{/if}
 		<div class="rounded-2xl bg-muted/20 px-4 py-3 space-y-2 text-[11px]">
 			<div>
 				<div class="text-muted-foreground">Receive (Ark address)</div>
