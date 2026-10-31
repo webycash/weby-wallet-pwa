@@ -21,7 +21,7 @@ import type { Browser, BrowserContext, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 
 /** The mock fingerprint the MockExtroAdapter returns for DeriveIdentity:
- *  `'fp'.repeat(10)` (see src/lib/extro/mock-node.ts). If a node ever reports
+ *  `'fp'.repeat(10)` (the archived mock adapter, _archive/src/lib/extro/mock-node.ts). If a node ever reports
  *  this, a mock is in the path and the run is INVALID. */
 export const MOCK_FINGERPRINT_HEX = 'fp'.repeat(10);
 
@@ -82,7 +82,7 @@ export async function bootRealNode(browser: Browser, name: string): Promise<Real
 				`[node ${name}] window.__extro never appeared. The harness requires the DEV ` +
 					`vite-dev server (import.meta.env.DEV true) with PUBLIC_EXTRO_ADAPTER=bundled. ` +
 					`Do NOT run against vite preview / a static build, and ensure the wasm artifact ` +
-					`in src/lib/node/pkg/ is synced.`
+					`from the pinned @extro/node dependency is verified (npm run verify:wasm).`
 			);
 		});
 
@@ -96,7 +96,7 @@ export async function bootRealNode(browser: Browser, name: string): Promise<Real
 	const mnemonic = TEST_MNEMONICS[name] ?? TEST_MNEMONICS.A;
 	const seeded = await page.evaluate(async (mnemonicArg) => {
 		const client = (window as unknown as { __extro: any }).__extro;
-		const { newRequestId } = await import('/src/lib/extro/commands.ts');
+		const { newRequestId } = await import('/src/lib/extro/index.ts');
 		const res = await client.send({
 			request_id: newRequestId(),
 			op: {
@@ -115,7 +115,7 @@ export async function bootRealNode(browser: Browser, name: string): Promise<Real
 	if (!seeded.ok) {
 		throw new Error(
 			`[node ${name}] failed to seed the real wasm wallet via Import (${seeded.detail}) — ` +
-				`DeriveIdentity would report a locked wallet. Check the wasm artifact in src/lib/node/pkg/.`
+				`DeriveIdentity would report a locked wallet. Check the pinned @extro/node engine wasm (npm run verify:wasm).`
 		);
 	}
 
@@ -148,7 +148,7 @@ export async function probeIdentity(node: RealNode, slot = 0): Promise<NodeIdent
 		const mode: string = client.mode;
 		// Build a real DeriveIdentity command. newRequestId lives in the app's
 		// commands module; import it dynamically so we don't depend on a global.
-		const { newRequestId } = await import('/src/lib/extro/commands.ts');
+		const { newRequestId } = await import('/src/lib/extro/index.ts');
 		const res = await client.send({
 			request_id: newRequestId(),
 			op: { kind: 'Wallet', cmd: { op: 'DeriveIdentity', slot: slotArg } }

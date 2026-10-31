@@ -77,7 +77,7 @@ test('dry live: prepare → referee container eviction → coop-refund-v1 (singl
 	const offer = await A.evaluate(
 		async ({ orderIdHex, sellerFp, ark }) => {
 			const { getExtroClient } = await import('/src/lib/extro/index.ts');
-			const { newRequestId } = await import('/src/lib/extro/commands.ts');
+			const { newRequestId } = await import('/src/lib/extro/index.ts');
 			const { fetchSwapMsgs } = await import('/src/lib/modules/webycash-exchange/accept-run-swap.ts');
 			const un = (h: string) => Uint8Array.from(h.match(/../g)!, (x) => parseInt(x, 16));
 			const res: any = await getExtroClient().send({
@@ -129,8 +129,8 @@ test('dry live: prepare → referee container eviction → coop-refund-v1 (singl
 	const prep = await A.evaluate(
 		async ({ sellerSigned }) => {
 			const { getExtroClient } = await import('/src/lib/extro/index.ts');
-			const { newRequestId } = await import('/src/lib/extro/commands.ts');
-			const { getRuntimeConfig } = await import('/src/lib/extro/runtime-config.ts');
+			const { newRequestId } = await import('/src/lib/extro/index.ts');
+			const { getRuntimeConfig } = await import('/src/lib/extro/index.ts');
 			const ap = await import('/src/lib/modules/webycash-exchange/accept-prepare.ts');
 			const sp = await import('/src/lib/modules/webycash-exchange/swap-prepare.ts');
 			const sc = await import('/src/lib/ark/swap-contract.ts');
@@ -171,7 +171,7 @@ test('dry live: prepare → referee container eviction → coop-refund-v1 (singl
 	const coop = (attempt: string) =>
 		A.evaluate(
 			async ({ orderIdHex, prep, attempt }) => {
-				const { getRuntimeConfig } = await import('/src/lib/extro/runtime-config.ts');
+				const { getRuntimeConfig } = await import('/src/lib/extro/index.ts');
 				const { coopRefundAggregate } = await import('/src/lib/ark/coop-refund.ts');
 				const w = window as any;
 				const n = Math.max(1, Math.round(prep.refundNonceHexLen / 132));

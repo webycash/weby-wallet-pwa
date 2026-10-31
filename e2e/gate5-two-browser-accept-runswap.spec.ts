@@ -53,7 +53,7 @@ async function pinKeyserver(node: RealNode) {
 	return node.page.evaluate(
 		async ({ domain, fingerprintHex, vkHex, baseUrl }) => {
 			const client = (window as unknown as { __extro: any }).__extro;
-			const { newRequestId } = await import('/src/lib/extro/commands.ts');
+			const { newRequestId } = await import('/src/lib/extro/index.ts');
 			const res = await client.send({
 				request_id: newRequestId(),
 				op: {
@@ -82,7 +82,7 @@ async function bootstrap(node: RealNode) {
 	return node.page.evaluate(
 		async ({ domain, baseUrl }) => {
 			const client = (window as unknown as { __extro: any }).__extro;
-			const { newRequestId } = await import('/src/lib/extro/commands.ts');
+			const { newRequestId } = await import('/src/lib/extro/index.ts');
 			const res = await client.send({
 				request_id: newRequestId(),
 				op: { kind: 'Keyserver', cmd: { op: 'Bootstrap', base_url: baseUrl, domain } }
@@ -126,7 +126,7 @@ async function connectPeers(nodeA: RealNode, nodeB: RealNode) {
 async function deriveIdentity(node: RealNode): Promise<{ fp: string; vkHex: string }> {
 	const id = await node.page.evaluate(async () => {
 		const client = (window as unknown as { __extro: any }).__extro;
-		const { newRequestId } = await import('/src/lib/extro/commands.ts');
+		const { newRequestId } = await import('/src/lib/extro/index.ts');
 		const res = await client.send({
 			request_id: newRequestId(),
 			op: { kind: 'Wallet', cmd: { op: 'DeriveIdentity', slot: 0 } }
@@ -323,7 +323,7 @@ test('two-browser Accept→ProviderMaterial→runSwap closes NO_PROVIDER', async
 		const pair = { base: 'BitcoinArk', quote: 'Webcash' };
 		const published = await nodeA.page.evaluate(async (pairArg) => {
 			const client = (window as unknown as { __extro: any }).__extro;
-			const { newRequestId } = await import('/src/lib/extro/commands.ts');
+			const { newRequestId } = await import('/src/lib/extro/index.ts');
 			return client.send({
 				request_id: newRequestId(),
 				op: {
@@ -350,7 +350,7 @@ test('two-browser Accept→ProviderMaterial→runSwap closes NO_PROVIDER', async
 		for (let i = 0; i < 50; i++) {
 			const fetched = await nodeB.page.evaluate(async (pairArg) => {
 				const client = (window as unknown as { __extro: any }).__extro;
-				const { newRequestId } = await import('/src/lib/extro/commands.ts');
+				const { newRequestId } = await import('/src/lib/extro/index.ts');
 				return client.send({
 					request_id: newRequestId(),
 					op: { kind: 'Dhtx', cmd: { op: 'FetchOrders', pair: pairArg } }
@@ -386,7 +386,7 @@ test('two-browser Accept→ProviderMaterial→runSwap closes NO_PROVIDER', async
 			async ({ order, takerFp, makerFp, bearerFpHex, bearerVkHex, sharedExpiresAtUnix }) => {
 				const swap = await import('/src/lib/modules/webycash-exchange/accept-run-swap.ts');
 				const prepare = await import('/src/lib/modules/webycash-exchange/accept-prepare.ts');
-				const { getRuntimeConfig } = await import('/src/lib/extro/runtime-config.ts');
+				const { getRuntimeConfig } = await import('/src/lib/extro/index.ts');
 				const { HttpRefereeClient } = await import('/src/lib/modules/webycash-exchange/referee-client.ts');
 				const { deriveVerifiedArkContractPlan, buildArkSwapContract } = await import(
 					'/src/lib/ark/swap-contract.ts'
@@ -510,7 +510,7 @@ test('two-browser Accept→ProviderMaterial→runSwap closes NO_PROVIDER', async
 						if (!mnemonic) throw new Error('window.__mnemonic missing for prove');
 
 						// Mint via window.__extro (same seeded wasm instance as Import/DeriveIdentity).
-						const { newRequestId } = await import('/src/lib/extro/commands.ts');
+						const { newRequestId } = await import('/src/lib/extro/index.ts');
 						const extro = (window as unknown as { __extro: any }).__extro;
 						if (!extro) throw new Error('window.__extro missing for MintWebcash');
 						const mintRes = await extro.send({

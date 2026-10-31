@@ -108,7 +108,7 @@ const pinKeyserver = async (node: RealNode) =>
 	node.page.evaluate(
 		async ({ domain, fingerprintHex, vkHex }) => {
 			const client = (window as unknown as { __extro: any }).__extro;
-			const { newRequestId } = await import('/src/lib/extro/commands.ts');
+			const { newRequestId } = await import('/src/lib/extro/index.ts');
 			const { KEYSERVER_URL } = await import('/src/lib/extro/config.ts');
 			const res = await client.send({
 				request_id: newRequestId(),
@@ -133,7 +133,7 @@ const pinKeyserver = async (node: RealNode) =>
 const bootstrap = async (node: RealNode) =>
 	node.page.evaluate(async (domain) => {
 		const client = (window as unknown as { __extro: any }).__extro;
-		const { newRequestId } = await import('/src/lib/extro/commands.ts');
+		const { newRequestId } = await import('/src/lib/extro/index.ts');
 		const { KEYSERVER_URL } = await import('/src/lib/extro/config.ts');
 		const res = await client.send({
 			request_id: newRequestId(),

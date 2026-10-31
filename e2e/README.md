@@ -15,8 +15,8 @@ rail** with a **real referee audit chain**.
 
 ```sh
 # Prereq (operator/manager does this — the harness NEVER syncs wasm itself):
-#   the real extro-node wasm artifact must already be in src/lib/node/pkg/
-#   (npm run sync:wasm, run by the cargo/wasm lane — NOT by this harness).
+#   the real extro-node wasm ships in the pinned @extro/node dependency
+#   (checked by npm run verify:wasm — NOT synced by this harness).
 
 # 1. install the Playwright runner (devDependency is declared; install once):
 npm install
@@ -110,7 +110,7 @@ is exactly what step (d) proves once DHTX lands.
 
 These steps depend on network surfaces that **do not exist yet** in the codebase:
 
-- **(b)** The Keyserver `Bootstrap` command's own doc (`src/lib/extro/commands.ts`)
+- **(b)** The Keyserver `Bootstrap` command's own doc (`@extro/node` `js/src/commands.ts`)
   states: *"Connecting roster peers + walking the DHTX seeds is the later DHTX
   task; this brings up only the KS link."*
 - **(c)** There is **no Orderbook publish wire op** in `commands.ts`. `publish.ts`
