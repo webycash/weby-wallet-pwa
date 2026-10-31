@@ -113,7 +113,7 @@ vi.mock('$lib/ark/swap-contract', () => ({
 		amountSats: 1000n,
 		aggregateOwnerKey: hex(state.q)
 	}),
-	buildArkSwapContract: (_c: unknown, plan: unknown) => ({ plan, address: 'tark1contract' }),
+	buildArkSwapContract: (_c: unknown, plan: unknown) => ({ plan, address: 'tark1contract', tapTree: new Uint8Array([9]) }),
 	fundArkSwapContract: async () => ({ arkTxId: '33'.repeat(32) })
 }));
 vi.mock('$lib/ark/funded-ref', () => ({
@@ -135,6 +135,7 @@ vi.mock('@arkade-os/sdk', () => ({
 }));
 
 import { runSwapRole, type SwapProgress } from './ark-swap-protocol';
+import { memoryContractJournal, type ContractJournalBackend } from '$lib/ark/contract-journal';
 
 function prepared() {
 	return {
@@ -212,10 +213,19 @@ const order = {
 	signedCommitment: ''
 } as never;
 
-const fast = { stepTimeoutMs: 200, fundingWaitMs: 200, intervalMs: 5 };
+let journal = memoryContractJournal();
+const fast = {
+	stepTimeoutMs: 200,
+	fundingWaitMs: 200,
+	intervalMs: 5,
+	get contractJournal(): ContractJournalBackend {
+		return journal;
+	}
+};
 const phases = (log: SwapProgress[]) => log.map((p) => p.phase);
 
 beforeEach(() => {
+	journal = memoryContractJournal();
 	state.refereePubkey = { ed25519_pubkey_hex: CFG.referee_vk_hex, musig2_pubshare_hex: vector.referee_pubkey_hex, capabilities: CAPS };
 	state.msgs = [];
 	state.material = null;
@@ -246,6 +256,41 @@ describe('provider side', () => {
 		expect(phases(log)).not.toContain('funding');
 		expect(state.walletCreate).not.toHaveBeenCalled();
 		expect(state.precheck).toHaveBeenCalledWith(expect.objectContaining({ swapId: 'swap-1' }));
+	});
+
+	it('refuses to fund when the signed terms cannot be persisted durably', async () => {
+		state.balance = '1000000';
+		state.material = offer();
+		const broken: ContractJournalBackend = {
+			put: async () => {
+				throw new Error('QuotaExceededError');
+			},
+			get: async () => null,
+			keys: async () => []
+		};
+		const log: SwapProgress[] = [];
+		const out = await runSwapRole('provider', order, SELLER_FP, {
+			...fast,
+			contractJournal: broken,
+			onProgress: (p) => log.push(p)
+		});
+		expect(out.phase).toBe('gate');
+		expect(out.gate).toMatch(/^ARK_CONTRACT_NOT_PERSISTED/);
+		expect(phases(log)).not.toContain('funding');
+		expect(state.walletCreate).not.toHaveBeenCalled();
+	});
+
+	it('persists the exact signed terms + referee response before funding', async () => {
+		state.balance = '1000000';
+		state.material = offer();
+		state.precheck.mockRejectedValue(new Error('REFEREE_PRECHECK_PENDING: x'));
+		await runSwapRole('provider', order, SELLER_FP, fast);
+		const raw = journal.map.get('contract:swap-1');
+		expect(raw).toBeTruthy();
+		const rec = JSON.parse(raw!);
+		expect(rec).toMatchObject({ role: 'provider', contractAddress: 'tark1contract', arkAmountSats: '1000' });
+		expect(rec.providerSignedHex.length).toBeGreaterThan(0);
+		expect(rec.refereeSignedResponseHex.length).toBeGreaterThan(0);
 	});
 
 	it('stops BEFORE funding when the referee is the current (capability-less) build', async () => {

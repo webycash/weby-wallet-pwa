@@ -52,10 +52,17 @@ import { fundingRefsFromSpends, type ArkSpend } from '$lib/ark/settle-tx';
 import {
 	buildArkSwapContract,
 	deriveVerifiedArkContractPlan,
-	fundArkSwapContract,
 	type ArkSwapContract
 } from '$lib/ark/swap-contract';
 import { WasmArkIdentity } from '$lib/ark/wasm-identity';
+import {
+	bytesHex,
+	CONTRACT_JOURNAL_VERSION,
+	fundArkSwapContractPersisted,
+	idbContractJournal,
+	persistContractRecord,
+	type ContractJournalBackend
+} from '$lib/ark/contract-journal';
 import {
 	buildArkPrepareTermsFromProvider,
 	expectationFromTerms,
@@ -148,7 +155,43 @@ export type ProtocolOpts = {
 	settleWaitMs?: number;
 	/** Test seam; defaults to the in-WASM ProviderPartialSign. */
 	providerPartialSigner?: ProviderPartialSigner;
+	/** Durable contract journal (default IndexedDB). Funding refuses without it. */
+	contractJournal?: ContractJournalBackend;
 };
+
+/** Persist the signed terms + referee response for this contract (read-back verified). */
+async function journalContract(
+	backend: ContractJournalBackend,
+	input: {
+		role: 'provider' | 'bearer-seller';
+		orderIdHex: string;
+		contract: ArkSwapContract;
+		refereeVk: Uint8Array;
+		requestCommitment: Uint8Array;
+		providerSigned: Uint8Array;
+		bearerSellerSigned: Uint8Array;
+		signedResponse: Uint8Array;
+	}
+): Promise<void> {
+	const cfg = getRuntimeConfig();
+	await persistContractRecord(backend, {
+		v: CONTRACT_JOURNAL_VERSION,
+		role: input.role,
+		swapId: input.contract.plan.swapId,
+		orderIdHex: input.orderIdHex,
+		network: String(cfg.ark_network),
+		refereeUrl: String(cfg.referee_url),
+		refereeVkHex: bytesHex(input.refereeVk),
+		contractAddress: input.contract.address,
+		arkAmountSats: input.contract.plan.amountSats.toString(),
+		tapTreeHex: bytesHex(input.contract.tapTree),
+		requestCommitmentHex: bytesHex(input.requestCommitment),
+		providerSignedHex: bytesHex(input.providerSigned),
+		bearerSellerSignedHex: bytesHex(input.bearerSellerSigned),
+		refereeSignedResponseHex: bytesHex(input.signedResponse),
+		createdAtUnix: Math.floor(Date.now() / 1000)
+	});
+}
 
 /** Fail-closed ceremony handshake shared by both roles (runs before funding). */
 async function assertCeremonyReady(input: {
@@ -432,6 +475,23 @@ export async function runProviderSide(
 	});
 	emit({ phase: 'ceremony-ready', message: 'referee serves settle-ceremony-v1; KeyAgg(referee, provider) = Q', ...facts });
 
+	// Recoverability gate: the exact signed terms must be durable BEFORE funding.
+	const journal = opts.contractJournal ?? idbContractJournal;
+	try {
+		await journalContract(journal, {
+			role: 'provider',
+			orderIdHex: order.id,
+			contract,
+			refereeVk,
+			requestCommitment: countersigned.requestCommitment,
+			providerSigned: countersigned.signed,
+			bearerSellerSigned: sellerSigned,
+			signedResponse
+		});
+	} catch (e) {
+		throw Object.assign(new NamedArkGateError((e as Error).message), { facts });
+	}
+
 	const fresh = await loadArkOverview();
 	if (BigInt(fresh.offchainSats) < contract.plan.amountSats) {
 		throw Object.assign(
@@ -464,7 +524,12 @@ export async function runProviderSide(
 		// No background auto-settle: it would race the funding spend for the same VTXOs.
 		settlementConfig: false
 	});
-	const funded = await fundArkSwapContract(wallet as never, contract);
+	const funded = await fundArkSwapContractPersisted(
+		journal,
+		wallet as never,
+		contract,
+		bytesHex(countersigned.requestCommitment)
+	);
 	emit({ phase: 'funded', message: `funded via Ark tx ${funded.arkTxId}`, ...facts });
 
 	// Publish provider material bound to the exact funded outpoint: settle/refund
@@ -781,6 +846,22 @@ export async function runBearerSellerSide(
 		facts
 	});
 	emit({ phase: 'ceremony-ready', message: 'referee serves settle-ceremony-v1; KeyAgg(referee, provider) = Q', ...facts });
+
+	// Persist the signed terms before the pre-check unlocks provider funding.
+	try {
+		await journalContract(opts.contractJournal ?? idbContractJournal, {
+			role: 'bearer-seller',
+			orderIdHex: order.id,
+			contract,
+			refereeVk,
+			requestCommitment: signed.requestCommitment,
+			providerSigned,
+			bearerSellerSigned: signed.signed,
+			signedResponse: verified.signedResponse
+		});
+	} catch (e) {
+		throw Object.assign(new NamedArkGateError((e as Error).message), { facts });
+	}
 
 	// Before the provider may fund: the bearer leg must be a live, unspent
 	// token from the real wallet balance (never minted/mined here), and the
