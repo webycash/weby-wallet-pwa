@@ -24,6 +24,7 @@ describe('WalletRegistry (R2)', () => {
 		expect(selectWallet(reg, 'ff'.repeat(20))).toBeNull();
 		const selected = selectWallet(reg, 'bb'.repeat(20));
 		expect(selected?.selected).toBe('bb'.repeat(20));
-		expect(selectedEntry(selected!).storageKind).toBe('CrossDomainGranted');
+		if (!selected) throw new Error('expected selected registry');
+		expect(selectedEntry(selected)?.storageKind).toBe('CrossDomainGranted');
 	});
 });

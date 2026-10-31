@@ -3,10 +3,17 @@ import { pairReleaseAvailability } from './pair-policy';
 import { serializePrepareTermsDraft, parsePrepareTermsDraft } from './prepare-terms-draft';
 
 describe('product Accept wiring helpers', () => {
-	it('Gate6 keeps BitcoinArk/Webcash available and RGB unavailable', () => {
+	it('keeps BitcoinArk/Webcash available and labels RGB/Voucher pairs with the Worker rail', () => {
 		expect(pairReleaseAvailability('BitcoinArk', 'Webcash').available).toBe(true);
-		expect(pairReleaseAvailability('Rgb20', 'Webcash').available).toBe(false);
-		expect(pairReleaseAvailability('Voucher', 'BitcoinArk').available).toBe(false);
+		// Voucher/RGB were re-enabled (4c3f299) on the issuer-hosted webycash-server rail.
+		for (const [a, b] of [
+			['Rgb20', 'Webcash'],
+			['Voucher', 'BitcoinArk']
+		] as const) {
+			const v = pairReleaseAvailability(a, b);
+			if (v.available) expect(v.message).toContain('webycash-server Worker');
+			else expect(v.exclusion).toBe('pair-policy-blocked');
+		}
 	});
 
 	it('prepare-terms draft round-trips critical fields', () => {

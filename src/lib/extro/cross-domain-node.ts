@@ -86,7 +86,6 @@ function scopeForCommand(command: ExtroCommand): string {
 			return 'WalletRead(pgp)';
 		}
 	}
-	if (command.op.kind === 'Social') return 'Social(Publish)';
 	return 'Full';
 }
 
