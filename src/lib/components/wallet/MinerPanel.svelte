@@ -5,6 +5,7 @@
 	import { getWasm } from '$lib/core/wasm';
 	import { getRuntimeConfig } from '$lib/extro/runtime-config';
 	import { resolveWebcashWasmNetwork } from '$lib/core/webcash-routing';
+	import { miningRefusal } from '$lib/core/miner-guard';
 	import type { NetworkMode } from '$lib/core/types';
 	import { acquireWakeLock, releaseWakeLock, reacquireWakeLock, startAudioKeepAlive, stopAudioKeepAlive } from '$lib/core/keep-alive';
 	import { Pickaxe, Square, Zap, Clock, Target, Hash, Trophy, Cpu, Monitor } from '@lucide/svelte';
@@ -165,6 +166,7 @@
 	const CPU_BATCH = 50_000;
 	const mineCpu = async () => {
 		if (isMining()) return;
+		{ const refusal = (() => { try { return miningRefusal(getRuntimeConfig()); } catch { return 'Mining disabled: runtime config not loaded'; } })(); if (refusal) { error = refusal; return; } }
 		error = ''; result = ''; resultHash = '';
 		running = true;
 		setMining(true);
@@ -210,6 +212,7 @@
 
 	const mineGpu = async (resume?: any) => {
 		if (isMining()) return; // guard against concurrent GPU access
+		{ const refusal = (() => { try { return miningRefusal(getRuntimeConfig()); } catch { return 'Mining disabled: runtime config not loaded'; } })(); if (refusal) { error = refusal; return; } }
 		error = ''; result = ''; resultHash = '';
 		running = true;
 		setMining(true);
@@ -291,6 +294,8 @@
 			setMining(false); stopKeepAlive(); clearSnapshot();
 			return;
 		}
+		const refusal = (() => { try { return miningRefusal(getRuntimeConfig()); } catch { return 'Mining disabled: runtime config not loaded'; } })();
+		if (refusal) { error = refusal; return; }
 		if (useGpu) await mineGpu();
 		else await mineCpu();
 	};
