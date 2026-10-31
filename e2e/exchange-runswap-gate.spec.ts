@@ -1,20 +1,21 @@
 /**
- * Step 7 live smoke: dev keeps Ark gated; exchange shell loads.
+ * Step 7 live smoke: the deployment serves the profile's exact network config
+ * (Ark enabled on the profile's ASP) and the exchange shell loads.
+ * Profile: E2E_GATE_PROFILE=dev (default) | staging-mainnet (needs E2E_BASE_URL).
  * Vitest covers attemptRunSwapBoundary reachedRunSwap + named gate.
  * Does NOT claim settled.
  */
 import { test, expect } from '@playwright/test';
+import { profileMismatches, selectGateProfile } from './helpers/gate-profile';
 
-const BASE = (process.env.E2E_BASE_URL ?? 'https://dev.weby.cash/wallet').replace(/\/$/, '');
+const { profile, baseUrl: BASE } = selectGateProfile();
 
-test('dev runtime ark_enabled + wallet shell 200', async ({ page }) => {
+test(`${profile.name} runtime ark_enabled + wallet shell 200`, async ({ page }) => {
 	const cfg = await page.request.get(`${BASE}/runtime-config.json`);
 	expect(cfg.ok()).toBeTruthy();
 	const json = await cfg.json();
+	expect(profileMismatches(profile, json)).toEqual([]);
 	expect(json.ark_enabled).toBe(true);
-	expect(json.ark_asp_url).toBe('https://signet.arkade.sh');
-	expect(String(json.webcash_server_url)).toContain('dev.weby.cash');
-	expect(json.deployment).toBe('development');
 	const res = await page.goto(`${BASE}/`);
 	expect(res?.ok()).toBeTruthy();
 	await expect(page).toHaveTitle(/Weby Wallet/i);

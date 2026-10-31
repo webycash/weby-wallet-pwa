@@ -1,6 +1,8 @@
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
+import { profileMismatches, selectGateProfile } from './helpers/gate-profile';
 
-const URL = process.env.E2E_BASE_URL ?? 'http://localhost:5183';
+// Profile: E2E_GATE_PROFILE=dev (default) | staging-mainnet (needs E2E_BASE_URL).
+const { profile, baseUrl: URL } = selectGateProfile();
 const MNEMONICS = [
 	'legal winner thank year wave sausage worth useful legal winner thank year wave sausage worth useful legal winner thank year wave sausage worth title',
 	'letter advice cage absurd amount doctor acoustic avoid letter advice cage absurd amount doctor acoustic avoid letter advice cage absurd amount doctor acoustic bless'
@@ -22,7 +24,7 @@ function hexBytes(hex: string): Uint8Array {
 async function openNode(browser: Browser): Promise<LiveNode> {
 	const context = await browser.newContext();
 	const page = await context.newPage();
-	await page.goto(URL);
+	await page.goto(`${URL}/`);
 	await page.waitForFunction(() => Boolean((window as unknown as { __extro?: unknown }).__extro), {
 		timeout: 60_000
 	});
@@ -40,7 +42,10 @@ async function command(node: LiveNode, cmd: unknown) {
 test('Gates 1-2 live: two isolated wallets retain a DataChannel and propagate a signed DHTX order', async ({
 	browser
 }) => {
-	const config = await (await fetch(`${URL.replace(/\/$/, '')}/runtime-config.json`)).json();
+	const served = await fetch(`${URL}/runtime-config.json`);
+	expect(served.ok, `runtime-config.json: HTTP ${served.status}`).toBe(true);
+	const config = await served.json();
+	expect(profileMismatches(profile, config), `not the ${profile.name} deployment`).toEqual([]);
 	const nodes = await Promise.all([openNode(browser), openNode(browser)]);
 	const identityFingerprints: string[] = [];
 	try {

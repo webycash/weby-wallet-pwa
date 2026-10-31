@@ -17,7 +17,7 @@ export default defineConfig({
 	resolve: { conditions: ['browser'] },
 	test: {
 		environment: 'node',
-		include: ['src/**/*.test.ts', 'worker/src/**/*.test.ts'],
+		include: ['src/**/*.test.ts', 'worker/src/**/*.test.ts', 'e2e/helpers/**/*.test.ts'],
 		// The bundled extro-node adapter imports the WASM pkg via the `$wasm`
 		// alias; tests never exercise the real WASM path (the mock adapter is the
 		// tested default), but the alias must resolve for type/module loading.
