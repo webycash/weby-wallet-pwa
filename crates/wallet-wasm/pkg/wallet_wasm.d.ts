@@ -9,8 +9,8 @@ export function check_wallet(s: string, n: string): Promise<string>;
 
 /**
  * Mine one CPU batch of up to `max_attempts` nonces against the configured
- * Webcash server's `/api/v1/target`; on a solution, submit the mining report
- * and claim it into the wallet. Returns the same JSON shape as `gpu_mine`.
+ * Webcash server's target; on a solution, report it and store the mined
+ * webcash. Returns the same JSON shape as `gpu_mine`.
  */
 export function cpu_mine(s: string, n: string, max_attempts: number): Promise<string>;
 
@@ -49,7 +49,10 @@ export function gpu_available(): boolean;
 export function gpu_init(): Promise<string>;
 
 /**
- * Mine one GPU batch — delegates entirely to harmoniis-wallet.
+ * Mine one GPU batch. harmoniis-wallet supplies only the WebGPU nonce search
+ * and its work-unit preimage format; target, report and claim are webylib.
+ * The claim inserts the random keep secret through `/replace` into the HD
+ * RECEIVE chain, so the wallet never holds a non-HD secret.
  */
 export function gpu_mine(s: string, n: string): Promise<string>;
 
@@ -140,10 +143,10 @@ export interface InitOutput {
     readonly verify_webcash: (a: number, b: number, c: number, d: number) => number;
     readonly wallet_balance: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly wallet_stats: (a: number, b: number, c: number, d: number, e: number) => void;
-    readonly __wasm_bindgen_func_elem_1797: (a: number, b: number, c: number, d: number) => void;
-    readonly __wasm_bindgen_func_elem_1855: (a: number, b: number, c: number, d: number) => void;
-    readonly __wasm_bindgen_func_elem_4075: (a: number, b: number, c: number) => void;
-    readonly __wasm_bindgen_func_elem_2973: (a: number, b: number) => void;
+    readonly __wasm_bindgen_func_elem_1835: (a: number, b: number, c: number, d: number) => void;
+    readonly __wasm_bindgen_func_elem_1896: (a: number, b: number, c: number, d: number) => void;
+    readonly __wasm_bindgen_func_elem_4137: (a: number, b: number, c: number) => void;
+    readonly __wasm_bindgen_func_elem_2969: (a: number, b: number) => void;
     readonly __wbindgen_export: (a: number, b: number) => number;
     readonly __wbindgen_export2: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_export3: (a: number) => void;
