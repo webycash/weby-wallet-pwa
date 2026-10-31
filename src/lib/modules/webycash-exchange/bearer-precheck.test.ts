@@ -8,42 +8,57 @@ import {
 } from './bearer-precheck';
 
 const H = `e100:public:${'ab'.repeat(32)}`;
-const rail = (row: unknown) =>
-	vi.fn(async () => new Response(JSON.stringify({ status: 'success', results: row === undefined ? {} : { [H]: row } })));
+const W = 'https://webcash.org';
+type Row = { status: 'unknown' | 'unspent' | 'spent'; amount: string | null };
+/** Stub of the extro-node `Rail(WebcashTokenStatus)` op (the only rail path in TS). */
+const op = (row: Row) =>
+	vi.fn(async (a: { serverUrl: string; publicTokens: string[] }) => ({
+		state: 'ok' as const,
+		value: {
+			kind: 'WebcashTokenStatuses' as const,
+			statuses: a.publicTokens.map((public_token) => ({ public_token, ...row }))
+		}
+	}));
 
-describe('railTokenStatus (webcash.org health_check)', () => {
-	it('spent:null is UNKNOWN (never issued) — not unspent, not spent', async () => {
-		expect(await railTokenStatus('https://webcash.org', H, rail({ spent: null, amount: null }) as never)).toEqual({ status: 'unknown' });
-		expect(await railTokenStatus('https://webcash.org', H, rail(undefined) as never)).toEqual({ status: 'unknown' });
+describe('railTokenStatus (rail health_check via extro-node)', () => {
+	it('unknown (spent:null, never issued) is neither unspent nor spent', async () => {
+		expect(await railTokenStatus(W, H, op({ status: 'unknown', amount: null }))).toEqual({ status: 'unknown' });
 	});
-	it('spent:false is unspent with amount; spent:true is spent', async () => {
-		expect(await railTokenStatus('https://webcash.org/', H, rail({ spent: false, amount: '100' }) as never)).toEqual({ status: 'unspent', amount: '100' });
-		expect((await railTokenStatus('https://webcash.org', H, rail({ spent: true, amount: '100' }) as never)).status).toBe('spent');
+	it('unspent carries the amount; spent is spent', async () => {
+		expect(await railTokenStatus(`${W}/`, H, op({ status: 'unspent', amount: '100' }))).toEqual({ status: 'unspent', amount: '100' });
+		expect((await railTokenStatus(W, H, op({ status: 'spent', amount: '100' }))).status).toBe('spent');
 	});
-	it('posts the exact public token to /api/v1/health_check and refuses secrets', async () => {
-		const f = rail({ spent: false, amount: '100' });
-		await railTokenStatus('https://webcash.org/', H, f as never);
-		expect(f).toHaveBeenCalledWith('https://webcash.org/api/v1/health_check', expect.objectContaining({ method: 'POST', body: JSON.stringify([H]) }));
-		await expect(railTokenStatus('https://webcash.org', `e1:secret:${'00'.repeat(32)}`, f as never)).rejects.toThrow(/public/);
+	it('dispatches the exact public token + normalized base and refuses secrets', async () => {
+		const f = op({ status: 'unspent', amount: '100' });
+		await railTokenStatus(`${W}/`, H, f);
+		expect(f).toHaveBeenCalledWith({ serverUrl: W, publicTokens: [H] });
+		await expect(railTokenStatus(W, `e1:secret:${'00'.repeat(32)}`, f)).rejects.toThrow(/public/);
+		expect(f).toHaveBeenCalledTimes(1);
 	});
-	it('sends a CORS-simple request (no JSON content-type: webcash.org preflight allows only x-requested-with)', async () => {
-		const f = rail({ spent: false, amount: '100' });
-		await railTokenStatus('https://webcash.org', H, f as never);
-		const init = (f.mock.calls[0] as unknown as [string, RequestInit])[1];
-		const h = new Headers(init.headers);
-		expect(h.has('content-type')).toBe(false);
-		expect(typeof init.body).toBe('string');
+	it('fails closed on node errors, unsupported builds and mismatched rows', async () => {
+		await expect(railTokenStatus(W, H, async () => ({ state: 'error', message: 'boom' }))).rejects.toThrow(/node: boom/);
+		await expect(railTokenStatus(W, H, async () => ({ state: 'pending' }))).rejects.toThrow(/unsupported/);
+		const wrong = async () => ({
+			state: 'ok' as const,
+			value: {
+				kind: 'WebcashTokenStatuses' as const,
+				statuses: [{ public_token: `e100:public:${'cd'.repeat(32)}`, status: 'unspent' as const, amount: '100' }]
+			}
+		});
+		await expect(railTokenStatus(W, H, wrong)).rejects.toThrow(/bad_response/);
+		const none = async () => ({ state: 'ok' as const, value: { kind: 'WebcashTokenStatuses' as const, statuses: [] } });
+		await expect(railTokenStatus(W, H, none)).rejects.toThrow(/bad_response/);
 	});
 });
 
 describe('assertBearerLegIssued', () => {
-	it('names BEARER_LEG_NOT_ISSUED for spent:null, UNUSABLE for spent/short', async () => {
-		await expect(assertBearerLegIssued({ railBase: 'x', publicWebcash: H, fillAmount: '100', fetchFn: rail({ spent: null }) as never })).rejects.toThrow(/^BEARER_LEG_NOT_ISSUED/);
-		await expect(assertBearerLegIssued({ railBase: 'x', publicWebcash: H, fillAmount: '100', fetchFn: rail({ spent: true, amount: '100' }) as never })).rejects.toThrow(/^BEARER_LEG_UNUSABLE.*spent/);
-		await expect(assertBearerLegIssued({ railBase: 'x', publicWebcash: H, fillAmount: '100', fetchFn: rail({ spent: false, amount: '99.99999999' }) as never })).rejects.toThrow(/^BEARER_LEG_UNUSABLE.*face/);
+	it('names BEARER_LEG_NOT_ISSUED for unknown, UNUSABLE for spent/short', async () => {
+		await expect(assertBearerLegIssued({ railBase: W, publicWebcash: H, fillAmount: '100', tokenStatus: op({ status: 'unknown', amount: null }) })).rejects.toThrow(/^BEARER_LEG_NOT_ISSUED/);
+		await expect(assertBearerLegIssued({ railBase: W, publicWebcash: H, fillAmount: '100', tokenStatus: op({ status: 'spent', amount: '100' }) })).rejects.toThrow(/^BEARER_LEG_UNUSABLE.*spent/);
+		await expect(assertBearerLegIssued({ railBase: W, publicWebcash: H, fillAmount: '100', tokenStatus: op({ status: 'unspent', amount: '99.99999999' }) })).rejects.toThrow(/^BEARER_LEG_UNUSABLE.*face/);
 	});
 	it('passes for a live token covering the fill', async () => {
-		expect(await assertBearerLegIssued({ railBase: 'x', publicWebcash: H, fillAmount: '100', fetchFn: rail({ spent: false, amount: '100' }) as never })).toEqual({ amount: '100' });
+		expect(await assertBearerLegIssued({ railBase: W, publicWebcash: H, fillAmount: '100', tokenStatus: op({ status: 'unspent', amount: '100' }) })).toEqual({ amount: '100' });
 	});
 	it('webcashUnits is exact', () => {
 		expect(webcashUnits('0.00000001')).toBe(1n);

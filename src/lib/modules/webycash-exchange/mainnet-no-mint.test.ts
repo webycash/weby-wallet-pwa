@@ -2,7 +2,8 @@
  * Mainnet-mode guard: the product swap paths (taker builder + role protocol
  * bearer side) must never mint, mine or replace webcash. Any such attempt —
  * via the extro client (MintWebcash / mining ops) or via HTTP to the rail
- * (/api/v1/replace, mining_report, target) — fails this test.
+ * (/api/v1/replace, mining_report, target) — fails this test. The only rail
+ * access allowed is the read-only extro-node `WebcashTokenStatus` op.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
@@ -21,15 +22,28 @@ const MAINNET = vi.hoisted(() => ({
 	deployment: 'staging'
 }));
 const forbidden = vi.hoisted(() => ({ attempts: [] as string[] }));
+const rail = vi.hoisted(() => ({
+	row: { status: 'unknown', amount: null } as { status: string; amount: string | null }
+}));
 const FORBIDDEN_OPS = /^(MintWebcash|Mine|StartMining|MiningReport|SubmitMiningReport|ReplaceWebcash|Replace)$/;
 const FORBIDDEN_URL = /\/api\/v1\/(replace|mining_report|target)\b/;
 
 vi.mock('$lib/extro/runtime-config', () => ({ getRuntimeConfig: () => MAINNET }));
 vi.mock('$lib/extro', () => ({
 	getExtroClient: () => ({
-		send: async (req: { op: { cmd: { op: string } } }) => {
+		send: async (req: { request_id: string; op: { cmd: { op: string; public_tokens?: string[] } } }) => {
 			const op = req?.op?.cmd?.op ?? String(req);
 			if (FORBIDDEN_OPS.test(op)) forbidden.attempts.push(`extro:${op}`);
+			if (op === 'WebcashTokenStatus') {
+				return {
+					kind: 'Ok',
+					request_id: req.request_id,
+					body: {
+						kind: 'WebcashTokenStatuses',
+						statuses: (req.op.cmd.public_tokens ?? []).map((public_token) => ({ public_token, ...rail.row }))
+					}
+				};
+			}
 			throw new Error(`unexpected extro op in mainnet-mode test: ${op}`);
 		}
 	})
@@ -60,18 +74,13 @@ const order = {
 const material = (locked_ref: string) =>
 	({ locked_ref, provider_musig2_pubkey: '02'.padEnd(66, '1') }) as never;
 
-let railRow: unknown;
 beforeEach(() => {
 	forbidden.attempts = [];
-	railRow = { spent: null, amount: null };
-	vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
+	rail.row = { status: 'unknown', amount: null };
+	vi.stubGlobal('fetch', async (url: string) => {
 		if (FORBIDDEN_URL.test(url)) {
 			forbidden.attempts.push(`http:${url}`);
 			throw new Error('forbidden rail write in mainnet mode');
-		}
-		if (url === 'https://webcash.org/api/v1/health_check') {
-			const [token] = JSON.parse(String(init?.body));
-			return new Response(JSON.stringify({ status: 'success', results: { [token]: railRow } }));
 		}
 		throw new Error(`unexpected fetch ${url}`);
 	});
@@ -86,11 +95,11 @@ describe('mainnet mode: taker product path never mints, mines or replaces', () =
 		await expect(buildProductRunSwapInput(material(`${'33'.repeat(32)}:0`), order)).rejects.toThrow(/^BEARER_LEG_NOT_ISSUED/);
 	});
 	it('a spent bearer H is a named gate', async () => {
-		railRow = { spent: true, amount: '100' };
+		rail.row = { status: 'spent', amount: '100' };
 		await expect(buildProductRunSwapInput(material(`${'33'.repeat(32)}:0`), order)).rejects.toThrow(/^BEARER_LEG_UNUSABLE/);
 	});
 	it('with a live H, a provider that funded before the referee pre-check is refused', async () => {
-		railRow = { spent: false, amount: '100' };
+		rail.row = { status: 'unspent', amount: '100' };
 		await expect(buildProductRunSwapInput(material(`${'33'.repeat(32)}:0`), order)).rejects.toThrow(/^REFEREE_PRECHECK_PENDING.*before the referee pre-check/);
 	});
 });

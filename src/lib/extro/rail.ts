@@ -165,6 +165,16 @@ export const webcashReserve = (args: {
 	);
 };
 
+/**
+ * Rail `health_check` of public webcash tokens via extro-node (webylib wire:
+ * CORS-simple, strict, fail-closed). Read-only; one status per token, in order.
+ */
+export const webcashTokenStatus = (args: { serverUrl: string; publicTokens: string[] }) =>
+	dispatchRail(
+		{ op: 'WebcashTokenStatus', server_url: args.serverUrl, public_tokens: args.publicTokens },
+		'WebcashTokenStatuses'
+	);
+
 // ── RGB ────────────────────────────────────────────────────────────────────--
 
 import type { WireRgbFlavor } from './commands';

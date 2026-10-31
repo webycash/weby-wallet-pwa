@@ -211,6 +211,15 @@ export class MockExtroAdapter implements ExtroAdapter {
 							unspent: true,
 							replaced: true
 						});
+					case 'WebcashTokenStatus':
+						return ok({
+							kind: 'WebcashTokenStatuses',
+							statuses: c.public_tokens.map((public_token) => ({
+								public_token,
+								status: 'unknown' as const,
+								amount: null
+							}))
+						});
 				}
 			}
 			case 'Keyserver': {

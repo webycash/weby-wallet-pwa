@@ -248,14 +248,22 @@ describe('defaultSettleTransport', () => {
 		).rejects.toThrow(/32 bytes/);
 	});
 
-	it('seller: bearerSpent reads the webcash health_check', async () => {
+	it('seller: bearerSpent reads rail token status through extro-node', async () => {
 		const pub = `e100:public:${'ab'.repeat(32)}`;
-		const t = defaultSettleTransport({
-			fetchFn: fetchStub({
-				'POST https://webcash.invalid/api/v1/health_check': { results: { [pub]: { spent: true } } }
-			})
-		});
+		const tokenStatus = vi.fn(async (a: { serverUrl: string; publicTokens: string[] }) => ({
+			state: 'ok' as const,
+			value: {
+				kind: 'WebcashTokenStatuses' as const,
+				statuses: a.publicTokens.map((public_token) => ({
+					public_token,
+					status: public_token === pub ? ('spent' as const) : ('unknown' as const),
+					amount: null
+				}))
+			}
+		}));
+		const t = defaultSettleTransport({ fetchFn: fetchStub({}), tokenStatus });
 		expect(await t.bearerSpent!(pub)).toBe(true);
 		expect(await t.bearerSpent!(`e100:public:${'cd'.repeat(32)}`)).toBe(false);
+		expect(tokenStatus).toHaveBeenCalledWith({ serverUrl: 'https://webcash.invalid', publicTokens: [pub] });
 	});
 });

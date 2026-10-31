@@ -611,7 +611,7 @@ test('two-browser Accept→ProviderMaterial→runSwap closes NO_PROVIDER', async
 								};
 								const r = await fetch(`${cfg.webcash_server_url}/api/v1/replace`, {
 									method: 'POST',
-									headers: { 'content-type': 'application/json' },
+									headers: { 'content-type': 'text/plain;charset=UTF-8' },
 									body: JSON.stringify(body)
 								});
 								if (!r.ok) {
@@ -620,7 +620,7 @@ test('two-browser Accept→ProviderMaterial→runSwap closes NO_PROVIDER', async
 								}
 								const hc = await fetch(`${cfg.webcash_server_url}/api/v1/health_check`, {
 									method: 'POST',
-									headers: { 'content-type': 'application/json' },
+									headers: { 'content-type': 'text/plain;charset=UTF-8' },
 									body: JSON.stringify([bearerPublic])
 								});
 								const hcJson = await hc.json();

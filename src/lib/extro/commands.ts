@@ -543,6 +543,17 @@ export type RailCommand =
 			inputs: string[];
 			/** Webcash-server base URL (e.g. `"https://webcash.org"`). */
 			server_url: string;
+	  }
+	| {
+			/**
+			 * Read-only rail `health_check` of public tokens, spoken by extro-node
+			 * through webylib's wire protocol (TS never fetches the rail itself).
+			 */
+			op: 'WebcashTokenStatus';
+			/** Webcash-server base URL (e.g. `"https://webcash.org"`). */
+			server_url: string;
+			/** Public tokens (`e{amount}:public:{H}`); never secrets. */
+			public_tokens: string[];
 	  };
 
 // ── Responses ─────────────────────────────────────────────────────────────────
@@ -768,7 +779,20 @@ export type ResponseBody =
 			unspent: boolean;
 			/** False when the reservation already existed (idempotent replay). */
 			replaced: boolean;
+	  }
+	| {
+			/** Rail token statuses, one per requested token, in request order. */
+			kind: 'WebcashTokenStatuses';
+			statuses: WebcashTokenState[];
 	  };
+
+/** Rail status of one public token — mirrors extro-node `WebcashTokenState`. */
+export interface WebcashTokenState {
+	public_token: string;
+	/** `unknown` = the rail has never seen the token (`spent:null`). */
+	status: 'unknown' | 'unspent' | 'spent';
+	amount: string | null;
+}
 
 export interface FamilySummary {
 	family: string;

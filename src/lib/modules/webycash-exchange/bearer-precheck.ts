@@ -1,8 +1,8 @@
 /**
  * Pre-funding checks. Nothing here mints, mines or replaces webcash.
  *
- * - `railTokenStatus`: tri-state read of the rail's `/api/v1/health_check`.
- *   webcash.org answers `spent:null` for a token it has never seen; that is
+ * - `railTokenStatus`: tri-state rail `health_check` read, via extro-node
+ *   (`Rail(WebcashTokenStatus)`, webylib wire). webcash.org answers `spent:null` for a token it has never seen; that is
  *   NOT "unspent" and NOT "already spent" — it means the leg was never issued.
  * - `assertBearerLegIssued`: the taker's H must be a live, unspent token whose
  *   face amount covers the order fill.
@@ -15,35 +15,24 @@ import {
 	GATE_BEARER_LEG_UNUSABLE,
 	GATE_REFEREE_PRECHECK_PENDING
 } from '$lib/ark/named-gates';
+import {
+	ExtroWebcashRailClient,
+	type RailTokenStatus,
+	type WebcashTokenStatusOp
+} from '$lib/core/webcash-rail-client';
 
-export type RailTokenStatus =
-	| { status: 'unspent'; amount: string | null }
-	| { status: 'spent'; amount: string | null }
-	| { status: 'unknown' };
+export type { RailTokenStatus, WebcashTokenStatusOp };
 
 type FetchFn = typeof fetch;
 
+/** Tri-state rail read of one public token, via the shared webcash-rail client. */
 export async function railTokenStatus(
 	railBase: string,
 	publicWebcash: string,
-	fetchFn: FetchFn = fetch
+	tokenStatus?: WebcashTokenStatusOp
 ): Promise<RailTokenStatus> {
-	if (!/^e[0-9.]+:public:[0-9a-f]{64}$/i.test(publicWebcash)) throw new Error('not a public webcash token');
-	const base = railBase.replace(/\/+$/, '');
-	const r = await fetchFn(`${base}/api/v1/health_check`, {
-		method: 'POST',
-		// No JSON content-type: webcash.org CORS allows only x-requested-with, so a
-		// preflighted request fails in browsers; a string body (text/plain) is simple.
-		body: JSON.stringify([publicWebcash])
-	});
-	if (!r.ok) throw new Error(`health_check HTTP ${r.status}`);
-	const body = (await r.json()) as {
-		results?: Record<string, { spent?: boolean | null; amount?: string | number | null }>;
-	};
-	const row = body.results?.[publicWebcash];
-	if (!row || row.spent === null || row.spent === undefined) return { status: 'unknown' };
-	const amount = row.amount === null || row.amount === undefined ? null : String(row.amount);
-	return { status: row.spent ? 'spent' : 'unspent', amount };
+	const rail = new ExtroWebcashRailClient({ baseUrl: railBase, tokenStatus });
+	return (await rail.healthCheck([publicWebcash]))[publicWebcash];
 }
 
 /** Decimal webcash amount string → 1e-8 units (exact; no float). */
@@ -58,9 +47,9 @@ export async function assertBearerLegIssued(input: {
 	publicWebcash: string;
 	/** Fill amount in the same decimal webcash units as the token face (e.g. "0.5"). */
 	fillAmount: string;
-	fetchFn?: FetchFn;
+	tokenStatus?: WebcashTokenStatusOp;
 }): Promise<{ amount: string }> {
-	const st = await railTokenStatus(input.railBase, input.publicWebcash, input.fetchFn);
+	const st = await railTokenStatus(input.railBase, input.publicWebcash, input.tokenStatus);
 	if (st.status === 'unknown') throw new Error(GATE_BEARER_LEG_NOT_ISSUED);
 	if (st.status === 'spent') throw new Error(`${GATE_BEARER_LEG_UNUSABLE} (spent)`);
 	const face = st.amount ?? input.publicWebcash.slice(1, input.publicWebcash.indexOf(':'));

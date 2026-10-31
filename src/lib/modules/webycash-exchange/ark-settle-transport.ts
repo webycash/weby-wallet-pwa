@@ -26,6 +26,7 @@ import { ed25519 } from '@noble/curves/ed25519.js';
 import { getExtroClient } from '$lib/extro';
 import { newRequestId } from '$lib/extro/commands';
 import { getRuntimeConfig } from '$lib/extro/runtime-config';
+import { ExtroWebcashRailClient, type WebcashTokenStatusOp } from '$lib/core/webcash-rail-client';
 import { parseReleaseSettle, type ReleaseSettle } from '$lib/ark/settle-ceremony';
 import type { ArkSpend } from '$lib/ark/settle-tx';
 import type { TwoProofFacts } from './swap-facts';
@@ -318,7 +319,9 @@ export async function openProviderPartial(
 }
 
 /** Default transport: DHTX provider-partial + pinned referee pulls + in-WASM seal/open. */
-export function defaultSettleTransport(deps: { fetchFn?: typeof fetch } = {}): SettleTransport {
+export function defaultSettleTransport(
+	deps: { fetchFn?: typeof fetch; tokenStatus?: WebcashTokenStatusOp } = {}
+): SettleTransport {
 	const fetchFn = deps.fetchFn ?? ((...a: Parameters<typeof fetch>) => fetch(...a));
 	const cfg = () => getRuntimeConfig();
 	const pull = () => httpRefereePullClient(cfg().referee_url, fetchFn);
@@ -416,15 +419,11 @@ export function defaultSettleTransport(deps: { fetchFn?: typeof fetch } = {}): S
 			return { phase: r.phase, terminal: r.terminal };
 		},
 		async bearerSpent(publicWebcash) {
-			const base = cfg().webcash_server_url.replace(/\/+$/, '');
-			const r = await fetchFn(`${base}/api/v1/health_check`, {
-				method: 'POST',
-				// No JSON content-type (webcash.org CORS preflight rejects it); text/plain body.
-				body: JSON.stringify([publicWebcash])
+			const rail = new ExtroWebcashRailClient({
+				baseUrl: cfg().webcash_server_url,
+				tokenStatus: deps.tokenStatus
 			});
-			if (!r.ok) throw new Error(`health_check: ${r.status}`);
-			const body = (await r.json()) as { results?: Record<string, { spent?: boolean | null }> };
-			return body.results?.[publicWebcash]?.spent === true;
+			return (await rail.healthCheck([publicWebcash]))[publicWebcash].status === 'spent';
 		},
 		async awaitReleaseSettle(ctx) {
 			const rel = await pull().release(ctx.swapId);
