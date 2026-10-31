@@ -8,7 +8,7 @@
     },
     "walletWasm": {
       "repository": "git@github.com:webycash/weby-wallet-pwa.git",
-      "commit": "345dc5624b1b1d12c36333e885d001b531247946"
+      "commit": "2c18cff20deb2060e467ca25bdae2feeeef15586"
     }
   },
   "files": {
