@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 vi.mock('$lib/extro/rail', () => ({ webcashReserve: vi.fn() }));
-vi.mock('$lib/stores/wallet.svelte', () => ({ insertWebcash: vi.fn(), payWebcash: vi.fn() }));
+vi.mock('$lib/stores/wallet.svelte', () => ({ insertWebcashIntoWebcashWallet: vi.fn(), payWebcashFromWebcashWallet: vi.fn() }));
 import { reserveBearerLeg, webcashToWats, type BearerReserveDeps } from './bearer-reserve';
 
 const PUB = `e1:public:${'ab'.repeat(32)}`;

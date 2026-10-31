@@ -405,6 +405,49 @@ export const payWebcash = async (amountWats: number): Promise<Result<string>> =>
 	} catch (e) { return err(`Payment failed: ${e}`); }
 };
 
+/**
+ * Exchange / swap webcash ops are pinned to the WEBCASH family, never the UI's
+ * active family: the user (or the Bitcoin/ARK tab) may have switched the active
+ * family to `bitcoin`, whose MemStore holds no webcash — paying from it fails
+ * ("Insufficient funds") and inserting into it misfiles received webcash.
+ * Uses the active label when the active family is webcash, else `main`.
+ */
+export const exchangeWebcashTarget = (family: string, label: string): { family: 'webcash'; label: string } =>
+	({ family: 'webcash', label: family === 'webcash' && label ? label : 'main' });
+
+const withWebcashWalletState = async <T>(
+	op: (wasm: Wasm, state: string) => Promise<{ state: string; value: T }>
+): Promise<T> => {
+	const { wasm, master, network } = await ensureState();
+	const t = exchangeWebcashTarget(activeFamily, activeLabel);
+	const key = Persistence.walletStateKey(t.family, t.label);
+	const isActive = activeFamily === t.family && activeLabel === t.label;
+	let state = isActive && walletState && stateNetwork === network ? walletState : await Persistence.loadState(network, key);
+	if (!state) state = await createLabeledWalletState(wasm, master, t.family, t.label);
+	const r = await op(wasm, state);
+	await Persistence.saveState(network, r.state, key);
+	if (activeFamily === t.family && activeLabel === t.label) { walletState = r.state; stateNetwork = network; }
+	return r.value;
+};
+
+/** payWebcash pinned to the webcash family (see exchangeWebcashTarget). */
+export const payWebcashFromWebcashWallet = async (amountWats: number): Promise<Result<string>> => {
+	try {
+		return ok(await withWebcashWalletState(async (wasm, state) => {
+			const result = JSON.parse(await wasm.pay_webcash(state, wasmNetwork(), BigInt(amountWats)));
+			return { state: result.state, value: result.payment_webcash as string };
+		}));
+	} catch (e) { return err(`Payment failed: ${e}`); }
+};
+
+/** insertWebcash pinned to the webcash family (see exchangeWebcashTarget). */
+export const insertWebcashIntoWebcashWallet = async (webcashStr: string): Promise<Result<void>> => {
+	try {
+		await withWebcashWalletState(async (wasm, state) => ({ state: await wasm.insert_webcash(state, wasmNetwork(), webcashStr), value: undefined }));
+		return ok(undefined);
+	} catch (e) { return err(`Insert failed: ${e}`); }
+};
+
 export const checkWallet = async (): Promise<Result<CheckResult>> => {
 	try {
 		const { wasm, state, network } = await ensureState();

@@ -374,8 +374,9 @@ export function defaultSettleTransport(deps: { fetchFn?: typeof fetch } = {}): S
 			return null;
 		},
 		async insertBearer(webcash) {
-			const { insertWebcash } = await import('$lib/stores/wallet.svelte');
-			const r = await insertWebcash(webcash);
+			// Pinned to the webcash family (the active UI family may be bitcoin).
+			const { insertWebcashIntoWebcashWallet } = await import('$lib/stores/wallet.svelte');
+			const r = await insertWebcashIntoWebcashWallet(webcash);
 			if (!r.ok) throw new Error(r.error);
 		},
 		async awaitProviderPartial(ctx) {

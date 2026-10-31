@@ -12,7 +12,8 @@
  * in the spendable wallet, so the wallet cannot double-spend the leg).
  */
 import { webcashReserve } from '$lib/extro/rail';
-import { insertWebcash, payWebcash } from '$lib/stores/wallet.svelte';
+// Pinned to the webcash family: the active UI family may be bitcoin (x17 mainnet gate).
+import { insertWebcashIntoWebcashWallet, payWebcashFromWebcashWallet } from '$lib/stores/wallet.svelte';
 
 export const WATS_PER_WEBCASH = 100_000_000n;
 
@@ -34,8 +35,8 @@ export type BearerReserveDeps = {
 };
 
 export const walletReserveDeps = (status: BearerReserveDeps['status']): BearerReserveDeps => ({
-	pay: payWebcash as BearerReserveDeps['pay'],
-	insert: insertWebcash as BearerReserveDeps['insert'],
+	pay: payWebcashFromWebcashWallet as BearerReserveDeps['pay'],
+	insert: insertWebcashIntoWebcashWallet as BearerReserveDeps['insert'],
 	reserve: webcashReserve,
 	status
 });
