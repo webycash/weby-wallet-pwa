@@ -5,7 +5,7 @@
  * SDK's boarding address differs from the WASM-derived one shown in the view.
  */
 import { WasmArkIdentity } from './wasm-identity';
-import { getRuntimeConfig } from '$lib/extro/runtime-config';
+import { getRuntimeConfig } from '$lib/extro/release-config';
 
 export type BoardEvent = { type: string };
 

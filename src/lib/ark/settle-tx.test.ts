@@ -17,7 +17,7 @@ import {
 	nonceGen
 } from '@scure/btc-signer/musig2.js';
 import { schnorr } from '@noble/curves/secp256k1.js';
-import type { ExtroRuntimeConfig } from '$lib/extro/runtime-config';
+import type { ExtroRuntimeConfig } from '$lib/extro/release-config';
 import { buildArkSwapContract, type VerifiedArkContractPlan } from './swap-contract';
 import { buildArkSpend, presignedIdentity, sighashBundleBinding, submitArkSpend, tapscriptSighash } from './settle-tx';
 

@@ -12,7 +12,7 @@
  *
  * Every mismatch fails closed with ARK_SETTLE_CEREMONY_INVALID.
  */
-import type { WireProviderMaterial } from '$lib/extro/commands';
+import type { WireProviderMaterial } from '@extro/node';
 import { GATE_SETTLE_CEREMONY_INVALID, NamedArkGateError } from './named-gates';
 import {
 	aggregateSettleSignature,

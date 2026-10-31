@@ -4,7 +4,7 @@ import {
 	parseRuntimeConfig,
 	resetRuntimeConfigForTests,
 	setRuntimeConfigForTests
-} from '$lib/extro/runtime-config';
+} from '$lib/extro/release-config';
 import { NetworkRoutingError } from '$lib/core/webcash-routing';
 import {
 	getNetwork,

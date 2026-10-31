@@ -1,7 +1,7 @@
 // Network mode store — derived from signed/runtime config (fail closed).
 
 import type { NetworkMode } from '$lib/core/types';
-import { getRuntimeConfig } from '$lib/extro/runtime-config';
+import { getRuntimeConfig } from '$lib/extro/release-config';
 import {
 	allowedNetworkForDeployment,
 	NetworkRoutingError

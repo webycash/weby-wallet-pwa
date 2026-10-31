@@ -9,8 +9,8 @@
  */
 
 import { getExtroClient } from '$lib/extro';
-import { newRequestId, type WireProviderMaterial } from '$lib/extro/commands';
-import { getRuntimeConfig } from '$lib/extro/runtime-config';
+import { newRequestId, type WireProviderMaterial } from '@extro/node';
+import { getRuntimeConfig } from '$lib/extro/release-config';
 import {
 	GATE_ARK_DISABLED,
 	GATE_PROVIDER_MATERIAL_UNSUPPORTED,

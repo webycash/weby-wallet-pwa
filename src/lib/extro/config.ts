@@ -3,9 +3,8 @@
 // loaded. There are no network/trust defaults in application code.
 
 import type { NetworkMode } from '$lib/core/types';
-import type { WireNetwork } from './commands';
-import type { ExtroNodeWasm } from './bundled-node';
-import { getRuntimeConfig, isMainnetTier } from './runtime-config';
+import type { WireNetwork } from '@extro/node';
+import { getRuntimeConfig, isMainnetTier } from '$lib/extro/release-config';
 
 export interface RailEndpoints {
 	network: WireNetwork;
@@ -38,12 +37,4 @@ export function railEndpoints(mode: NetworkMode): RailEndpoints {
 		rgbUrl: config.rgb_server_url,
 		webcashUrl: config.webcash_server_url
 	};
-}
-
-export async function loadBundledExtroNode(): Promise<ExtroNodeWasm> {
-	const mod = (await import('$node/extro_node.js')) as unknown as {
-		default: (init?: unknown) => Promise<unknown>;
-	} & ExtroNodeWasm;
-	await mod.default();
-	return mod;
 }

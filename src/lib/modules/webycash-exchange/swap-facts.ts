@@ -23,7 +23,7 @@
 // the bearer witness inside the WASM worker from the imported seed.
 
 import { getExtroClient } from '$lib/extro';
-import { newRequestId } from '$lib/extro/commands';
+import { newRequestId } from '@extro/node';
 import type { LimitOrder } from './types';
 
 /** Fixed conditional-leg witness length (extro_circuits::CONDITIONAL_WITNESS_LEN). */

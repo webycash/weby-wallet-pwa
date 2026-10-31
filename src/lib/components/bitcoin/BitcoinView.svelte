@@ -8,7 +8,7 @@
 	import type { NetworkMode } from '$lib/core/types';
 	import { deriveFamilyAddress, type FamilyAddress } from '$lib/extro/family';
 	import { bitcoinBalance, bitcoinSend, type RailOutcome } from '$lib/extro/rail';
-	import type { ResponseBody } from '$lib/extro/commands';
+	import type { ResponseBody } from '@extro/node';
 	import BalanceHero from '../shell/BalanceHero.svelte';
 	import ActionPills from '../shell/ActionPills.svelte';
 	import AddressCard from '../shell/AddressCard.svelte';

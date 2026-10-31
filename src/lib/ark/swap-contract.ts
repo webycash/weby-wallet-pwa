@@ -12,8 +12,8 @@ import {
 	type RelativeTimelock
 } from '@arkade-os/sdk';
 import { getExtroClient } from '$lib/extro';
-import { newRequestId, type ArkPrepareTerms } from '$lib/extro/commands';
-import type { ExtroRuntimeConfig } from '$lib/extro/runtime-config';
+import { newRequestId, type ArkPrepareTerms } from '@extro/node';
+import type { ExtroRuntimeConfig } from '$lib/extro/release-config';
 
 export const WEBYCASH_ARK_CONTRACT_TYPE = 'webycash-musig2-v2';
 

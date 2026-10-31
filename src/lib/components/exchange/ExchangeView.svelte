@@ -39,11 +39,11 @@
 		type SwapProgress
 	} from '$lib/modules/webycash-exchange/ark-swap-protocol';
 	import { defaultSettleTransport } from '$lib/modules/webycash-exchange/ark-settle-transport';
-	import { getRuntimeConfig } from '$lib/extro/runtime-config';
+	import { getRuntimeConfig } from '$lib/extro/release-config';
 	import { buildProductRunSwapInput } from '$lib/modules/webycash-exchange/build-product-run-swap-input';
 	import { getExtroClient } from '$lib/extro';
 	import { getSelfIdentity } from '$lib/extro/self-identity';
-	import { newRequestId } from '$lib/extro/commands';
+	import { newRequestId } from '@extro/node';
 	import { extroConnection } from '$lib/extro/connection';
 	import { nav } from '$lib/stores/navigation.svelte';
 	import MarketsView from './MarketsView.svelte';

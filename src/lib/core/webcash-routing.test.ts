@@ -6,7 +6,7 @@ import {
 	NetworkRoutingError,
 	resolveWebcashWasmNetwork
 } from './webcash-routing';
-import type { ExtroRuntimeConfig } from '$lib/extro/runtime-config';
+import type { ExtroRuntimeConfig } from '$lib/extro/release-config';
 
 const developmentConfig = (webcash_server_url: string): ExtroRuntimeConfig =>
 	({

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getWasm } from '$lib/core/wasm';
-	import { getRuntimeConfig } from '$lib/extro/runtime-config';
+	import { getRuntimeConfig } from '$lib/extro/release-config';
 	import { resolveWebcashWasmNetwork } from '$lib/core/webcash-routing';
 	import { ShieldCheck } from '@lucide/svelte';
 

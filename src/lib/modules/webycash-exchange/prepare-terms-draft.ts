@@ -8,7 +8,7 @@
  * either share this bus via the test harness or rebuild deterministic terms.
  */
 
-import type { ArkPrepareTerms } from '$lib/extro/commands';
+import type { ArkPrepareTerms } from '@extro/node';
 
 export type PrepareTermsDraftWire = {
 	order_id: string;

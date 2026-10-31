@@ -7,7 +7,7 @@
  * `fundingRefsFromTemplates` is the legacy template digest (not broadcastable).
  */
 
-import type { WireProviderMaterial } from '$lib/extro/commands';
+import type { WireProviderMaterial } from '@extro/node';
 import {
 	buildRefundTemplate,
 	buildSettleTemplate,

@@ -3,12 +3,12 @@
 // remain isolated test/experimental modules and are not imported into this
 // entry point or the production bundle.
 
-import { ExtroClient } from './client';
-import { BundledExtroAdapter, type BundledNodeOptions } from './bundled-node';
+import { ExtroClient } from '@extro/node';
+import { BundledExtroAdapter, type BundledNodeOptions } from '@extro/node';
 
-export { ExtroClient } from './client';
-export type { ExtroAdapter, AdapterMode } from './client';
-export * from './commands';
+export { ExtroClient } from '@extro/node';
+export type { ExtroAdapter, AdapterMode } from '@extro/node';
+export * from '@extro/node';
 
 /** The sole application adapter. */
 export type ExtroMode = 'bundled';

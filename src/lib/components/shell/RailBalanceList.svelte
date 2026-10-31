@@ -13,7 +13,7 @@
 	import type { Component } from 'svelte';
 	import Loader from '$lib/components/ui/Loader.svelte';
 	import type { RailOutcome } from '$lib/extro/rail';
-	import type { ResponseBody, RailBalanceGroup, RailContract } from '$lib/extro/commands';
+	import type { ResponseBody, RailBalanceGroup, RailContract } from '@extro/node';
 
 	type ListBody =
 		| Extract<ResponseBody, { kind: 'RailBalance' }>

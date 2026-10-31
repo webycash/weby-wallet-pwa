@@ -6,7 +6,7 @@ import {
 	isMainnetTier,
 	type DeploymentTier,
 	type ExtroRuntimeConfig
-} from '$lib/extro/runtime-config';
+} from '$lib/extro/release-config';
 
 export class NetworkRoutingError extends Error {
 	constructor(message: string) {

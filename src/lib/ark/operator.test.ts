@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ExtroRuntimeConfig } from '$lib/extro/runtime-config';
+import type { ExtroRuntimeConfig } from '$lib/extro/release-config';
 
 import { attestConfiguredArkOperator, validateArkOperatorInfo } from './operator';
 

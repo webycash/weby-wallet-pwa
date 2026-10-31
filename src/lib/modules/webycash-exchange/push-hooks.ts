@@ -16,13 +16,13 @@
 // carries only commitments. Decryption (when unlocked) happens INSIDE
 // extro-node behind the facade, not here.
 
-import type { ExtroClient } from '$lib/extro/client';
+import type { ExtroClient } from '@extro/node';
 import {
 	newRequestId,
 	type ExtroCommand,
 	type HookOutcome,
 	type PushKind
-} from '$lib/extro/commands';
+} from '@extro/node';
 
 /**
  * The kinds of push a swap can carry. Mirrors the keyserver push routing in the

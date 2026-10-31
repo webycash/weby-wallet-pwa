@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { ExtroClient } from '$lib/extro/client';
-import { MockExtroAdapter } from '$lib/extro/mock-node';
+import { ExtroClient } from '@extro/node';
+import { MockExtroAdapter } from '@extro/node/testing';
 import { publishOrderFee } from './publish';
 import type { Seeder } from './types';
 

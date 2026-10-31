@@ -17,9 +17,9 @@
 // PWA's, with no second secret to manage.
 
 import { getExtroClient } from './index';
-import { newRequestId, isOk } from './commands';
+import { newRequestId, isOk } from '@extro/node';
 import { joinExtroNetwork, markExtroDisconnected } from './connection';
-import { getRuntimeConfig } from './runtime-config';
+import { getRuntimeConfig } from '$lib/extro/release-config';
 import { clearSelfIdentity } from './self-identity';
 
 // Throwaway seal passphrase (see module note): the envelope is never persisted

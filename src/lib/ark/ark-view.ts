@@ -13,8 +13,8 @@ import {
 	type RelativeTimelock
 } from '@arkade-os/sdk';
 import { getExtroClient } from '$lib/extro';
-import { newRequestId } from '$lib/extro/commands';
-import { getRuntimeConfig } from '$lib/extro/runtime-config';
+import { newRequestId } from '@extro/node';
+import { getRuntimeConfig } from '$lib/extro/release-config';
 
 export type ArkVtxoRow = { outpoint: string; sats: number; state: string; expiresAt?: number };
 export type ArkOverview = {

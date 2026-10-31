@@ -24,8 +24,8 @@
  */
 import { ed25519 } from '@noble/curves/ed25519.js';
 import { getExtroClient } from '$lib/extro';
-import { newRequestId } from '$lib/extro/commands';
-import { getRuntimeConfig } from '$lib/extro/runtime-config';
+import { newRequestId } from '@extro/node';
+import { getRuntimeConfig } from '$lib/extro/release-config';
 import { ExtroWebcashRailClient, type WebcashTokenStatusOp } from '$lib/core/webcash-rail-client';
 import { parseReleaseSettle, type ReleaseSettle } from '$lib/ark/settle-ceremony';
 import type { ArkSpend } from '$lib/ark/settle-tx';

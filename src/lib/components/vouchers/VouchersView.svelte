@@ -10,7 +10,7 @@
 	import { Ticket, Gift, ArrowLeftRight, PlusCircle, History } from '@lucide/svelte';
 	import { nav } from '$lib/stores/navigation.svelte';
 	import { voucherBalance, voucherIssue, voucherTransfer, voucherRedeem, type RailOutcome } from '$lib/extro/rail';
-	import type { ResponseBody } from '$lib/extro/commands';
+	import type { ResponseBody } from '@extro/node';
 	import AddressCard from '../shell/AddressCard.svelte';
 	import ComingSoon from '../shell/ComingSoon.svelte';
 	import RailActionForm from '../shell/RailActionForm.svelte';

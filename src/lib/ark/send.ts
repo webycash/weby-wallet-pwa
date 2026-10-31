@@ -4,7 +4,7 @@
  * the request and drives the ASP. `validateArkSend` is pure (unit-tested).
  */
 import { WasmArkIdentity } from './wasm-identity';
-import { getRuntimeConfig } from '$lib/extro/runtime-config';
+import { getRuntimeConfig } from '$lib/extro/release-config';
 
 export const ARK_DUST_SATS = 330;
 

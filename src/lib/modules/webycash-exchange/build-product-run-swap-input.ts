@@ -14,8 +14,8 @@
  * fund), which never funds before the pre-check.
  */
 
-import { getRuntimeConfig } from '$lib/extro/runtime-config';
-import type { WireProviderMaterial } from '$lib/extro/commands';
+import { getRuntimeConfig } from '$lib/extro/release-config';
+import type { WireProviderMaterial } from '@extro/node';
 import {
 	GATE_REFEREE_PRECHECK_PENDING,
 	GATE_RUNSWAP_NEED_PREPARE,

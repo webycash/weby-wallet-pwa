@@ -2,10 +2,10 @@ import { browser } from '$app/environment';
 import { attestConfiguredArkOperator } from '$lib/ark/operator';
 import { arkStatus } from '$lib/ark/ark-status.svelte';
 import { configureExtro } from '$lib/extro';
-import { configuredAdapterMode, loadBundledExtroNode } from '$lib/extro/config';
-import { disableArkForSession, loadRuntimeConfig } from '$lib/extro/runtime-config';
+import { configuredAdapterMode } from '$lib/extro/config';
+import { disableArkForSession, loadRuntimeConfig } from '$lib/extro/release-config';
 import { syncNetworkFromRuntimeConfig } from '$lib/stores/network.svelte';
-import { installHubBridgeListener, DEFAULT_HUB_BRIDGE_ORIGINS } from '$lib/extro/hub-bridge';
+import { installHubBridgeListener, DEFAULT_HUB_BRIDGE_ORIGINS } from '@extro/node';
 
 export const ssr = false;
 export const prerender = true;
@@ -60,7 +60,7 @@ export const load = async ({ fetch }) => {
 		if (mode === 'bundled') {
 			client = configureExtro({
 				mode: 'bundled',
-				bundled: { load: loadBundledExtroNode, bootConfig: config }
+				bundled: { bootConfig: config }
 			});
 		}
 		// DEV diagnostic: expose the authoritative app client so it can be probed

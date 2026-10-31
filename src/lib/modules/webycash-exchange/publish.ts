@@ -8,8 +8,8 @@
 // and real order-publication into the orderbook torrent are DEFERRED; the fee
 // computation, rail enforcement, and receipt attachment are real.
 
-import { newRequestId, type ExtroCommand } from '$lib/extro/commands';
-import type { ExtroClient } from '$lib/extro/client';
+import { newRequestId, type ExtroCommand } from '@extro/node';
+import type { ExtroClient } from '@extro/node';
 import { computePublicationFee, isAllowedFeeRail } from './publication-fee';
 import { hexToBytes } from './push-hooks';
 import type { FeeShare, PublicationFee, Seeder } from './types';

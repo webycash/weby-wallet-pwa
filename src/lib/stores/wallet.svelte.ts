@@ -8,7 +8,7 @@
 import { getWasm } from '$lib/core/wasm';
 import * as Persistence from '$lib/core/persistence';
 import { getNetwork } from './network.svelte';
-import { getRuntimeConfig } from '$lib/extro/runtime-config';
+import { getRuntimeConfig } from '$lib/extro/release-config';
 import { resolveWebcashWasmNetwork } from '$lib/core/webcash-routing';
 import type { NetworkMode, CheckResult, Result, WalletSnapshot } from '$lib/core/types';
 import { ok, err } from '$lib/core/types';

@@ -24,8 +24,8 @@
  */
 import { getExtroClient } from '$lib/extro';
 import { getSelfIdentity } from '$lib/extro/self-identity';
-import { newRequestId, type ArkPrepareTerms, type WireProviderMaterial } from '$lib/extro/commands';
-import { getRuntimeConfig } from '$lib/extro/runtime-config';
+import { newRequestId, type ArkPrepareTerms, type WireProviderMaterial } from '@extro/node';
+import { getRuntimeConfig } from '$lib/extro/release-config';
 import { loadArkOverview } from '$lib/ark/ark-view';
 import {
 	GATE_ARK_AWAITING_PROVIDER_FUNDING,

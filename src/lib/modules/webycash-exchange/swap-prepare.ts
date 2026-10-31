@@ -10,7 +10,7 @@ import {
 	newRequestId,
 	type ArkPrepareExpectation,
 	type ArkPrepareTerms
-} from '$lib/extro/commands';
+} from '@extro/node';
 import type { RefereeClient } from './referee-client';
 import type { PreparedSwapBinding } from './swap-facts';
 

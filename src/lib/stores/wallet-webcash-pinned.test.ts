@@ -15,7 +15,7 @@ vi.mock('$lib/core/persistence', () => ({
 	getMnemonic: () => null
 }));
 vi.mock('./network.svelte', () => ({ getNetwork: () => 'production' }));
-vi.mock('$lib/extro/runtime-config', () => ({ getRuntimeConfig: () => ({}) }));
+vi.mock('$lib/extro/release-config', () => ({ getRuntimeConfig: () => ({}) }));
 vi.mock('$lib/core/webcash-routing', () => ({ resolveWebcashWasmNetwork: () => 'mainnet' }));
 const st = (outs: number[]) => JSON.stringify({ meta: {}, depths: {}, outputs: outs.map((amount) => ({ amount, spent: false })) });
 const wasm = {

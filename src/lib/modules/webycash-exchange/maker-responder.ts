@@ -10,7 +10,7 @@
  *      at the exact named gate; nothing is fabricated.
  */
 import { getExtroClient } from '$lib/extro';
-import { newRequestId } from '$lib/extro/commands';
+import { newRequestId } from '@extro/node';
 import { fetchSwapMsgs, probeProviderMaterial } from './accept-run-swap';
 import type { LimitOrder } from './types';
 import { makerRole, runSwapRole, type SwapPhase, type SwapProgress, type SwapRole } from './ark-swap-protocol';

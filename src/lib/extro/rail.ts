@@ -18,7 +18,7 @@
 // No mutation, no side effects beyond the single facade round-trip.
 
 import { getExtroClient } from './index';
-import { newRequestId, isOk, type RailCommand, type ResponseBody } from './commands';
+import { newRequestId, isOk, type RailCommand, type ResponseBody } from '@extro/node';
 import { railEndpoints } from './config';
 import { getNetwork } from '$lib/stores/network.svelte';
 
@@ -177,7 +177,7 @@ export const webcashTokenStatus = (args: { serverUrl: string; publicTokens: stri
 
 // ── RGB ────────────────────────────────────────────────────────────────────--
 
-import type { WireRgbFlavor } from './commands';
+import type { WireRgbFlavor } from '@extro/node';
 
 /** Local RGB balance/assets over held bearer tokens. Native-only (pending). */
 export const rgbBalance = (tokens: string[]) =>

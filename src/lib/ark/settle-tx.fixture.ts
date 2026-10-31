@@ -5,7 +5,7 @@
 import { ArkAddress, CSVMultisigTapscript } from '@arkade-os/sdk';
 import { IndividualPubkey, keyAggExport, keyAggregate } from '@scure/btc-signer/musig2.js';
 import { schnorr } from '@noble/curves/secp256k1.js';
-import type { ExtroRuntimeConfig } from '$lib/extro/runtime-config';
+import type { ExtroRuntimeConfig } from '$lib/extro/release-config';
 import { buildArkSwapContract, type VerifiedArkContractPlan } from './swap-contract';
 
 const hx = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');

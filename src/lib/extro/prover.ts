@@ -6,7 +6,7 @@
 // thread, so the tab stays responsive through the tens-of-seconds proof
 // generation.
 
-import { getRuntimeConfig } from './runtime-config';
+import { getRuntimeConfig } from '$lib/extro/release-config';
 
 export interface ProveSwapArgs {
 	mnemonic: string;

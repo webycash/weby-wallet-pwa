@@ -1,8 +1,8 @@
 import { writable } from 'svelte/store';
 
-import type { ExtroClient } from './client';
-import { isOk, newRequestId, type ResponseBody } from './commands';
-import type { ExtroRuntimeConfig } from './runtime-config';
+import type { ExtroClient } from '@extro/node';
+import { isOk, newRequestId, type ResponseBody } from '@extro/node';
+import type { ExtroRuntimeConfig } from '$lib/extro/release-config';
 import { getSelfIdentity, rememberSelfIdentity } from './self-identity';
 
 export type ExtroConnectionPhase =

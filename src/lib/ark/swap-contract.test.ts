@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { ExtroRuntimeConfig } from '$lib/extro/runtime-config';
+import type { ExtroRuntimeConfig } from '$lib/extro/release-config';
 import {
 	WEBYCASH_ARK_CONTRACT_TYPE,
 	buildArkSwapContract,

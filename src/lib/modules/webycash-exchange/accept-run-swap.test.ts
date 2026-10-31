@@ -6,7 +6,7 @@ import {
 } from '$lib/ark/named-gates';
 import { attemptRunSwapBoundary, providerMaterialFromWire } from './accept-run-swap';
 import type { LimitOrder } from './types';
-import type { WireProviderMaterial } from '$lib/extro/commands';
+import type { WireProviderMaterial } from '@extro/node';
 
 vi.mock('$lib/extro', () => ({
 	getExtroClient: () => ({
@@ -14,7 +14,7 @@ vi.mock('$lib/extro', () => ({
 	})
 }));
 
-vi.mock('$lib/extro/runtime-config', () => ({
+vi.mock('$lib/extro/release-config', () => ({
 	getRuntimeConfig: () => ({ ark_enabled: false })
 }));
 

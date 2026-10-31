@@ -28,21 +28,19 @@ export default defineConfig({
 	},
 	resolve: {
 		alias: {
-			'$wasm': resolve(__dirname, 'crates/wallet-wasm/pkg'),
-			// Release-pinned extro-node WASM. Its source commit and hashes are
-			// recorded in wasm-artifacts.json and verified before every build.
-			'$node': resolve(__dirname, 'src/lib/node/pkg')
+			'$wasm': resolve(__dirname, 'crates/wallet-wasm/pkg')
 		}
 	},
 	server: {
 		fs: {
 			allow: [
 				resolve(__dirname, 'crates/wallet-wasm/pkg'),
-				resolve(__dirname, 'src/lib/node/pkg')
+				// @extro/node ships its release WASM (pinned in wasm-artifacts.json).
+				resolve(__dirname, 'node_modules/@extro/node/js/wasm')
 			]
 		}
 	},
 	optimizeDeps: {
-		exclude: ['$wasm', '$node']
+		exclude: ['$wasm', '@extro/node']
 	}
 });

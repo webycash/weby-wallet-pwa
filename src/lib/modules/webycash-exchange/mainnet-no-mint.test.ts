@@ -28,7 +28,7 @@ const rail = vi.hoisted(() => ({
 const FORBIDDEN_OPS = /^(MintWebcash|Mine|StartMining|MiningReport|SubmitMiningReport|ReplaceWebcash|Replace)$/;
 const FORBIDDEN_URL = /\/api\/v1\/(replace|mining_report|target)\b/;
 
-vi.mock('$lib/extro/runtime-config', () => ({ getRuntimeConfig: () => MAINNET }));
+vi.mock('$lib/extro/release-config', () => ({ getRuntimeConfig: () => MAINNET }));
 vi.mock('$lib/extro', () => ({
 	getExtroClient: () => ({
 		send: async (req: { request_id: string; op: { cmd: { op: string; public_tokens?: string[] } } }) => {

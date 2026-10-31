@@ -16,7 +16,7 @@ const st = vi.hoisted(() => ({
 	sends: [] as { op: { kind: string; cmd: Record<string, unknown> } }[],
 	opened: new Uint8Array()
 }));
-vi.mock('$lib/extro/runtime-config', () => ({
+vi.mock('$lib/extro/release-config', () => ({
 	getRuntimeConfig: () => ({
 		referee_url: 'https://referee.invalid/',
 		referee_vk_hex: hx(REFEREE_VK),

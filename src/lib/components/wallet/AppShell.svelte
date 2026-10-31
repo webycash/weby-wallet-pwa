@@ -36,7 +36,7 @@
 	import { initPushRouter, replayPushQueue, pushStatus } from '$lib/modules/webycash-exchange/push-store.svelte';
 	import { setReferee, HttpRefereeClient } from '$lib/modules/webycash-exchange';
 	import { configuredAdapterMode } from '$lib/extro/config';
-	import { getRuntimeConfig } from '$lib/extro/runtime-config';
+	import { getRuntimeConfig } from '$lib/extro/release-config';
 	import { arkStatus } from '$lib/ark/ark-status.svelte';
 
 	let { pendingWebcash = '', onLock = () => {}, onInstall }: {

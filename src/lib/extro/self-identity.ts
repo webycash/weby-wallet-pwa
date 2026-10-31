@@ -9,8 +9,8 @@
 // without touching the registry. Only public data is cached; the key never
 // leaves the WASM. Cleared on lock via {@link clearSelfIdentity}.
 
-import type { ExtroClient } from './client';
-import { newRequestId } from './commands';
+import type { ExtroClient } from '@extro/node';
+import { newRequestId } from '@extro/node';
 
 export interface SelfIdentity {
 	fingerprintHex: string;

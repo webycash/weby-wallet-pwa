@@ -3,7 +3,7 @@
 	import { isMining, setMining, stopMining, type MinerStats } from '$lib/core/miner';
 	import { getMasterSecret, getRawState, setRawState } from '$lib/stores/wallet.svelte';
 	import { getWasm } from '$lib/core/wasm';
-	import { getRuntimeConfig } from '$lib/extro/runtime-config';
+	import { getRuntimeConfig } from '$lib/extro/release-config';
 	import { resolveWebcashWasmNetwork } from '$lib/core/webcash-routing';
 	import { miningRefusal } from '$lib/core/miner-guard';
 	import type { NetworkMode } from '$lib/core/types';

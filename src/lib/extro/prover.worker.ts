@@ -10,44 +10,19 @@
 // One job per worker: the caller (`prover.ts`) spawns a fresh worker, posts the
 // job, awaits the single reply, then terminates it.
 
-import { encodeCommand, decodeResponse, DISPATCH_ERR } from './codec';
-import type { ExtroCommand, ExtroResponse } from './commands';
+import { BundledExtroAdapter, type ExtroRuntimeConfig } from '@extro/node';
 
-/** The wasm surface this worker drives — same exports the bundled adapter uses. */
-interface NodeWasm {
-	default: (init?: unknown) => Promise<unknown>;
-	extro_encode_boot_config(config: unknown): Uint8Array;
-	extro_node_boot(config: Uint8Array): Promise<unknown>;
-	extro_node_send(msg: Uint8Array): Promise<Uint8Array>;
-	extro_encode_command(command: unknown): Uint8Array;
-	extro_decode_response(bytes: Uint8Array): unknown;
-}
+// A dedicated node instance for this worker, booted once with the strict
+// schema-v2 config the caller passes (the same adapter the app uses).
+let adapter: BundledExtroAdapter | null = null;
 
-let wasm: NodeWasm | null = null;
-
-/** Boot a dedicated wasm instance once per worker with encoded strict config. */
-async function ensure(bootConfig: unknown): Promise<NodeWasm> {
-	if (wasm) return wasm;
-	// Inline loader (do NOT import ./config — it pulls $env, unavailable here).
-	const mod = (await import('$node/extro_node.js')) as unknown as NodeWasm;
-	await mod.default();
-	const bytes = mod.extro_encode_boot_config(bootConfig);
-	await mod.extro_node_boot(bytes);
-	wasm = mod;
-	return mod;
-}
-
-async function dispatch(cmd: ExtroCommand): Promise<ExtroResponse> {
-	if (!wasm) throw new Error('prover worker wasm not booted');
-	const w = wasm;
-	const bytes = encodeCommand(w, cmd);
-	const framed = await w.extro_node_send(bytes);
-	const status = framed[0];
-	const response = decodeResponse(w, framed.subarray(1));
-	if (status === DISPATCH_ERR && response.kind !== 'Err') {
-		return { kind: 'Err', request_id: cmd.request_id, code: 'Internal', message: 'framed status/body mismatch' };
+async function ensure(bootConfig: ExtroRuntimeConfig): Promise<BundledExtroAdapter> {
+	if (!adapter) {
+		const next = new BundledExtroAdapter({ bootConfig });
+		await next.boot();
+		adapter = next;
 	}
-	return response;
+	return adapter;
 }
 
 const rid = () => crypto.getRandomValues(new Uint8Array(16));
@@ -59,14 +34,15 @@ export interface ProveJob {
 	conditionalPk: Uint8Array;
 	/** The TwoProofFacts JS object (see extro-node command.rs::SwapInitiate). */
 	facts: unknown;
-	/** Schema-v2 boot config — required; empty boot bytes are rejected. */
-	bootConfig: unknown;
+	/** Schema-v2 boot config — required; the WASM codec validates it again. */
+	bootConfig: ExtroRuntimeConfig;
 }
 
 self.onmessage = async (e: MessageEvent<ProveJob>) => {
 	const { id, mnemonic, bearerPk, conditionalPk, facts, bootConfig } = e.data;
 	try {
-		await ensure(bootConfig);
+		const node = await ensure(bootConfig);
+		const dispatch = node.dispatch.bind(node);
 		// Seed this worker's wallet, cache the proving keys, then prove.
 		const imp = await dispatch({
 			request_id: rid(),

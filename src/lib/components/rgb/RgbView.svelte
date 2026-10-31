@@ -10,7 +10,7 @@
 	import { Gem, ArrowLeftRight, PlusCircle, FileText } from '@lucide/svelte';
 	import { nav } from '$lib/stores/navigation.svelte';
 	import { rgbBalance, rgbContracts, rgbIssue, rgbTransfer, type RailOutcome } from '$lib/extro/rail';
-	import type { ResponseBody } from '$lib/extro/commands';
+	import type { ResponseBody } from '@extro/node';
 	import AddressCard from '../shell/AddressCard.svelte';
 	import RailActionForm from '../shell/RailActionForm.svelte';
 	import RailBalanceList from '../shell/RailBalanceList.svelte';

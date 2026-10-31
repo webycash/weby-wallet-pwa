@@ -12,7 +12,7 @@
 // callers never get a guessed answer.
 
 import type { RailOutcome } from '$lib/extro/rail';
-import type { WebcashTokenState } from '$lib/extro/commands';
+import type { WebcashTokenState } from '@extro/node';
 
 export type WebcashRailOp = 'health_check';
 

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('$lib/extro', () => ({ getExtroClient: () => ({ send: vi.fn() }) }));
-vi.mock('$lib/extro/runtime-config', () => ({ getRuntimeConfig: () => ({ ark_enabled: true }) }));
+vi.mock('$lib/extro/release-config', () => ({ getRuntimeConfig: () => ({ ark_enabled: true }) }));
 
 import { verifyProviderMaterialAgainstPlan } from './ark-swap-protocol';
 import { fundingRefsFromSpends } from '$lib/ark/settle-tx';

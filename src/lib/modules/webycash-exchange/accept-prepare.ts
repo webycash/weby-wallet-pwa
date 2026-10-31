@@ -7,12 +7,12 @@
  * Never invents a settled terminal — callers still must prove.
  */
 
-import { getRuntimeConfig } from '$lib/extro/runtime-config';
+import { getRuntimeConfig } from '$lib/extro/release-config';
 import type {
 	ArkPrepareExpectation,
 	ArkPrepareTerms,
 	WireProviderMaterial
-} from '$lib/extro/commands';
+} from '@extro/node';
 import type { RefereeClient } from './referee-client';
 import {
 	buildSwapPrepareEnvelope,

@@ -7,7 +7,7 @@
  * wallet; JS only routes public data.
  */
 import { getExtroClient } from '$lib/extro';
-import { newRequestId } from '$lib/extro/commands';
+import { newRequestId } from '@extro/node';
 import type { ArkSpendTemplate, DedicatedCosignBackend, DedicatedCosignReceipt } from './swap-spend';
 import { wasmArkPublicKey, wasmArkSchnorrSign } from './wasm-identity';
 

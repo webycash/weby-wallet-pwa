@@ -10,7 +10,7 @@
 // no side effects beyond the single facade round-trip.
 
 import { getExtroClient } from './index';
-import { newRequestId, isOk, type WireFamily } from './commands';
+import { newRequestId, isOk, type WireFamily } from '@extro/node';
 import { railEndpoints } from './config';
 import { getNetwork } from '$lib/stores/network.svelte';
 import type { AssetTab } from '$lib/stores/navigation.svelte';

@@ -1,6 +1,6 @@
 // Mining is a DEV-test-webcash tool only. Never mine against mainnet
 // webcash (webcash.org) or on a mainnet-money deployment (staging/production).
-import { isMainnetTier } from '$lib/extro/runtime-config';
+import { isMainnetTier } from '$lib/extro/release-config';
 
 export const miningRefusal = (cfg: { deployment?: string; webcash_server_url?: string } | null | undefined): string | null => {
 	if (!cfg) return 'Mining disabled: runtime config not loaded';

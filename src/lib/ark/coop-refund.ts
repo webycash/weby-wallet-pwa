@@ -16,7 +16,7 @@
  * JS handles public data only. Every mismatch fails closed; nothing broadcasts.
  */
 import { getExtroClient } from '$lib/extro';
-import { newRequestId } from '$lib/extro/commands';
+import { newRequestId } from '@extro/node';
 import { GATE_COOP_REFUND_FAILED, NamedArkGateError } from './named-gates';
 import {
 	aggregateSettleSignature,

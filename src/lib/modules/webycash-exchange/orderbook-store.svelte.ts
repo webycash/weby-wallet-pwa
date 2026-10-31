@@ -21,7 +21,7 @@ import { MOCK_PAIRS, pairKey } from './mock-data';
 import { recordObservation } from './market-data';
 import { getExtroClient } from '$lib/extro';
 import { notePeersObserved } from '$lib/extro/connection';
-import { newRequestId, type WireOrder } from '$lib/extro/commands';
+import { newRequestId, type WireOrder } from '@extro/node';
 import type { LimitOrder, MarketWalk, Side, TradingPair } from './types';
 
 /** Lowercase hex of bytes. */

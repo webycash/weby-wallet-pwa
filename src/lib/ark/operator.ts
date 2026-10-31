@@ -1,6 +1,6 @@
 import type { ArkInfo } from '@arkade-os/sdk';
 
-import type { ExtroRuntimeConfig } from '$lib/extro/runtime-config';
+import type { ExtroRuntimeConfig } from '$lib/extro/release-config';
 
 /** Small injectable boundary so validation tests never need a live operator. */
 export interface ArkInfoProvider {

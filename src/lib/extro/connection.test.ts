@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { ExtroClient, type ExtroAdapter } from './client';
+import { ExtroClient, type ExtroAdapter } from '@extro/node';
 import { joinExtroNetwork } from './connection';
-import type { ExtroCommand, ExtroResponse, ResponseBody } from './commands';
-import type { ExtroRuntimeConfig } from './runtime-config';
+import type { ExtroCommand, ExtroResponse, ResponseBody } from '@extro/node';
+import type { ExtroRuntimeConfig } from '$lib/extro/release-config';
 
 const config: ExtroRuntimeConfig = {
 	schema_version: 2,

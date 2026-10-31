@@ -8,7 +8,7 @@
 import { tapLeafHash } from '@scure/btc-signer/payment.js';
 import { SingleKey, type Identity, type Transaction } from '@arkade-os/sdk';
 import { getExtroClient } from '$lib/extro';
-import { newRequestId } from '$lib/extro/commands';
+import { newRequestId } from '@extro/node';
 
 /** BIP-341 SIGHASH_DEFAULT. */
 const SIGHASH_DEFAULT = 0;

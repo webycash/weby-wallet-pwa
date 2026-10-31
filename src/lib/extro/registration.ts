@@ -11,8 +11,8 @@
 // keyserver redeems it, it is re-inserted so the fee is not lost.
 
 import { getExtroClient } from './index';
-import { isOk, newRequestId } from './commands';
-import { getRuntimeConfig } from './runtime-config';
+import { isOk, newRequestId } from '@extro/node';
+import { getRuntimeConfig } from '$lib/extro/release-config';
 import { getSelfIdentity } from './self-identity';
 import { payWebcash, insertWebcash, parseAmount } from '$lib/stores/wallet.svelte';
 
