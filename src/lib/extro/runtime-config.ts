@@ -3,7 +3,8 @@ export type DeploymentTier = 'development' | 'staging' | 'production';
 /**
  * Mainnet tiers. `staging` is a separate, non-production mainnet test deploy
  * (its own Worker + DB); it is the ONLY non-production tier allowed on Bitcoin
- * mainnet. `development` stays signet/testnet-only.
+ * mainnet and it carries the production trust set (no development ceremony, no
+ * public TURN). `development` stays signet/testnet-only.
  */
 export const isMainnetTier = (deployment: DeploymentTier): boolean =>
 	deployment === 'production' || deployment === 'staging';
@@ -281,32 +282,13 @@ export function parseRuntimeConfig(input: unknown): ExtroRuntimeConfig {
 		if (arkNetwork !== 'bitcoin') {
 			throw new RuntimeConfigError('ark_network must be `bitcoin` in production');
 		}
-		if (zkpProfile.toLowerCase() === 'development-only') {
-			throw new RuntimeConfigError('development-only ZKP profile is prohibited in production');
-		}
-		if (DEV_VK_HASHES.has(zkpBearer) || DEV_VK_HASHES.has(zkpConditional)) {
-			throw new RuntimeConfigError(
-				'known forgeable development-ceremony VK is prohibited in production'
-			);
-		}
-		if (turnServers.length === 0) {
-			throw new RuntimeConfigError('managed TURN credentials are required in production');
-		}
-		if (
-			turnServers.some(
-				(turn) =>
-					turn.url.includes('openrelay.metered.ca') ||
-					turn.username === 'openrelayproject' ||
-					turn.credential === 'openrelayproject'
-			)
-		) {
-			throw new RuntimeConfigError('public Open Relay credentials are prohibited in production');
-		}
+		assertMainnetTrustSet(deployment, zkpProfile, zkpBearer, zkpConditional, turnServers);
 	} else if (deployment === 'staging') {
 		// Mainnet staging: Ark (if enabled) must be on bitcoin mainnet, never signet.
 		if (arkEnabled && arkNetwork !== 'bitcoin') {
 			throw new RuntimeConfigError('ark_network must be `bitcoin` in staging');
 		}
+		assertMainnetTrustSet(deployment, zkpProfile, zkpBearer, zkpConditional, turnServers);
 	} else if (arkEnabled && arkNetwork === 'bitcoin') {
 		throw new RuntimeConfigError('development cannot enable Ark on bitcoin mainnet');
 	}
@@ -445,4 +427,40 @@ export function disableArkForSession(): ExtroRuntimeConfig {
 		ark_unilateral_exit_delay: 0
 	};
 	return active;
+}
+
+/**
+ * The trust roots every mainnet tier (production and staging) must carry; mirrors
+ * extro-node `WasmBootConfigV2::validate_mainnet_trust_set`, which re-checks it in
+ * WASM. Staging moves real value, so it never runs on the publicly reproducible
+ * development ceremony or public TURN relays.
+ */
+function assertMainnetTrustSet(
+	deployment: DeploymentTier,
+	zkpProfile: string,
+	zkpBearer: string,
+	zkpConditional: string,
+	turnServers: RuntimeTurnServer[]
+): void {
+	if (zkpProfile.toLowerCase() === 'development-only') {
+		throw new RuntimeConfigError(`development-only ZKP profile is prohibited in ${deployment}`);
+	}
+	if (DEV_VK_HASHES.has(zkpBearer) || DEV_VK_HASHES.has(zkpConditional)) {
+		throw new RuntimeConfigError(
+			`known forgeable development-ceremony VK is prohibited in ${deployment}`
+		);
+	}
+	if (turnServers.length === 0) {
+		throw new RuntimeConfigError(`managed TURN credentials are required in ${deployment}`);
+	}
+	if (
+		turnServers.some(
+			(turn) =>
+				turn.url.includes('openrelay.metered.ca') ||
+				turn.username === 'openrelayproject' ||
+				turn.credential === 'openrelayproject'
+		)
+	) {
+		throw new RuntimeConfigError(`public Open Relay credentials are prohibited in ${deployment}`);
+	}
 }

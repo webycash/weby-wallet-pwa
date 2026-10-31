@@ -132,25 +132,48 @@ describe('strict runtime configuration', () => {
 		);
 	});
 
-	it('allows bitcoin mainnet Ark only for the staging tier', () => {
-		const cfg = parseRuntimeConfig({ ...development(), ...mainnetArk, deployment: 'staging' });
+	const productionTrust = {
+		zkp_profile: 'mpc-2026',
+		zkp_bearer_vk_sha256: '55'.repeat(32),
+		zkp_conditional_vk_sha256: '66'.repeat(32),
+		turn_servers: [
+			{ url: 'turns:turn.extro.network:5349', username: 'extro', credential: 'managed' }
+		]
+	};
+
+	// Audit C4: staging moves real value, so it carries the production trust set.
+	it('staging mainnet rejects the dev ceremony and public TURN', () => {
+		const staging = { ...development(), ...mainnetArk, deployment: 'staging' };
+		expect(() => parseRuntimeConfig(staging)).toThrow('development-only ZKP');
+		expect(() => parseRuntimeConfig({ ...staging, zkp_profile: 'mpc-2026' })).toThrow(
+			'development-ceremony VK'
+		);
+		expect(() =>
+			parseRuntimeConfig({
+				...staging,
+				...productionTrust,
+				turn_servers: development().turn_servers
+			})
+		).toThrow('Open Relay');
+		expect(() =>
+			parseRuntimeConfig({ ...staging, ...productionTrust, turn_servers: [] })
+		).toThrow('managed TURN');
+		// Webcash is mainnet in staging even with Ark off.
+		expect(() => parseRuntimeConfig({ ...development(), deployment: 'staging' })).toThrow(
+			'development-only ZKP'
+		);
+	});
+
+	it('staging with the production trust set requires bitcoin Ark and https', () => {
+		const staging = { ...development(), ...mainnetArk, ...productionTrust, deployment: 'staging' };
+		const cfg = parseRuntimeConfig(staging);
 		expect(cfg.deployment).toBe('staging');
 		expect(cfg.ark_network).toBe('bitcoin');
+		expect(() => parseRuntimeConfig({ ...staging, ark_network: 'signet' })).toThrow(
+			'ark_network must be `bitcoin` in staging'
+		);
 		expect(() =>
-			parseRuntimeConfig({
-				...development(),
-				...mainnetArk,
-				deployment: 'staging',
-				ark_network: 'signet'
-			})
-		).toThrow('ark_network must be `bitcoin` in staging');
-		expect(() =>
-			parseRuntimeConfig({
-				...development(),
-				...mainnetArk,
-				deployment: 'staging',
-				referee_url: 'http://staging.weby.cash/api/referee'
-			})
+			parseRuntimeConfig({ ...staging, referee_url: 'http://staging.weby.cash/api/referee' })
 		).toThrow('must use https in staging');
 	});
 });

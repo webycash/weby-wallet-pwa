@@ -36,6 +36,8 @@ jobs:
       - run: npm ci
       - name: Verify committed wasm-artifacts.json pins
         run: node scripts/verify-wasm.mjs
+      - name: Release trust guard (no development trust roots in mainnet-tier wrangler configs)
+        run: node scripts/check-release-trust.mjs
       - run: cd crates/wallet-wasm && wasm-pack build --release --target web --out-dir pkg
       - run: wasm-opt --enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals -Oz -o crates/wallet-wasm/pkg/wallet_wasm_bg.wasm crates/wallet-wasm/pkg/wallet_wasm_bg.wasm
       - name: Refresh wallet-wasm hashes after CI rebuild (toolchain may differ from pin machine)
