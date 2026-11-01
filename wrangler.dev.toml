@@ -1,5 +1,5 @@
 # DEV deploy (Cloudflare Worker + static assets, dev.weby.cash/wallet).
-# Build with BASE_PATH=/wallet, nest output under dev-deploy/wallet/, then:
+# Build with WALLET_TIER=dev (base = WALLET_BASE_PATH below), nest output under dev-deploy/wallet/, then:
 #   wrangler deploy --config wrangler.dev.toml
 name = "weby-wallet-pwa-dev"
 main = "dev-worker.js"
@@ -12,6 +12,9 @@ assets = { directory = "dev-deploy", binding = "ASSETS", run_worker_first = true
 # used. The dev ceremony and public relay credentials are intentionally
 # testnet-only and are rejected by the production validator.
 [vars]
+# The ONE source of this tier's base path: the build (WALLET_TIER) and
+# dev-worker.js both read it; scripts/base-path.mjs checks it against the route.
+WALLET_BASE_PATH = "/wallet"
 PUBLIC_BOOT_SCHEMA_VERSION = "2"
 PUBLIC_DEPLOYMENT = "development"
 PUBLIC_EXTRO_DB_NAME = "extro-node-dev"

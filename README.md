@@ -121,11 +121,12 @@ npm run verify:wasm
 npm test -- --run
 npm run check
 npm audit
-BASE_PATH=/wallet npm run build
+WALLET_TIER=dev npm run build   # base path from wrangler.dev.toml WALLET_BASE_PATH
 npm run scan:release
 
 rsync -a --delete build/ dev-deploy/wallet/
 diff -qr build dev-deploy/wallet
+node scripts/base-path.mjs --tier dev --deploy   # dev-deploy/<base>/ loads <base>/_app/
 npx wrangler deployments list --config wrangler.dev.toml
 npx wrangler deploy --config wrangler.dev.toml \
   --message "SOURCE_COMMIT; Ark disabled; rollback PREVIOUS_VERSION"
