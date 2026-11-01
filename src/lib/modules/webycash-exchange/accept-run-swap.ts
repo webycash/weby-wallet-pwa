@@ -20,7 +20,7 @@ import {
 } from '$lib/ark/named-gates';
 import { openTrade, runSwap, trades, type RunSwapInput } from './trade-store.svelte';
 import type { SwapProgress } from './swap-runner';
-import { evaluatePair } from './pair-policy';
+import { evaluatePairNode } from './pair-policy';
 import type { ProviderMaterial } from './swap-facts';
 import type { LimitOrder, Trade } from './types';
 
@@ -289,7 +289,7 @@ export async function attemptAcceptAndRunSwap(
 		if (!arkEnabled) {
 			// Still Accept so the DHTX path is exercised.
 			await acceptNetworkOrder(order, slot);
-			const verdict = evaluatePair(order.pair.base, order.pair.quote);
+			const verdict = await evaluatePairNode((c) => getExtroClient().send(c), order.pair.base, order.pair.quote);
 			const trade = openTrade({
 				swapId: order.id,
 				pair: order.pair,

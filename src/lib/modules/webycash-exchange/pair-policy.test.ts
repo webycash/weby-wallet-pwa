@@ -61,11 +61,19 @@ describe('pair-policy: bearer <-> Bitcoin ARK requires referee, never atomic', (
 });
 
 describe('pair-policy: RGB pairs', () => {
-	it('RGB <-> Webcash allowed, conditional, bearer-race risk flagged', () => {
-		const v = evaluatePair('Rgb20', 'Webcash');
-		expect(v.allowed).toBe(true);
-		expect(v.settlementModel).toBe('rgb-conditional');
-		expect(v.bearerRaceRisk).toBe(true);
+	// extro docs 27 row 14 + GAP C: bearer<->RGB settles RefereeZkp, referee
+	// required; the RGB leg is the conditional one.
+	it('RGB <-> Webcash is referee-mediated (RefereeZkp), bearer-race risk flagged', () => {
+		for (const [a, b] of [['Rgb20', 'Webcash'], ['Webcash', 'Rgb20'], ['Voucher', 'Rgb21']] as const) {
+			const v = evaluatePair(a, b);
+			expect(v.allowed).toBe(true);
+			expect(v.nodeSettlementModel).toBe('RefereeZkp');
+			expect(v.settlementModel).toBe('referee-mediated');
+			expect(v.requiresReferee).toBe(true);
+			expect(v.requiresConditionalLeg).toBe(true);
+			expect(v.bearerRaceRisk).toBe(true);
+			expect(v.reason).toBe('bearer-vs-rgb-referee');
+		}
 	});
 
 	it('RGB <-> ARK allowed without bearer-race risk', () => {
@@ -84,8 +92,10 @@ describe('pair-policy: RGB pairs', () => {
 });
 
 describe('pair-policy: deny by default', () => {
+	// extro docs 24/27 have no ARK<->ARK row; doc 25 referee step 4: fail closed.
 	it('ARK <-> ARK is not a supported exchange pair', () => {
 		expect(evaluatePair('BitcoinArk', 'BitcoinArk').allowed).toBe(false);
+		expect(evaluatePair('BitcoinArk', 'BitcoinArk').nodeSettlementModel).toBe('Forbidden');
 	});
 
 	it('every allowed verdict that touches a bearer leg requires referee', () => {
