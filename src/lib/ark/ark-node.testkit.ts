@@ -62,7 +62,8 @@ const config = {
 	zkp_bearer_vk_sha256: '18'.repeat(32),
 	zkp_conditional_vk_sha256: '19'.repeat(32),
 	ice_servers: ['stun:stun.example:3478'],
-	turn_servers: [{ url: 'turn:turn.example:443', username: 'u', credential: 'c' }]
+	turn_servers: [{ url: 'turn:turn.example:443', username: 'u', credential: 'c' }],
+	hub_bridge_origins: []
 };
 
 /** A booted, ephemeral extro-node exposing the facade's `send`. */
