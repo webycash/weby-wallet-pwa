@@ -2,6 +2,9 @@ import { expect, test, type Browser, type BrowserContext, type Page } from '@pla
 import { profileMismatches, selectGateProfile } from './helpers/gate-profile';
 
 // Profile: E2E_GATE_PROFILE=dev (default) | staging-mainnet (needs E2E_BASE_URL).
+// dev: full Gates 1-2 through the dev debug client (writes: rendezvous, DHTX order).
+// staging-mainnet: read-only, through the staging gate surface (`__extroGate`,
+// src/lib/extro/gate-surface.ts): boot attestation + keyserver discovery only.
 const { profile, baseUrl: URL } = selectGateProfile();
 const MNEMONICS = [
 	'legal winner thank year wave sausage worth useful legal winner thank year wave sausage worth useful legal winner thank year wave sausage worth title',
@@ -39,9 +42,36 @@ async function command(node: LiveNode, cmd: unknown) {
 	}, cmd);
 }
 
+test('Gate 1 read-only (staging): served bundle attests the Ark operator and verifies the keyserver', async ({
+	page
+}) => {
+	test.skip(profile.name !== 'staging-mainnet', 'read-only staging gate');
+	const served = await fetch(`${URL}/runtime-config.json`);
+	expect(served.ok, `runtime-config.json: HTTP ${served.status}`).toBe(true);
+	const config = await served.json();
+	expect(profileMismatches(profile, config), `not the ${profile.name} deployment`).toEqual([]);
+	await page.goto(`${URL}/`);
+	await page.waitForFunction(() => Boolean((window as any).__extroGate), { timeout: 60_000 });
+	expect(await page.evaluate(() => 'send' in (window as any).__extroGate)).toBe(false);
+	expect(await page.evaluate(() => (window as any).__extro ?? null)).toBeNull();
+	await page.waitForFunction(() => (window as any).__extroGate.ark().ok !== null, { timeout: 60_000 });
+	const ark = await page.evaluate(() => (window as any).__extroGate.ark());
+	console.log('GATE1-RO ark', JSON.stringify(ark));
+	expect(ark.ok, `Ark disabled: ${ark.reason}`).toBe(true);
+	expect(ark.expectedDigest).toBe(config.ark_info_digest_hex);
+	const keyserver = await page.evaluate(() => (window as any).__extroGate.probeKeyserver());
+	console.log('GATE1-RO keyserver', JSON.stringify(keyserver));
+	expect(keyserver).toEqual({
+		verified: true,
+		fingerprint_hex: expect.any(String),
+		matches_pin: true
+	});
+});
+
 test('Gates 1-2 live: two isolated wallets retain a DataChannel and propagate a signed DHTX order', async ({
 	browser
 }) => {
+	test.skip(profile.name !== 'dev', 'writes to the keyserver and DHTX; dev tier only');
 	const served = await fetch(`${URL}/runtime-config.json`);
 	expect(served.ok, `runtime-config.json: HTTP ${served.status}`).toBe(true);
 	const config = await served.json();

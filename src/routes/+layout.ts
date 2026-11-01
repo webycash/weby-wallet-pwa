@@ -1,7 +1,9 @@
 import { browser } from '$app/environment';
+import { arkStatus } from '$lib/ark/ark-status.svelte';
 import { bootWithArkAttestation } from '$lib/ark/boot-attestation';
 import { configureExtro } from '$lib/extro';
 import { configuredAdapterMode } from '$lib/extro/config';
+import { installGateSurface } from '$lib/extro/gate-surface';
 import { loadRuntimeConfig } from '$lib/extro/release-config';
 import { syncNetworkFromRuntimeConfig } from '$lib/stores/network.svelte';
 import { installConfiguredHubBridge } from '@extro/node';
@@ -41,6 +43,8 @@ export const load = async ({ fetch }) => {
 			(window as unknown as { __extroHubBridge?: { stop: () => void } | null }).__extroHubBridge =
 				hubBridge;
 		}
+		// STAGING live gates: read-only probes only (never the debug client above).
+		installGateSurface(window, client, config, arkStatus);
 		// 'cross-domain' needs explicit crossDomain options wired by the caller;
 		// leave the facade's lazy mock default in place for it (pre-production).
 	}
