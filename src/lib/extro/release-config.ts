@@ -6,6 +6,7 @@ export {
 	disableArkForSession,
 	getRuntimeConfig,
 	isMainnetTier,
+	refereeAvailable,
 	parseRuntimeConfig,
 	resetRuntimeConfigForTests,
 	RuntimeConfigError,

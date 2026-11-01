@@ -39,6 +39,10 @@ export const GATE_ARK_FUNDING_INSUFFICIENT =
 export const GATE_ARK_AWAITING_PROVIDER_FUNDING =
 	'ARK_AWAITING_PROVIDER_FUNDING: referee-prepared contract derived; the provider has not published a funded locked_ref + settle/refund hashes yet';
 
+/** This deployment configures no swap referee (runtime config `referee_url` empty; development only). */
+export const GATE_REFEREE_UNAVAILABLE =
+	'REFEREE_UNAVAILABLE: no swap referee is configured on this deployment; exchange settlement is unavailable';
+
 /** The configured referee cannot run the settle ceremony (old build / foreign pubshare / no partial). */
 export const GATE_REFEREE_CEREMONY_UNAVAILABLE =
 	'ARK_REFEREE_CEREMONY_UNAVAILABLE: the referee does not serve settle-ceremony-v1 for this swap; refusing to fund, sign or aggregate';
@@ -58,6 +62,7 @@ export const GATE_COOP_REFUND_FAILED =
 export type NamedArkGate =
 	| typeof GATE_ARK_FUNDING_INSUFFICIENT
 	| typeof GATE_ARK_AWAITING_PROVIDER_FUNDING
+	| typeof GATE_REFEREE_UNAVAILABLE
 	| typeof GATE_REFEREE_CEREMONY_UNAVAILABLE
 	| typeof GATE_SETTLE_CEREMONY_INVALID
 	| typeof GATE_SETTLE_RELEASE_PENDING

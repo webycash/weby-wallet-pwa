@@ -17,6 +17,7 @@ import type { RefereeClient } from './referee-client';
 import { executeSwap, type SwapProgress, type ExecuteSwapInput } from './swap-runner';
 import { evaluatePair } from './pair-policy';
 import type { Trade } from './types';
+import { GATE_REFEREE_UNAVAILABLE, NamedArkGateError } from '$lib/ark/named-gates';
 
 interface TradeState {
 	trades: Trade[];
@@ -39,7 +40,7 @@ export function setReferee(client: RefereeClient): void {
 }
 
 function configuredReferee(): RefereeClient {
-	if (!referee) throw new Error('referee is not configured; exchange settlement is unavailable');
+	if (!referee) throw new NamedArkGateError(GATE_REFEREE_UNAVAILABLE);
 	return referee;
 }
 

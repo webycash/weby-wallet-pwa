@@ -16,15 +16,13 @@
 //
 // Usage: node scripts/check-release-trust.mjs [--deploy] [file ...]   (default: ./wrangler*.toml)
 import { readdirSync, readFileSync } from "node:fs";
+import { MAINNET_TRUST_SET } from "@extro/node/runtime-config";
 
 const manifest = JSON.parse(readFileSync("zkp-artifacts.json", "utf8"));
 const PLACEHOLDER = "REPLACE_ME";
 
-/** SHA-256 of the development ceremony VKs (extro-node DEV_CEREMONY_VK_FINGERPRINTS). */
-const DEV_VK_FINGERPRINTS = [
-  "ecd299b3326e682106a31a39decf1fb43c0d5b960eb40baa2975691f406f77c1",
-  "8efdd75f738658f3da0308fac3cbf6912c1324e815d863548c7e82ba39d07f1d",
-];
+/** SHA-256 of the development ceremony VKs, from @extro/node's single trust-set source. */
+const DEV_VK_FINGERPRINTS = MAINNET_TRUST_SET.development_ceremony_vk_sha256;
 
 const FORBIDDEN = [
   ...DEV_VK_FINGERPRINTS.map((fp) => [

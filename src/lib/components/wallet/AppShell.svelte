@@ -36,7 +36,7 @@
 	import { initPushRouter, replayPushQueue, pushStatus } from '$lib/modules/webycash-exchange/push-store.svelte';
 	import { setReferee, HttpRefereeClient } from '$lib/modules/webycash-exchange';
 	import { configuredAdapterMode } from '$lib/extro/config';
-	import { getRuntimeConfig } from '$lib/extro/release-config';
+	import { getRuntimeConfig, refereeAvailable } from '$lib/extro/release-config';
 	import { arkStatus } from '$lib/ark/ark-status.svelte';
 
 	let { pendingWebcash = '', onLock = () => {}, onInstall }: {
@@ -220,9 +220,10 @@
 		void replayPushQueue();
 
 		// Install the pinned HTTP referee from the validated runtime config. There
-		// is no application fallback; missing/mismatched trust disables settlement.
-		if (configuredAdapterMode() === 'bundled') {
-			const runtime = getRuntimeConfig();
+		// is no application fallback: a tier without a referee (development only,
+		// enforced by @extro/node) leaves settlement at GATE_REFEREE_UNAVAILABLE.
+		const runtime = getRuntimeConfig();
+		if (configuredAdapterMode() === 'bundled' && refereeAvailable(runtime)) {
 			setReferee(
 				new HttpRefereeClient({
 					baseUrl: runtime.referee_url,

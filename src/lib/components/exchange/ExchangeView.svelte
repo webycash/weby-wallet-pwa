@@ -39,7 +39,8 @@
 		type SwapProgress
 	} from '$lib/modules/webycash-exchange/ark-swap-protocol';
 	import { defaultSettleTransport } from '$lib/modules/webycash-exchange/ark-settle-transport';
-	import { getRuntimeConfig } from '$lib/extro/release-config';
+	import { getRuntimeConfig, refereeAvailable } from '$lib/extro/release-config';
+	import { GATE_REFEREE_UNAVAILABLE } from '$lib/ark/named-gates';
 	import { buildProductRunSwapInput } from '$lib/modules/webycash-exchange/build-product-run-swap-input';
 	import { getExtroClient } from '$lib/extro';
 	import { getSelfIdentity } from '$lib/extro/self-identity';
@@ -73,6 +74,14 @@
 	const arkEnabled = (): boolean => {
 		try {
 			return getRuntimeConfig().ark_enabled;
+		} catch {
+			return false;
+		}
+	};
+	/** Whether this tier configures a swap referee (@extro/node `refereeAvailable`). */
+	const refereeReady = (): boolean => {
+		try {
+			return refereeAvailable(getRuntimeConfig());
 		} catch {
 			return false;
 		}
@@ -120,6 +129,10 @@
 		);
 		responderDiag = `self ${me.slice(0, 10)}… · own live orders ${own.length} · handled ${handledAccepts.size}`;
 		if (own.length === 0) return;
+		if (!refereeReady()) {
+			responderDiag = `${responderDiag} · ${GATE_REFEREE_UNAVAILABLE}`;
+			return;
+		}
 		const fresh = await pollAcceptsForOwnOrders(own, handledAccepts);
 		for (const { order, takerFp } of fresh) {
 			handledAccepts.add(`${order.id}:${takerFp}`);
@@ -191,6 +204,12 @@
 	const runAcceptPath = async (order: LimitOrder, takerSide: Side) => {
 		busySwap = order.id;
 		lastGate = null;
+		if (!refereeReady()) {
+			lastGate = GATE_REFEREE_UNAVAILABLE;
+			flash(`Swap stopped at named gate: ${GATE_REFEREE_UNAVAILABLE}`, 'warn');
+			busySwap = null;
+			return;
+		}
 		try {
 			// Derive THIS node's fingerprint so Accept→await ProviderMaterial can bind.
 			let takerFingerprintHex: string | undefined;
@@ -375,6 +394,14 @@
 					? 'bg-warning/10 text-warning'
 					: 'bg-primary/8 text-primary'}">
 			{banner.text}
+		</div>
+	{/if}
+
+	{#if !refereeReady()}
+		<div
+			data-testid="referee-unavailable"
+			class="rounded-xl bg-warning/10 px-3 py-2 text-[11px] text-warning font-mono break-all">
+			{GATE_REFEREE_UNAVAILABLE}
 		</div>
 	{/if}
 
