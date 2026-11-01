@@ -331,7 +331,8 @@ test('two-browser Accept→ProviderMaterial→runSwap closes NO_PROVIDER', async
 					cmd: {
 						op: 'PublishOrder',
 						slot: 0,
-						pair: pairArg,
+						base: { family: pairArg.base },
+						quote: { family: pairArg.quote },
 						side: 'Sell',
 						price_atomic: 1n,
 						amount_atomic: 1n,

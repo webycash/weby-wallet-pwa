@@ -12,7 +12,9 @@
 
 import {
 	newRequestId,
+	type ExchangeAssetFamily,
 	type ExchangeCommand,
+	type ExchangeSettlementModel,
 	type ExtroCommand,
 	type ExtroResponse,
 	type WireBookOrder,
@@ -192,4 +194,23 @@ export async function publicationFeeNode(
 	return f.blocked === null
 		? { allowed: true, totalFee, shares }
 		: { allowed: false, totalFee, shares, blockedReason: f.blocked };
+}
+
+/**
+ * extrolib `PairPolicy` for an ordered pair, from `Op::Exchange PairPolicy`
+ * (default-deny; ARK<->ARK and unknown pairs are Forbidden).
+ */
+export async function pairPolicyNode(
+	send: ExtroSend,
+	base: ExchangeAssetFamily,
+	quote: ExchangeAssetFamily,
+	preferConditional = false
+): Promise<{ allowed: boolean; settlement_model: ExchangeSettlementModel; requires_referee: boolean; requires_conditional_leg: boolean }> {
+	const r = await exchange(send, { op: 'PairPolicy', base, quote, prefer_conditional: preferConditional }, 'ExchangePairPolicy');
+	return {
+		allowed: r.allowed,
+		settlement_model: r.settlement_model,
+		requires_referee: r.requires_referee,
+		requires_conditional_leg: r.requires_conditional_leg
+	};
 }

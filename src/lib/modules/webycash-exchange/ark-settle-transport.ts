@@ -24,7 +24,7 @@
  */
 import { ed25519 } from '@noble/curves/ed25519.js';
 import { getExtroClient } from '$lib/extro';
-import { newRequestId } from '@extro/node';
+import { newRequestId, type BearerAssetRef } from '@extro/node';
 import { getRuntimeConfig } from '$lib/extro/release-config';
 import { ExtroWebcashRailClient, type WebcashTokenStatusOp } from '$lib/core/webcash-rail-client';
 import { parseReleaseSettle, type ReleaseSettle } from '$lib/ark/ceremony';
@@ -91,6 +91,8 @@ export const sealBearerSecret = (input: {
 	slot: number;
 	publicTokenHash: Uint8Array;
 	amount: string;
+	/** Bearer leg asset; extro-node picks the wallet family and token suffix from it. */
+	bearerAsset: BearerAssetRef;
 	providerVk: Uint8Array;
 	swapId: string;
 }) =>
@@ -100,6 +102,7 @@ export const sealBearerSecret = (input: {
 			slot: input.slot,
 			public_token_hash: input.publicTokenHash.slice(),
 			amount: input.amount,
+			bearer_asset: input.bearerAsset,
 			recipient_vk: input.providerVk.slice(),
 			swap_id: input.swapId
 		},
@@ -279,6 +282,7 @@ export type SettleTransport = {
 		slot: number;
 		publicTokenHash: Uint8Array;
 		amount: string;
+		bearerAsset: BearerAssetRef;
 		providerVk: Uint8Array;
 		swapId: string;
 	}) => Promise<Uint8Array>;
@@ -402,8 +406,7 @@ export function defaultSettleTransport(
 			const envelope = await proveSwapInitiate({ mnemonic, bearerPk, conditionalPk, facts: ctx.facts });
 			const referee = new HttpRefereeClient({
 				baseUrl: cfg().referee_url,
-				pinnedPubkeyHex: cfg().referee_vk_hex,
-				fetchFn
+				pinnedPubkeyHex: cfg().referee_vk_hex
 			});
 			const r = await referee.initiate(envelope);
 			return { swapId: r.swap_id, phase: r.phase };
@@ -412,8 +415,7 @@ export function defaultSettleTransport(
 			const { HttpRefereeClient } = await import('./referee-client');
 			const referee = new HttpRefereeClient({
 				baseUrl: cfg().referee_url,
-				pinnedPubkeyHex: cfg().referee_vk_hex,
-				fetchFn
+				pinnedPubkeyHex: cfg().referee_vk_hex
 			});
 			const r = await referee.advance(swapId);
 			return { phase: r.phase, terminal: r.terminal };

@@ -60,7 +60,7 @@ the real same-realm wasm node (`src/routes/+layout.ts`).
 
 The app publishes its authoritative `ExtroClient` on `window.__extro` (DEV-only
 hook in `+layout.ts`). The harness drives **real `ExtroCommand`s** through that
-client from inside the page — exercising the exact encode → wasm `extro_node_send`
+client from inside the page — exercising the exact encode → wasm `ExtroNode.send`
 → decode seam the product uses. There are no DOM test ids on the exchange views,
 so this client-level path is the assertion surface.
 

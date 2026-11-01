@@ -1,36 +1,36 @@
 // Asset-pair policy for the Webycash exchange.
 //
-// Source of truth (asset model + pair matrix):
-//   extro/docs/development/24-extro-402-scheme-and-webycash-plan.md §"Asset Model".
+// ADR-0007: the pair decision lives in extrolib `exchange::PairPolicy` and is
+// consumed from extro-node. This module does NOT re-derive it. It reads the
+// extro-node conformance table `@extro/node/vectors/pair_policy.json`, which
+// extro-node's Rust tests check case-by-case against extrolib and which the
+// `Op::Exchange PairPolicy` op returns verbatim (see pair-policy.parity.test.ts).
+// The wallet only adds presentation: the UI settlement label, a stable reason
+// and the bearer-race flag.
 //
-// This MIRRORS the extrolib default-deny pair policy on the wallet/UI side, and
-// it is now the SOLE owner of the pair/settlement decision: the generalized
-// `Scheme402Command::VerifyPaymentRequest` is rail-agnostic and deliberately
-// does NOT re-derive any exchange pair policy (it only verifies the signed
-// request and returns its public commitments). The exchange application drives
-// the verdict from this module. The UI must not let a user reach a confirm
-// button for a pair this rejects, and must never label a bearer flow as
-// strictly atomic.
+// Specs (cited by each vector case):
+//   extro/docs/development/24-extro-402-scheme-and-webycash-plan.md §"Asset Model";
+//   extro/docs/development/27 rows 10-14 + GAP C (bearer<->RGB = RefereeZkp);
+//   extro/docs/development/25 referee step 4 ("fail closed on unknown pair").
 //
-// CRITICAL invariants:
-//   * Deny by default. An unknown / unhandled pair is rejected, never allowed.
-//   * Order-independent. policy(A,B) === policy(B,A).
-//   * Webcash <-> Voucher is blocked (both bearer-only; no arbitrable leg).
-//   * Custom / two-bearer pairs are blocked.
-//   * At least one side of a cross-rail bearer swap must be referee- or
-//     contract-arbitrable (Bitcoin ARK or RGB).
-//   * No bearer flow is ever described as cryptographically atomic — the
-//     settlement label is referee-mediated / bounded-risk / non-atomic.
+// Invariants (enforced by extrolib, re-checked by the tests here):
+//   * Deny by default; a pair missing from the table is blocked.
+//   * Order-independent.
+//   * No bearer flow is ever labelled atomic.
 
-export type AssetClass = 'Webcash' | 'Voucher' | 'BitcoinArk' | 'Rgb20' | 'Rgb21' | 'Custom';
+import pairPolicyVector from '@extro/node/vectors/pair_policy.json';
+import type { ExchangeAssetFamily, ExchangeSettlementModel } from '@extro/node';
+import { pairPolicyNode, type ExtroSend } from './exchange-core';
 
-/** The settlement model a pair resolves to. Never "atomic" for a bearer leg. */
+export type AssetClass = ExchangeAssetFamily;
+
+/** UI settlement model. Never "atomic" for a bearer leg. */
 export type SettlementModel =
 	// Referee mediates; bearer leg is non-atomic / bounded-risk.
 	| 'referee-mediated'
-	// RGB server / AluVM / HTLC enforces the conditional transition.
+	// RGB HTLC or the ARK 2-of-2 contract path enforces the conditional leg.
 	| 'rgb-conditional'
-	// RGB-to-RGB server-assisted atomic/conditional transition.
+	// RGB-to-RGB conditional transition (extrolib RgbHtlc on both legs).
 	| 'rgb-atomic'
 	// The pair is not permitted at all.
 	| 'blocked';
@@ -38,8 +38,12 @@ export type SettlementModel =
 export interface PairVerdict {
 	allowed: boolean;
 	settlementModel: SettlementModel;
-	/** Whether a referee is required to mediate this pair. */
+	/** extrolib `SettlementModel` as returned by extro-node. */
+	nodeSettlementModel: ExchangeSettlementModel;
+	/** Whether a referee is required to mediate this pair (extrolib). */
 	requiresReferee: boolean;
+	/** Whether the pair needs a conditional (contract-enforced) leg (extrolib). */
+	requiresConditionalLeg: boolean;
 	/**
 	 * True when the bearer side carries irreducible race risk that the user MUST
 	 * see acknowledged before confirming. Never true for `rgb-atomic`.
@@ -55,10 +59,35 @@ export type PairReason =
 	| 'both-bearer-no-arbitrable-leg'
 	| 'custom-asset-unsupported'
 	| 'bearer-vs-ark-referee'
-	| 'rgb-vs-bearer-conditional'
+	| 'bearer-vs-rgb-referee'
 	| 'rgb-vs-ark'
 	| 'rgb-vs-rgb'
 	| 'unknown-pair';
+
+/** One extro-node `ExchangePairPolicy` result (snake_case, as on the wire). */
+export interface NodePairPolicy {
+	allowed: boolean;
+	settlement_model: ExchangeSettlementModel;
+	requires_referee: boolean;
+	requires_conditional_leg: boolean;
+}
+
+interface VectorCase {
+	base: AssetClass;
+	quote: AssetClass;
+	prefer_conditional: boolean;
+	expected: NodePairPolicy;
+}
+
+const key = (a: string, b: string, preferConditional: boolean): string =>
+	`${a}|${b}|${preferConditional ? 1 : 0}`;
+
+const TABLE: ReadonlyMap<string, NodePairPolicy> = new Map(
+	(pairPolicyVector as unknown as { cases: VectorCase[] }).cases.map((c) => [
+		key(c.base, c.quote, c.prefer_conditional),
+		c.expected
+	])
+);
 
 const BEARER: ReadonlySet<AssetClass> = new Set<AssetClass>(['Webcash', 'Voucher']);
 const RGB: ReadonlySet<AssetClass> = new Set<AssetClass>(['Rgb20', 'Rgb21']);
@@ -70,92 +99,98 @@ const isArk = (a: AssetClass): boolean => a === 'BitcoinArk';
 const deny = (reason: PairReason, label: string): PairVerdict => ({
 	allowed: false,
 	settlementModel: 'blocked',
+	nodeSettlementModel: 'Forbidden',
 	requiresReferee: false,
+	requiresConditionalLeg: false,
 	bearerRaceRisk: false,
 	reason,
 	label
 });
 
-/**
- * Re-derive the settlement policy for an ordered pair. The result is identical
- * for (a,b) and (b,a) — orientation is normalised internally.
- */
-export function evaluatePair(a: AssetClass, b: AssetClass): PairVerdict {
-	// Custom / unknown asset on either side: hard block. (Mirrors the
-	// coordinator's two-bearer/Custom block.)
+function denyFor(a: AssetClass, b: AssetClass): PairVerdict {
 	if (a === 'Custom' || b === 'Custom') {
 		return deny('custom-asset-unsupported', 'Custom assets are not tradeable on this exchange.');
 	}
-
-	// Two bearer legs (incl. Webcash<->Voucher, Webcash<->Webcash,
-	// Voucher<->Voucher): neither side is arbitrable, the referee cannot enforce
-	// a safe release on either leg. Block.
 	if (isBearer(a) && isBearer(b)) {
 		return deny(
 			'both-bearer-no-arbitrable-leg',
 			'Both sides are bearer assets (Webcash/Voucher). No arbitrable leg exists, so this pair is blocked.'
 		);
 	}
+	return deny('unknown-pair', 'This asset pair is not supported.');
+}
 
-	// Bearer <-> Bitcoin ARK: allowed WITH a referee. Bearer leg is non-atomic.
-	if ((isBearer(a) && isArk(b)) || (isArk(a) && isBearer(b))) {
+/**
+ * Present an extro-node pair-policy result for the UI. The allow/deny,
+ * referee and conditional-leg facts come only from `node`; this adds labels.
+ */
+export function presentPairPolicy(a: AssetClass, b: AssetClass, node: NodePairPolicy): PairVerdict {
+	if (!node.allowed || node.settlement_model === 'Forbidden') return denyFor(a, b);
+	const base = {
+		allowed: true,
+		nodeSettlementModel: node.settlement_model,
+		requiresReferee: node.requires_referee,
+		requiresConditionalLeg: node.requires_conditional_leg,
+		bearerRaceRisk: isBearer(a) || isBearer(b)
+	};
+	if (node.requires_referee && ((isBearer(a) && isArk(b)) || (isArk(a) && isBearer(b)))) {
 		return {
-			allowed: true,
+			...base,
 			settlementModel: 'referee-mediated',
-			requiresReferee: true,
-			bearerRaceRisk: true,
 			reason: 'bearer-vs-ark-referee',
 			label:
 				'Referee-mediated swap. The bearer leg is non-atomic and carries bounded race risk — not a cryptographically atomic swap.'
 		};
 	}
-
-	// RGB <-> Bearer (Webcash/Voucher): allowed ONLY with the RGB leg providing
-	// the conditional/arbitrable side; bearer-race risk is explicit.
-	if ((isRgb(a) && isBearer(b)) || (isBearer(a) && isRgb(b))) {
+	if (node.requires_referee && ((isBearer(a) && isRgb(b)) || (isRgb(a) && isBearer(b)))) {
 		return {
-			allowed: true,
-			settlementModel: 'rgb-conditional',
-			// The RGB conditional leg is the enforcement primitive, but the bearer
-			// side can still be raced, so a referee/contract-arbitrable path is
-			// required for the bearer leg.
-			requiresReferee: true,
-			bearerRaceRisk: true,
-			reason: 'rgb-vs-bearer-conditional',
+			...base,
+			settlementModel: 'referee-mediated',
+			reason: 'bearer-vs-rgb-referee',
 			label:
-				'RGB-conditional swap. The RGB leg enforces the condition; the bearer leg is non-atomic and bounded-risk.'
+				'Referee-mediated swap (referee ZK release). The RGB leg is conditional; the bearer leg is non-atomic and bounded-risk.'
 		};
 	}
-
-	// RGB <-> Bitcoin ARK: allowed. Prefer cryptographic HTLC / RGB-ARK contract.
-	// No bearer leg, so no bearer-race risk; referee only if the flow needs it
-	// (we mark not-required here — the contract path is preferred).
 	if ((isRgb(a) && isArk(b)) || (isArk(a) && isRgb(b))) {
 		return {
-			allowed: true,
+			...base,
 			settlementModel: 'rgb-conditional',
-			requiresReferee: false,
-			bearerRaceRisk: false,
 			reason: 'rgb-vs-ark',
 			label: 'RGB/ARK conditional swap via HTLC or RGB-ARK contract path.'
 		};
 	}
-
-	// RGB <-> RGB: allowed; prefer RGB-server-assisted atomic/conditional
-	// transition. No referee required when the RGB server can enforce.
 	if (isRgb(a) && isRgb(b)) {
 		return {
-			allowed: true,
+			...base,
 			settlementModel: 'rgb-atomic',
-			requiresReferee: false,
-			bearerRaceRisk: false,
 			reason: 'rgb-vs-rgb',
 			label: 'RGB-server-assisted atomic/conditional state transition.'
 		};
 	}
-
-	// ARK <-> ARK or anything unhandled: deny by default.
+	// extrolib allowed a pair this UI has no presentation for: fail closed.
 	return deny('unknown-pair', 'This asset pair is not supported.');
+}
+
+/**
+ * Settlement policy for a pair, from the extro-node table (extrolib
+ * `PairPolicy`). A pair missing from the table is blocked.
+ */
+export function evaluatePair(a: AssetClass, b: AssetClass, preferConditional = false): PairVerdict {
+	const node = TABLE.get(key(a, b, preferConditional));
+	return node ? presentPairPolicy(a, b, node) : denyFor(a, b);
+}
+
+/**
+ * The same verdict, asked of the live extro-node (`Op::Exchange PairPolicy`).
+ * Money paths (accept / run) use this; the table above serves the UI.
+ */
+export async function evaluatePairNode(
+	send: ExtroSend,
+	a: AssetClass,
+	b: AssetClass,
+	preferConditional = false
+): Promise<PairVerdict> {
+	return presentPairPolicy(a, b, await pairPolicyNode(send, a, b, preferConditional));
 }
 
 /** True iff the pair may be traded at all. */

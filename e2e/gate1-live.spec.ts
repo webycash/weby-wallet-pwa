@@ -155,7 +155,8 @@ test('Gates 1-2 live: two isolated wallets retain a DataChannel and propagate a 
 			cmd: {
 				op: 'PublishOrder',
 				slot: 0,
-				pair,
+				base: { family: pair.base },
+				quote: { family: pair.quote },
 				side: 'Sell',
 				price_atomic: 12_345n,
 				amount_atomic: 67n,

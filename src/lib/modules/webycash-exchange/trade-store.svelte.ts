@@ -15,7 +15,8 @@ import {
 } from './trade-timeline';
 import type { RefereeClient } from './referee-client';
 import { executeSwap, type SwapProgress, type ExecuteSwapInput } from './swap-runner';
-import { evaluatePair } from './pair-policy';
+import { evaluatePairNode } from './pair-policy';
+import { getExtroClient } from '$lib/extro';
 import type { Trade } from './types';
 import { GATE_REFEREE_UNAVAILABLE, NamedArkGateError } from '$lib/ark/named-gates';
 
@@ -117,7 +118,7 @@ export interface RunSwapInput extends Omit<ExecuteSwapInput, 'referee' | 'onProg
 export async function runSwap(input: RunSwapInput): Promise<Trade | null> {
 	const client = input.referee ?? configuredReferee();
 	const order = input.order;
-	const verdict = evaluatePair(order.pair.base, order.pair.quote);
+	const verdict = await evaluatePairNode((c) => getExtroClient().send(c), order.pair.base, order.pair.quote);
 
 	let trade: Trade | null = null;
 

@@ -25,7 +25,7 @@ import { getPrepareTermsDraft, markProviderPrepareDone, parsePrepareTermsDraft }
 import { providerSignAndRelayPrepare } from './accept-prepare';
 import { arkAmountSatsFor, fillAmountRawFor } from './ark-swap-protocol';
 import { assertBearerLegIssued } from './bearer-precheck';
-import { bearerLegFromWallet } from './swap-facts';
+import { assertLegMatchesOrder, bearerLegFromWallet } from './swap-facts';
 import type { RunSwapInput } from './trade-store.svelte';
 import type { LimitOrder } from './types';
 
@@ -54,7 +54,7 @@ export async function buildProductRunSwapInput(
 	const fillAmountRaw = fillAmountRawFor(order);
 
 	// The taker's real webcash: its own handle H must be live + unspent on the rail.
-	const leg = await bearerLegFromWallet(0, 0, fillAmountRaw);
+	const leg = assertLegMatchesOrder(await bearerLegFromWallet(0, 0, fillAmountRaw), order);
 	const publicWebcash = `e${leg.bearerAmount}:public:${bytesToHex(leg.publicTokenHash)}`;
 	await assertBearerLegIssued({
 		railBase: cfg.webcash_server_url,

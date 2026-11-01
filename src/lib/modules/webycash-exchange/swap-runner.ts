@@ -36,6 +36,7 @@ import {
 	type ArkSwapContract
 } from '$lib/ark/swap-contract';
 import {
+	assertLegMatchesOrder,
 	bearerLegFromWallet,
 	buildSwapInitiateFacts,
 	type BearerSellerIdentity,
@@ -239,10 +240,10 @@ export async function executeSwap(input: ExecuteSwapInput): Promise<ExecuteSwapR
 		emit({ stage: 'fetching-keys' });
 		const [{ bearerPk, conditionalPk }, bearer] = await Promise.all([
 			loadProofKeys(fetchFn),
-			bearerLegFromWallet(slot, index, fillAmountRaw)
+			bearerLegFromWallet(slot, index, fillAmountRaw).then((leg) => assertLegMatchesOrder(leg, order))
 		]);
 
-		const facts = buildSwapInitiateFacts({
+		const facts = await buildSwapInitiateFacts({
 			order,
 			bearer,
 			provider,

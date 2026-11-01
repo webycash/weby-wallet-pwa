@@ -13,31 +13,18 @@
  * contract address/tapscripts) — no keys, nonce secrets or mnemonic.
  */
 
+import { newRequestId, type ContractJournalRecord, type ExchangeCommand } from '@extro/node';
+import { getExtroClient } from '$lib/extro';
+import type { ExtroSend } from '$lib/modules/webycash-exchange/exchange-core';
 import { fundArkSwapContract, type ArkFundingWallet, type ArkSwapContract } from './swap-contract';
 
-export const CONTRACT_JOURNAL_VERSION = 1;
+// The record's rules (required fields, version, canonical bytes, the funding
+// match) live in extro-node `exchange::journal` (ADR-0007, audit H3) and are
+// reached through `Op::Exchange JournalCanonical` / `JournalCheck`. This file
+// keeps only the storage (IndexedDB) and the order of steps.
 
-export type ContractJournalRecord = {
-	v: typeof CONTRACT_JOURNAL_VERSION;
-	role: 'provider' | 'bearer-seller';
-	swapId: string;
-	orderIdHex: string;
-	network: string;
-	refereeUrl: string;
-	refereeVkHex: string;
-	contractAddress: string;
-	arkAmountSats: string;
-	tapTreeHex: string;
-	/** Commitment over the canonical prepare terms (hex). */
-	requestCommitmentHex: string;
-	/** Both party signatures over the terms + the referee-signed response (hex). */
-	providerSignedHex: string;
-	bearerSellerSignedHex: string;
-	refereeSignedResponseHex: string;
-	createdAtUnix: number;
-	/** Set after funding succeeds. */
-	fundingArkTxId?: string;
-};
+export const CONTRACT_JOURNAL_VERSION = 1;
+export type { ContractJournalRecord };
 
 /** Minimal durable KV; production = IndexedDB, tests = in-memory. */
 export interface ContractJournalBackend {
@@ -53,9 +40,6 @@ export const bytesHex = toHex;
 
 const keyFor = (swapId: string) => `contract:${swapId}`;
 
-const canonical = (r: ContractJournalRecord): string =>
-	JSON.stringify(r, Object.keys(r).sort());
-
 export class ContractNotPersistedError extends Error {
 	readonly gate = 'ARK_CONTRACT_NOT_PERSISTED';
 	constructor(detail: string) {
@@ -63,30 +47,26 @@ export class ContractNotPersistedError extends Error {
 	}
 }
 
-function validate(r: ContractJournalRecord): void {
-	const need: (keyof ContractJournalRecord)[] = [
-		'swapId',
-		'contractAddress',
-		'arkAmountSats',
-		'requestCommitmentHex',
-		'providerSignedHex',
-		'bearerSellerSignedHex',
-		'refereeSignedResponseHex',
-		'refereeVkHex'
-	];
-	for (const k of need) {
-		const v = r[k];
-		if (typeof v !== 'string' || v.length === 0) throw new ContractNotPersistedError(`record missing ${k}`);
+const defaultSend: ExtroSend = (c) => getExtroClient().send(c);
+
+/** One journal op; a journal refusal becomes `ContractNotPersistedError`. */
+async function journalOp(send: ExtroSend, cmd: ExchangeCommand): Promise<string> {
+	const r = await send({ request_id: newRequestId(), op: { kind: 'Exchange', cmd } });
+	if (r.kind === 'Err') {
+		const m = /ARK_CONTRACT_NOT_PERSISTED: (.*)$/.exec(r.message);
+		throw m ? new ContractNotPersistedError(m[1]) : new Error(`Op::Exchange ${cmd.op}: ${r.message}`);
 	}
+	if (r.body.kind !== 'ExchangeJournal') throw new Error(`Op::Exchange ${cmd.op}: unexpected ${r.body.kind}`);
+	return r.body.canonical;
 }
 
 /** Write, then read back and compare byte-for-byte. Throws on any mismatch. */
 export async function persistContractRecord(
 	backend: ContractJournalBackend,
-	record: ContractJournalRecord
+	record: ContractJournalRecord,
+	send: ExtroSend = defaultSend
 ): Promise<void> {
-	validate(record);
-	const body = canonical(record);
+	const body = await journalOp(send, { op: 'JournalCanonical', record });
 	try {
 		await backend.put(keyFor(record.swapId), body);
 	} catch (e) {
@@ -128,7 +108,8 @@ export async function listContractRecords(backend: ContractJournalBackend): Prom
 export async function assertContractPersisted(
 	backend: ContractJournalBackend,
 	contract: Pick<ArkSwapContract, 'address' | 'plan'>,
-	requestCommitmentHex: string
+	requestCommitmentHex: string,
+	send: ExtroSend = defaultSend
 ): Promise<ContractJournalRecord> {
 	let rec: ContractJournalRecord | null;
 	try {
@@ -137,14 +118,13 @@ export async function assertContractPersisted(
 		throw new ContractNotPersistedError(`journal unreadable: ${(e as Error).message}`);
 	}
 	if (!rec) throw new ContractNotPersistedError(`no journal record for swap ${contract.plan.swapId}`);
-	validate(rec);
-	if (rec.contractAddress !== contract.address) throw new ContractNotPersistedError('journal address mismatch');
-	if (rec.arkAmountSats !== contract.plan.amountSats.toString()) {
-		throw new ContractNotPersistedError('journal amount mismatch');
-	}
-	if (rec.requestCommitmentHex.toLowerCase() !== requestCommitmentHex.toLowerCase()) {
-		throw new ContractNotPersistedError('journal terms commitment mismatch');
-	}
+	await journalOp(send, {
+		op: 'JournalCheck',
+		record: rec,
+		contract_address: contract.address,
+		amount_sats: contract.plan.amountSats,
+		request_commitment_hex: requestCommitmentHex
+	});
 	return rec;
 }
 
@@ -156,12 +136,13 @@ export async function fundArkSwapContractPersisted(
 	backend: ContractJournalBackend,
 	wallet: ArkFundingWallet,
 	contract: ArkSwapContract,
-	requestCommitmentHex: string
+	requestCommitmentHex: string,
+	send: ExtroSend = defaultSend
 ): Promise<{ arkTxId: string; amountSats: bigint; address: string }> {
-	const rec = await assertContractPersisted(backend, contract, requestCommitmentHex);
+	const rec = await assertContractPersisted(backend, contract, requestCommitmentHex, send);
 	const funded = await fundArkSwapContract(wallet, contract);
 	try {
-		await persistContractRecord(backend, { ...rec, fundingArkTxId: funded.arkTxId });
+		await persistContractRecord(backend, { ...rec, fundingArkTxId: funded.arkTxId }, send);
 	} catch {
 		/* funding txid is a convenience; terms were already durable */
 	}
