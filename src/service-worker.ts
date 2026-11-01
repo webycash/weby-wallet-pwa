@@ -149,7 +149,17 @@ self.addEventListener('message', (event) => {
 	if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
-// Fetch: cache-first for precached assets, network-first for API calls.
+// Fetch. Precached build assets (content-hashed) are cache-first. Everything
+// else is network-first and only falls back to the cache when offline, so a
+// redeploy is visible on the next load. A response marked `no-store` (the
+// runtime config, wallet pages that must not be stale) is never cached, and
+// `runtime-config.json` is never answered by this worker: a stale tier config
+// would boot the wallet against the wrong home or fail closed.
+const PRECACHED = new Set(PRECACHE.map((p) => new URL(p, self.location.href).pathname));
+
+const noStore = (response: Response) =>
+	/(^|,)\s*no-store\s*(,|$)/i.test(response.headers.get('cache-control') ?? '');
+
 self.addEventListener('fetch', (event) => {
 	const { request } = event;
 	const url = new URL(request.url);
@@ -157,18 +167,23 @@ self.addEventListener('fetch', (event) => {
 	// Skip non-GET and cross-origin requests.
 	if (request.method !== 'GET') return;
 	if (url.origin !== self.location.origin) return;
+	if (url.pathname.endsWith('/runtime-config.json')) return;
+
+	if (PRECACHED.has(url.pathname)) {
+		event.respondWith(caches.match(request).then((cached) => cached ?? fetch(request)));
+		return;
+	}
 
 	event.respondWith(
-		caches.match(request).then((cached) => {
-			if (cached) return cached;
-			// Not in cache — try network, cache the response for next time.
-			return fetch(request).then((response) => {
-				if (response.ok && response.type === 'basic') {
+		fetch(request).then(
+			(response) => {
+				if (response.ok && response.type === 'basic' && !noStore(response)) {
 					const clone = response.clone();
 					caches.open(CACHE).then((cache) => cache.put(request, clone));
 				}
 				return response;
-			});
-		})
+			},
+			async (error) => (await caches.match(request)) ?? Promise.reject(error)
+		)
 	);
 });

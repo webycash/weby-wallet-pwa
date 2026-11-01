@@ -93,7 +93,8 @@ async function storageDigest(page: Page, nodeDb: string) {
 	}, nodeDb);
 }
 
-const config = (page: Page, url: string) => page.evaluate(async (u) => (await fetch(`${u}/runtime-config.json`)).json(), url);
+// From the network (page.request bypasses the page's service worker).
+const config = async (page: Page, url: string) => (await page.request.get(`${url}/runtime-config.json`)).json();
 
 async function persistent(): Promise<BrowserContext> {
 	return chromium.launchPersistentContext(PROFILE, { headless: true });
