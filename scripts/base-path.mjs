@@ -41,7 +41,7 @@ export function readTierConfig(toml) {
  * @returns {{ base: string, assetsDir: string }}
  */
 export function resolveTierBasePath(tier, { root = ROOT, env = {} } = {}) {
-	if (!tier) throw new Error('WALLET_TIER is required to build (dev | staging); it selects wrangler.<tier>.toml');
+	if (!tier) throw new Error('WALLET_TIER is required to build (dev | staging | production); it selects wrangler.<tier>.toml');
 	if (!/^[a-z0-9-]+$/.test(tier)) throw new Error(`invalid WALLET_TIER ${JSON.stringify(tier)}`);
 	const file = join(root, `wrangler.${tier}.toml`);
 	if (!existsSync(file)) throw new Error(`WALLET_TIER=${tier}: ${file} does not exist`);

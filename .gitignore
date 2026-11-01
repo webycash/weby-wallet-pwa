@@ -47,3 +47,4 @@ dev-deploy/
 # Local-only Vite Ark pin (never commit; CF stays ark_enabled=false)
 static/runtime-config.json
 staging-deploy/
+production-deploy/
