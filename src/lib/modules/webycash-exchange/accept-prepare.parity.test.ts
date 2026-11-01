@@ -88,7 +88,7 @@ describe('prepare terms: extro-node vector = wallet', () => {
 			cfg = cfgOf(c.input);
 			const got = await outcome(() => buildArkPrepareTermsFromProvider(buildInput(c.input)));
 			if (c.expected.error) {
-				expect('error' in got && got.error.endsWith(c.expected.error), `${c.name}: ${JSON.stringify(got)}`).toBe(true);
+				expect('error' in got && got.error.endsWith(c.expected.error), `${c.name}: ${JSON.stringify(plain(got))}`).toBe(true);
 			} else {
 				if (!('ok' in got)) throw new Error(`${c.name}: ${got.error}`);
 				expect(plain(got.ok), c.name).toEqual(c.expected.terms);
@@ -117,9 +117,9 @@ describe('prepare terms: extro-node vector = wallet', () => {
 			);
 			vi.restoreAllMocks();
 			if (c.expected.error) {
-				expect('error' in got && got.error.endsWith(c.expected.error), `${c.name}: ${JSON.stringify(got)}`).toBe(true);
+				expect('error' in got && got.error.endsWith(c.expected.error), `${c.name}: ${JSON.stringify(plain(got))}`).toBe(true);
 			} else {
-				expect('ok' in got, `${c.name}: ${JSON.stringify(got)}`).toBe(true);
+				expect('ok' in got, `${c.name}: ${JSON.stringify(plain(got))}`).toBe(true);
 			}
 		}
 	});

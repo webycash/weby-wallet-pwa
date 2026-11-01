@@ -24,7 +24,7 @@
  */
 import { getExtroClient } from '$lib/extro';
 import { getSelfIdentity } from '$lib/extro/self-identity';
-import { newRequestId, type ArkPrepareTerms, type WireProviderMaterial } from '@extro/node';
+import { newRequestId, type ArkPrepareExpectation, type ArkPrepareTerms, type WireProviderMaterial } from '@extro/node';
 import { getRuntimeConfig, refereeAvailable } from '$lib/extro/release-config';
 import { loadArkOverview } from '$lib/ark/ark-view';
 import {
@@ -67,9 +67,9 @@ import {
 	type ContractJournalBackend
 } from '$lib/ark/contract-journal';
 import {
+	arkPinsFromConfig,
 	buildArkPrepareTermsFromProvider,
-	expectationFromTerms,
-	orderIdToPrepareOrderId,
+	prepareOp,
 	PREPARE_MAX_TTL_SECS,
 	submitDualSignedPrepare
 } from './accept-prepare';
@@ -86,6 +86,7 @@ import {
 	signSwapPrepare,
 	verifySwapPreparedResponse
 } from './swap-prepare';
+import type { ExtroSend } from './exchange-core';
 import type { LimitOrder } from './types';
 
 export const PROVIDER_OFFER_PREFIX = 'offer:';
@@ -234,8 +235,6 @@ const hexToBytes = (hex: string): Uint8Array => {
 };
 const bytesToHex = (b: Uint8Array): string =>
 	Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
-const sameBytes = (a: Uint8Array, b: Uint8Array) =>
-	a.length === b.length && a.every((x, i) => x === b[i]);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const sha256 = async (bytes: Uint8Array): Promise<Uint8Array> =>
 	new Uint8Array(await crypto.subtle.digest('SHA-256', bytes as BufferSource));
@@ -344,50 +343,40 @@ export function refereeFromConfig() {
 	};
 }
 
-/** Provider checks every field it owns before countersigning seller-built terms. */
-export function assertProviderOwnedTerms(input: {
-	terms: ArkPrepareTerms;
-	offer: WireProviderMaterial;
-	selfFpHex: string;
-	arkDestination: string;
-	orderId16: Uint8Array;
-	counterpartyFpHex: string;
-	arkAmountSats: bigint;
-}): void {
-	const { terms, offer } = input;
-	const cfg = getRuntimeConfig();
-	const fail = (m: string): never => {
-		throw new Error(`provider rejected prepare terms: ${m}`);
-	};
-	if (!sameBytes(terms.order_id, orderIdToPrepareOrderId(input.orderId16))) fail('order id');
-	if (terms.parties.provider_fp.toLowerCase() !== input.selfFpHex) fail('provider fingerprint');
-	if (terms.parties.provider_pgp_pubkey_hex.toLowerCase() !== bytesToHex(offer.provider_pgp_pubkey)) {
-		fail('provider pgp key');
-	}
-	if (terms.parties.bearer_seller_fp.toLowerCase() !== input.counterpartyFpHex.toLowerCase()) {
-		fail('bearer seller is not the accepting counterparty');
-	}
-	if (terms.parties.provider_musig2_pubkey.toLowerCase() !== offer.provider_musig2_pubkey.toLowerCase()) {
-		fail('provider musig2 key');
-	}
-	if (terms.parties.provider_cancel_pubkey_hex.toLowerCase() !== offer.provider_cancel_pubkey_hex.toLowerCase()) {
-		fail('provider cancel key');
-	}
-	if (terms.provider_nonces.settle_nonce_pub.toLowerCase() !== offer.settle_nonce_pub.toLowerCase()) {
-		fail('settle nonce');
-	}
-	if (terms.provider_nonces.refund_nonce_pub.toLowerCase() !== offer.refund_nonce_pub.toLowerCase()) {
-		fail('refund nonce');
-	}
-	if (terms.provider_ark_destination !== input.arkDestination) fail('provider Ark destination');
-	if (terms.ark_network !== cfg.ark_network) fail('Ark network');
-	if (bytesToHex(terms.ark_operator_signer_pk) !== cfg.ark_signer_pk_hex.toLowerCase()) fail('operator key');
-	if (bytesToHex(terms.ark_operator_info_digest) !== cfg.ark_info_digest_hex.toLowerCase()) fail('operator digest');
-	if (terms.ark_unilateral_exit_delay !== BigInt(cfg.ark_unilateral_exit_delay)) fail('exit delay');
-	if (terms.ark_amount_sats !== input.arkAmountSats) fail('Ark amount differs from the order');
-	if (!terms.bearer_seller_ark_destination) fail('bearer seller Ark destination');
-	const now = Math.floor(Date.now() / 1000);
-	if (terms.expires_at_unix <= now || terms.expires_at_unix > now + PREPARE_MAX_TTL_SECS + 120) fail('expiry window');
+/**
+ * Provider checks every field it owns before countersigning seller-built
+ * terms (extro-node `Op::Exchange ProviderCheckTerms`). Returns what it
+ * countersigns against; a mismatch throws `provider rejected prepare terms: …`.
+ */
+export async function assertProviderOwnedTerms(
+	input: {
+		terms: ArkPrepareTerms;
+		offer: WireProviderMaterial;
+		selfFpHex: string;
+		arkDestination: string;
+		orderId16: Uint8Array;
+		counterpartyFpHex: string;
+		arkAmountSats: bigint;
+	},
+	send: ExtroSend = (c) => getExtroClient().send(c)
+): Promise<ArkPrepareExpectation> {
+	const r = await prepareOp(
+		send,
+		{
+			op: 'ProviderCheckTerms',
+			terms: input.terms,
+			offer: input.offer,
+			self_fp_hex: input.selfFpHex,
+			ark_destination: input.arkDestination,
+			order_id: input.orderId16,
+			counterparty_fp_hex: input.counterpartyFpHex,
+			ark_amount_sats: input.arkAmountSats,
+			...arkPinsFromConfig(),
+			now_unix: Math.floor(Date.now() / 1000)
+		},
+		'ExchangeProviderChecked'
+	);
+	return r.expectation;
 }
 
 async function deriveContract(
@@ -449,7 +438,7 @@ export async function runProviderSide(
 	if (!sellerSigned) throw new Error('timed out waiting for bearer seller prepare terms');
 
 	const terms = await inspectSwapPrepare(sellerSigned);
-	assertProviderOwnedTerms({
+	const expectation = await assertProviderOwnedTerms({
 		terms,
 		offer: ownOffer,
 		selfFpHex: me.fpHex,
@@ -458,7 +447,7 @@ export async function runProviderSide(
 		counterpartyFpHex,
 		arkAmountSats
 	});
-	const countersigned = await countersignSwapPrepare(sellerSigned, expectationFromTerms(terms), slot);
+	const countersigned = await countersignSwapPrepare(sellerSigned, expectation, slot);
 	await relaySwapPrepareSignature({
 		orderId: orderId16,
 		forFingerprint: counterpartyFp,
@@ -847,7 +836,7 @@ export async function runBearerSellerSide(
 	const me = await selfIdentity(slot);
 	const overview = await loadArkOverview();
 	const commitment = await sha256(orderId16);
-	const terms = buildArkPrepareTermsFromProvider({
+	const terms = await buildArkPrepareTermsFromProvider({
 		orderId16,
 		signedOrderCommitmentSha256: commitment,
 		fillAmountRaw: fillAmountRawFor(order),
