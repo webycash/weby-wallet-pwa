@@ -43,7 +43,9 @@ PUBLIC_ARK_ENABLED = "true"
 PUBLIC_ARK_NETWORK = "bitcoin"
 PUBLIC_ARK_ASP_URL = "https://arkade.computer"
 PUBLIC_ARK_SIGNER_PK_HEX = "8202bebddeb1f7442803897a85eaf3ce9254d07df0172fc3725ab5f0d097779c"
-PUBLIC_ARK_INFO_DIGEST_HEX = "6f4148f0aafe75ff8046f314d75a87ddf17ad0659f37af55746498104fde3589"
+# Canonical operator digest = extro-node Op::Ark OperatorInfoDigest (ADR-0007) over the
+# GetInfo above; the boot attestation and swap plans both compare against this one value.
+PUBLIC_ARK_INFO_DIGEST_HEX = "a91e2e566cc93131f16d41159e697042caec4b68cdce850b315bbf5010ce192d"
 PUBLIC_ARK_CHECKPOINT_TAPSCRIPT_HEX = "039e0440b27520b43a8363118c084a04d4f6a50ebfa58e81957f8cceceb2aee0ab64c9fd2d9977ac"
 PUBLIC_ARK_UNILATERAL_EXIT_DELAY = "605184"
 # Production MPC-ceremony profile and its VK fingerprints (extro-circuits
