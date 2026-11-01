@@ -25,11 +25,12 @@
 import { getExtroClient } from '$lib/extro';
 import { getSelfIdentity } from '$lib/extro/self-identity';
 import { newRequestId, type ArkPrepareTerms, type WireProviderMaterial } from '@extro/node';
-import { getRuntimeConfig } from '$lib/extro/release-config';
+import { getRuntimeConfig, refereeAvailable } from '$lib/extro/release-config';
 import { loadArkOverview } from '$lib/ark/ark-view';
 import {
 	GATE_ARK_AWAITING_PROVIDER_FUNDING,
 	GATE_ARK_FUNDING_INSUFFICIENT,
+	GATE_REFEREE_UNAVAILABLE,
 	GATE_SETTLE_RELEASE_PENDING,
 	NamedArkGateError
 } from '$lib/ark/named-gates';
@@ -329,8 +330,14 @@ async function inspectSwapPrepare(signed: Uint8Array): Promise<ArkPrepareTerms> 
 	return res.body.terms;
 }
 
-function refereeFromConfig() {
+/**
+ * The swap referee for this deployment. A tier without one (development only;
+ * @extro/node refuses that on staging/production) stops at the named
+ * REFEREE_UNAVAILABLE gate instead of building a client for an empty URL.
+ */
+export function refereeFromConfig() {
 	const cfg = getRuntimeConfig();
+	if (!refereeAvailable(cfg)) throw new NamedArkGateError(GATE_REFEREE_UNAVAILABLE);
 	return {
 		referee: new HttpRefereeClient({ baseUrl: cfg.referee_url, pinnedPubkeyHex: cfg.referee_vk_hex }),
 		refereeVk: hexToBytes(cfg.referee_vk_hex)

@@ -71,7 +71,10 @@ vi.mock('./bearer-precheck', () => ({
 	railTokenStatus: async () => ({ status: 'unspent', amount: '1' })
 }));
 
-vi.mock('$lib/extro/release-config', () => ({ getRuntimeConfig: () => CFG }));
+vi.mock('$lib/extro/release-config', async () => ({
+	getRuntimeConfig: () => CFG,
+	refereeAvailable: (await vi.importActual<typeof import('@extro/node')>('@extro/node')).refereeAvailable
+}));
 vi.mock('$lib/extro/self-identity', () => ({
 	getSelfIdentity: async () => ({ fingerprintHex: PROVIDER_FP, verifyingKey: hex('77'.repeat(32)) })
 }));
