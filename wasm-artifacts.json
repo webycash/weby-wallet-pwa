@@ -4,7 +4,7 @@
     "extroNode": {
       "package": "@extro/node",
       "repository": "git@github.com:extronet/extro-node.git",
-      "commit": "911b874d422d14a1afedf2222187feba19c3d167"
+      "commit": "84a0d0670832121f8c20f3bbbe1ed394aa935f9b"
     },
     "walletWasm": {
       "repository": "git@github.com:webycash/weby-wallet-pwa.git",
@@ -14,7 +14,7 @@
   "files": {
     "node_modules/@extro/node/js/wasm/extro_node.js": "ee0c155a62db9ac5fece8e8f9faaca6e064152cf2416e96937063b2697b45e13",
     "node_modules/@extro/node/js/wasm/extro_node.d.ts": "c51aeed2c0359901a96df31d02494b8a7f73b413bfd075f8d7eef283e75e585f",
-    "node_modules/@extro/node/js/wasm/extro_node_bg.wasm": "575983ed28637bc9174d91c796b867ab98d998388a3e714cba794f12bd239545",
+    "node_modules/@extro/node/js/wasm/extro_node_bg.wasm": "eebfba655364326696488ad7ef484d8c9b7d8a98ad87d8970ebbd52766d3cbf8",
     "node_modules/@extro/node/js/wasm/extro_node_bg.wasm.d.ts": "ea8cd69ce0f8c12d64bf1125401819e7981914b96f89f24485fe0f450e4bc46a",
     "crates/wallet-wasm/pkg/wallet_wasm.js": "af2289033ed648832c132512b23922f9e06b14c0685cbca42ce0f291b19de567",
     "crates/wallet-wasm/pkg/wallet_wasm.d.ts": "d8bb19eb13ef81eb51bff06e4976f7063138fbc32b24071c6f1bb68f46b08b41",
