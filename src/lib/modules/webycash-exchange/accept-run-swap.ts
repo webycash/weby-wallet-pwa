@@ -22,6 +22,7 @@ import { openTrade, runSwap, trades, type RunSwapInput } from './trade-store.sve
 import type { SwapProgress } from './swap-runner';
 import { evaluatePairNode } from './pair-policy';
 import type { ProviderMaterial } from './swap-facts';
+import type { ExtroSend } from './exchange-core';
 import type { LimitOrder, Trade } from './types';
 
 const hexToBytes = (hex: string, length: number, name: string): Uint8Array => {
@@ -30,9 +31,6 @@ const hexToBytes = (hex: string, length: number, name: string): Uint8Array => {
 	}
 	return Uint8Array.from({ length }, (_, i) => Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16));
 };
-
-const bytesToHex = (bytes: Uint8Array): string =>
-	Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 
 export type AcceptRunSwapStage =
 	| 'idle'
@@ -187,42 +185,32 @@ export async function awaitProviderMaterial(
 }
 
 /**
- * Convert wire ProviderMaterial (+ optional conditional payload) into the
+ * Convert wire ProviderMaterial (+ the framed conditional payload) into the
  * runSwap ProviderMaterial shape. Fails closed on placeholder locked_ref/hashes.
+ *
+ * The checks live in extro-node (`Op::Exchange SwapProviderMaterial`,
+ * ADR-0007); a refusal throws `… SWAP_FACTS_INVALID: <reason>`.
  */
-export function providerMaterialFromWire(
+export async function providerMaterialFromWire(
 	wire: WireProviderMaterial,
-	conditionalPayload: Uint8Array
-): ProviderMaterial {
-	const locked = wire.locked_ref.trim();
-	if (!/^([0-9a-f]{64}):(\d+)$/i.test(locked) || /^v+:/i.test(locked)) {
-		throw new Error('provider locked_ref must be a real Ark VTXO outpoint');
+	conditionalPayload: Uint8Array,
+	send: ExtroSend = (c) => getExtroClient().send(c)
+): Promise<ProviderMaterial> {
+	if (!(conditionalPayload instanceof Uint8Array)) {
+		throw new Error('SWAP_FACTS_INVALID: conditional_payload must be exactly 128 bytes');
 	}
-	const settle = wire.tx_settle_hash_hex.toLowerCase();
-	const refund = wire.tx_refund_hash_hex.toLowerCase();
-	// sighash-bundle-v1: 1 (legacy) or 2 ([checkpoint, ark]) 32-byte sighashes.
-	const bundle = /^(?:[0-9a-f]{64}){1,2}$/;
-	if (!bundle.test(settle) || !bundle.test(refund)) {
-		throw new Error('provider settle/refund hashes must be 1..2 × 32-byte hex');
+	const res = await send({
+		request_id: newRequestId(),
+		op: {
+			kind: 'Exchange',
+			cmd: { op: 'SwapProviderMaterial', wire, conditional_payload: conditionalPayload }
+		}
+	});
+	if (res.kind === 'Err') throw new Error(res.message);
+	if (res.body.kind !== 'ExchangeSwapProviderMaterial') {
+		throw new Error(`SwapProviderMaterial: unexpected ${res.body.kind}`);
 	}
-	if (settle === 'ab'.repeat(32) || refund === 'cf'.repeat(32) || settle === refund) {
-		throw new Error('provider settle/refund hashes reject placeholders / XOR collision');
-	}
-	if (!(conditionalPayload instanceof Uint8Array) || conditionalPayload.length !== 128) {
-		throw new Error('conditional_payload must be exactly 128 bytes');
-	}
-	return {
-		musig2_pubkey: wire.provider_musig2_pubkey.toLowerCase(),
-		settle_nonce: wire.settle_nonce_pub.toLowerCase(),
-		refund_nonce: wire.refund_nonce_pub.toLowerCase(),
-		provider_fp: bytesToHex(wire.provider_fp),
-		provider_pgp_pubkey: bytesToHex(wire.provider_pgp_pubkey),
-		provider_cancel_pubkey_hex: wire.provider_cancel_pubkey_hex.toLowerCase(),
-		locked_ref: locked.toLowerCase(),
-		tx_settle_hash_hex: settle,
-		tx_refund_hash_hex: refund,
-		conditional_payload: conditionalPayload.slice()
-	};
+	return res.body.material as ProviderMaterial;
 }
 
 export type AttemptAcceptRunSwapInput = {

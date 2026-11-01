@@ -7,6 +7,7 @@ import {
 import { attemptRunSwapBoundary, providerMaterialFromWire } from './accept-run-swap';
 import type { LimitOrder } from './types';
 import type { WireProviderMaterial } from '@extro/node';
+import { bootArkNode } from '$lib/ark/ark-node.testkit';
 
 vi.mock('$lib/extro', () => ({
 	getExtroClient: () => ({
@@ -100,23 +101,28 @@ describe('attemptRunSwapBoundary', () => {
 });
 
 describe('providerMaterialFromWire', () => {
-	it('maps wire ProviderMaterial into runSwap shape', () => {
+	// Real extro-node (Op::Exchange SwapProviderMaterial); `$lib/extro` is mocked above.
+	const node = async () => (await bootArkNode()).send as never;
+
+	it('maps wire ProviderMaterial into runSwap shape', async () => {
 		const payload = new Uint8Array(128);
 		payload[0] = 0x00;
 		payload[1] = 0x00;
 		payload[2] = 0x00;
 		payload[3] = 0x20;
 		payload[4] = 0xab;
-		const m = providerMaterialFromWire(sampleWire(), payload);
+		const m = await providerMaterialFromWire(sampleWire(), payload, await node());
 		expect(m.locked_ref).toBe(`${'ee'.repeat(32)}:0`);
 		expect(m.tx_settle_hash_hex).toBe('11'.repeat(32));
 		expect(m.conditional_payload).toHaveLength(128);
 	});
 
-	it('rejects placeholder settle hash', () => {
+	it('rejects placeholder settle hash', async () => {
 		const wire = sampleWire();
 		wire.tx_settle_hash_hex = 'ab'.repeat(32);
-		expect(() => providerMaterialFromWire(wire, new Uint8Array(128).fill(1))).toThrow(/placeholder/i);
+		await expect(
+			providerMaterialFromWire(wire, new Uint8Array(128).fill(1), await node())
+		).rejects.toThrow(/placeholder/i);
 	});
 });
 
