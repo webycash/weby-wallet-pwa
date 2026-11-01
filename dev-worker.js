@@ -4,6 +4,7 @@
 // asset dir under wallet/). Unmatched client-side routes fall back to the
 // SPA shell at /wallet/index.html (adapter-static fallback).
 import { parseRuntimeConfig, runtimeConfigFromPublicEnv } from '@extro/node/runtime-config';
+import { withSecurityHeaders } from './worker/security-headers.mjs';
 import { mintCloudflareTurnServers } from './worker/turn-relay.mjs';
 
 /** TURN relays for the runtime config. `cloudflare` mints short-lived
@@ -40,30 +41,34 @@ const NO_STORE = { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosni
 
 export default {
   async fetch(request, env) {
-    const url = new URL(request.url);
-    if (url.pathname === '/wallet/runtime-config.json') {
-      // Same PUBLIC_* mapping and strict validation the app applies, from
-      // @extro/node; an invalid or incomplete tier config is never served.
-      // Fail closed: no runtime config means the wallet refuses to boot (no
-      // silent fallback to a public relay). Details are logged, not served.
-      let config;
-      try {
-        const minted = await turnServers(env, request);
-        const source = runtimeConfigFromPublicEnv(
-          minted === null ? env : { ...env, PUBLIC_TURN_SERVERS_JSON: '[]' }
-        );
-        if (minted !== null) source.turn_servers = minted;
-        config = parseRuntimeConfig(source);
-      } catch (error) {
-        console.error('[runtime-config] refusing to serve:', String(error));
-        const status = error instanceof HttpError ? error.status : 500;
-        return Response.json({ error: 'runtime config unavailable' }, { status, headers: NO_STORE });
-      }
-      return Response.json(config, { headers: NO_STORE });
-    }
-    const res = await env.ASSETS.fetch(request);
-    if (res.status !== 404) return res;
-    const shell = new URL('/wallet/index.html', url.origin);
-    return env.ASSETS.fetch(new Request(shell, request));
+    return withSecurityHeaders(await route(request, env));
   }
 };
+
+async function route(request, env) {
+  const url = new URL(request.url);
+  if (url.pathname === '/wallet/runtime-config.json') {
+    // Same PUBLIC_* mapping and strict validation the app applies, from
+    // @extro/node; an invalid or incomplete tier config is never served.
+    // Fail closed: no runtime config means the wallet refuses to boot (no
+    // silent fallback to a public relay). Details are logged, not served.
+    let config;
+    try {
+      const minted = await turnServers(env, request);
+      const source = runtimeConfigFromPublicEnv(
+        minted === null ? env : { ...env, PUBLIC_TURN_SERVERS_JSON: '[]' }
+      );
+      if (minted !== null) source.turn_servers = minted;
+      config = parseRuntimeConfig(source);
+    } catch (error) {
+      console.error('[runtime-config] refusing to serve:', String(error));
+      const status = error instanceof HttpError ? error.status : 500;
+      return Response.json({ error: 'runtime config unavailable' }, { status, headers: NO_STORE });
+    }
+    return Response.json(config, { headers: NO_STORE });
+  }
+  const res = await env.ASSETS.fetch(request);
+  if (res.status !== 404) return res;
+  const shell = new URL('/wallet/index.html', url.origin);
+  return env.ASSETS.fetch(new Request(shell, request));
+}
