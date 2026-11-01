@@ -42,7 +42,7 @@
 	},
 	"dependencies": {
 		"@arkade-os/sdk": "0.4.66",
-		"@extro/node": "github:extronet/extro-node#c428dfc414914d4013ca3cd38e67d586e7860e18",
+		"@extro/node": "github:extronet/extro-node#9a000980b7a1c2b2a25e213343b43d532bc3fd0c",
 		"@lucide/svelte": "^1.8.0",
 		"@noble/curves": "2.0.1",
 		"@scure/btc-signer": "2.0.1",
