@@ -39,17 +39,35 @@
 	const amount = $derived(parseFloat(amountStr) || 0);
 	const cap = $derived(capStr.trim() === '' ? undefined : parseFloat(capStr) || 0);
 
-	// Live market-order walk preview (pure delegation to the store/book-math).
-	const walk = $derived<MarketWalk | null>(
-		mode === 'market' && amount > 0
-			? walkCurrent({
-					side,
-					requestedAmount: amount,
-					slippage: slippagePct / 100,
-					quoteCap: cap
-				})
-			: null
-	);
+	// The slippage input is a percentage with 0.01% (= 1 bp) resolution; the
+	// exchange core takes integer basis points.
+	const slippageBps = $derived(Math.round((Number(slippagePct) || 0) * 100));
+
+	// Live market-order walk preview, computed by extro-node (Op::Exchange). The
+	// store reads the book synchronously, so a book refresh re-runs this effect.
+	let walk = $state<MarketWalk | null>(null);
+	let walkError = $state<string | null>(null);
+	$effect(() => {
+		walk = null;
+		walkError = null;
+		if (mode !== 'market' || amount <= 0) return;
+		if (!Number.isSafeInteger(amount) || (cap !== undefined && !Number.isSafeInteger(cap))) {
+			walkError = 'Amount and quote cap are whole atomic units.';
+			return;
+		}
+		let stale = false;
+		walkCurrent({ side, requestedAmount: amount, slippageBps, quoteCap: cap }).then(
+			(w) => {
+				if (!stale) walk = w;
+			},
+			(e) => {
+				if (!stale) walkError = e instanceof Error ? e.message : String(e);
+			}
+		);
+		return () => {
+			stale = true;
+		};
+	});
 
 	const blocked = $derived(!verdict.allowed);
 	const canLimit = $derived(!blocked && price > 0 && amount > 0);
@@ -215,6 +233,8 @@
 						<span>{fmt(walk.totalQuote)} {assetLabel(pair.quote)}</span>
 					</div>
 				</div>
+			{:else if walkError}
+				<p class="text-[11px] text-destructive px-1">{walkError}</p>
 			{:else}
 				<p class="text-[11px] text-muted-foreground px-1">Enter an amount to preview the book walk.</p>
 			{/if}

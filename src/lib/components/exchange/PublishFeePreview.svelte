@@ -1,9 +1,11 @@
 <script lang="ts">
 	import {
-		computePublicationFee,
 		perSeederFeePercent,
+		publicationFeeNode,
+		type PublicationFee,
 		type Seeder
 	} from '$lib/modules/webycash-exchange';
+	import { getExtroClient } from '$lib/extro';
 
 	let {
 		orderValue,
@@ -13,7 +15,25 @@
 		seeders: Seeder[];
 	} = $props();
 
-	const fee = $derived(computePublicationFee(orderValue, seeders));
+	// Computed by extro-node (Op::Exchange PublicationFee).
+	let fee = $state<PublicationFee>({ allowed: true, totalFee: 0, shares: [] });
+	let feeError = $state<string | null>(null);
+	$effect(() => {
+		const client = getExtroClient();
+		let stale = false;
+		feeError = null;
+		publicationFeeNode((c) => client.send(c), orderValue, seeders).then(
+			(f) => {
+				if (!stale) fee = f;
+			},
+			(e) => {
+				if (!stale) feeError = e instanceof Error ? e.message : String(e);
+			}
+		);
+		return () => {
+			stale = true;
+		};
+	});
 	const activeCount = $derived(seeders.filter((s) => s.active).length);
 	const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 4 });
 </script>
@@ -24,7 +44,9 @@
 		<span class="font-semibold tabular-nums">{fmt(fee.totalFee)}</span>
 	</div>
 
-	{#if !fee.allowed}
+	{#if feeError}
+		<div class="rounded-xl bg-destructive/10 text-destructive px-3 py-2 text-[12px]">{feeError}</div>
+	{:else if !fee.allowed}
 		<div class="rounded-xl {fee.blockedReason === 'no-active-seeders' ? 'bg-primary/8 text-primary' : 'bg-destructive/10 text-destructive'} px-3 py-2 text-[12px]">
 			{#if fee.blockedReason === 'no-active-seeders'}
 				No other seeders yet — you'll be the first maker. Your node self-seeds this order (no fee) and relays it to every peer that connects.

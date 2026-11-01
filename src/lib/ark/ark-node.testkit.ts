@@ -10,6 +10,7 @@ import {
 	BundledExtroAdapter,
 	loadExtroNodeWasm,
 	parseRuntimeConfig,
+	type ExtroAdapter,
 	type ExtroCommand,
 	type ExtroResponse,
 	type WireArkOperatorInfo
@@ -104,4 +105,24 @@ export async function bootArkNode(): Promise<{ send(command: ExtroCommand): Prom
 	});
 	await adapter.boot();
 	return { send: (command) => adapter.dispatch(command) };
+}
+
+/**
+ * An adapter that answers the pure extro-node ops (`Op::Exchange`, `Op::Ark`)
+ * from the real WASM and everything else from `inner` (e.g. a mock that counts
+ * payments), so flows built on those ops are tested against the real core.
+ */
+export function withRealPureOps<A extends ExtroAdapter>(inner: A): ExtroAdapter {
+	let node: Promise<{ send(command: ExtroCommand): Promise<ExtroResponse> }> | null = null;
+	return {
+		mode: inner.mode,
+		boot: () => inner.boot(),
+		dispatch: async (command) => {
+			if (command.op.kind === 'Exchange' || command.op.kind === 'Ark') {
+				node ??= bootArkNode();
+				return (await node).send(command);
+			}
+			return inner.dispatch(command);
+		}
+	};
 }

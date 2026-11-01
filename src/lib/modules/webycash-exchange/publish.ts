@@ -1,5 +1,5 @@
-// Publish-order flow: discover/mock active seeders, compute the 0.1%
-// publication fee, split it equally, pay each seeder over an allowed rail
+// Publish-order flow: discover/mock active seeders, have extro-node compute the
+// 0.1% publication fee and its equal split (Op::Exchange), pay each seeder over an allowed rail
 // (Webcash or Bitcoin ARK only) through the extro facade SimplePay primitive,
 // and attach the receipts.
 //
@@ -10,7 +10,8 @@
 
 import { newRequestId, type ExtroCommand } from '@extro/node';
 import type { ExtroClient } from '@extro/node';
-import { computePublicationFee, isAllowedFeeRail } from './publication-fee';
+import { isAllowedFeeRail } from './publication-fee';
+import { publicationFeeNode } from './exchange-core';
 import { hexToBytes } from './push-hooks';
 import type { FeeShare, PublicationFee, Seeder } from './types';
 
@@ -43,7 +44,7 @@ export async function publishOrderFee(
 	client: ExtroClient,
 	input: PublishInput
 ): Promise<PublishResult> {
-	const fee = computePublicationFee(input.orderValue, input.seeders);
+	const fee = await publicationFeeNode((c) => client.send(c), input.orderValue, input.seeders);
 	if (!fee.allowed) {
 		return { ok: false, reason: fee.blockedReason ?? 'no-active-seeders', fee };
 	}

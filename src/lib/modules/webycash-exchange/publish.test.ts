@@ -1,13 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import { ExtroClient } from '@extro/node';
 import { MockExtroAdapter } from '@extro/node/testing';
+import { withRealPureOps } from '$lib/ark/ark-node.testkit';
 import { publishOrderFee } from './publish';
 import type { Seeder } from './types';
 
-const client = () => new ExtroClient(new MockExtroAdapter());
+// Fee math from the real extro-node (Op::Exchange); payments hit the mock.
+const client = () => new ExtroClient(withRealPureOps(new MockExtroAdapter()));
 
-const seeder = (fp: string, rail: Seeder['rail'] = 'webcash', active = true): Seeder => ({
-	fingerprint: fp,
+const seeder = (fp1: string, rail: Seeder['rail'] = 'webcash', active = true): Seeder => ({
+	fingerprint: fp1.repeat(20),
 	rail,
 	active
 });
@@ -29,7 +31,7 @@ describe('publish-order fee flow', () => {
 
 	it('blocks (and pays no one) with zero active seeders', async () => {
 		const adapter = new MockExtroAdapter();
-		const c = new ExtroClient(adapter);
+		const c = new ExtroClient(withRealPureOps(adapter));
 		const res = await publishOrderFee(c, { orderValue: 1_000_000, seeders: [], slot: 0 });
 		expect(res.ok).toBe(false);
 		if (!res.ok) expect(res.reason).toBe('no-active-seeders');
@@ -48,7 +50,7 @@ describe('publish-order fee flow', () => {
 
 	it('fee payments are serialized through the single-flight facade', async () => {
 		const adapter = new MockExtroAdapter();
-		const c = new ExtroClient(adapter);
+		const c = new ExtroClient(withRealPureOps(adapter));
 		await publishOrderFee(c, {
 			orderValue: 1_000_000,
 			seeders: Array.from({ length: 5 }, (_, i) => seeder(String(i).padStart(2, '0'))),

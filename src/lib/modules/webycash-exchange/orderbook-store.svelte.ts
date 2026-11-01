@@ -1,21 +1,12 @@
-// Orderbook reactive store — a THIN wrapper over the pure `book-math` and
-// `pair-policy` modules. It holds the observed orders + the selected pair as
-// Svelte 5 runes and exposes derived bids/asks/spread. All the actual math is
-// unit-tested in `book-math.test.ts`; this file deliberately contains no logic
-// worth unit-testing of its own.
+// Orderbook reactive store — a THIN wrapper. It holds the observed orders + the
+// selected pair as Svelte 5 runes; the live bids/asks/spread/mid and market
+// walks come from extro-node's exchange core (`Op::Exchange`, via
+// `exchange-core.ts`, ADR-0007 H3). This file contains no book math.
 //
 // SECRECY: orders here are PUBLIC commitments only (signed-order metadata). No
 // plaintext secret is ever stored in this state.
 
-import {
-	sortAsks,
-	sortBids,
-	spread as calcSpread,
-	midPrice as calcMid,
-	liveOrders,
-	walkBook,
-	type WalkParams
-} from './book-math';
+import { bookView, walkBookNode, type BookView, type NodeWalkParams } from './exchange-core';
 import { evaluatePair, type AssetClass } from './pair-policy';
 import { MOCK_PAIRS, pairKey } from './mock-data';
 import { recordObservation } from './market-data';
@@ -118,14 +109,35 @@ const state = $state<BookState>({
 
 const nowSec = () => Math.floor(Date.now() / 1000);
 
-/** All non-expired orders for the selected pair. */
-const live = (): LimitOrder[] =>
-	liveOrders(
-		state.orders.filter(
-			(o) => o.pair.base === state.pair.base && o.pair.quote === state.pair.quote
-		),
-		nowSec()
+const EMPTY_VIEW: BookView = { bids: [], asks: [], spread: null, midPrice: null };
+
+/** Live book for the selected pair, as last computed by extro-node. */
+const view = $state<{ current: BookView }>({ current: EMPTY_VIEW });
+
+/** The selected pair's orders, split by maker side (expiry is applied by the node). */
+const pairSides = (): { bids: LimitOrder[]; asks: LimitOrder[] } => {
+	const mine = state.orders.filter(
+		(o) => o.pair.base === state.pair.base && o.pair.quote === state.pair.quote
 	);
+	return { bids: mine.filter((o) => o.side === 'buy'), asks: mine.filter((o) => o.side === 'sell') };
+};
+
+let viewSeq = 0;
+
+/** Recompute the live book view; a stale (superseded) result is discarded. */
+async function recomputeView(): Promise<void> {
+	const seq = ++viewSeq;
+	const { bids, asks } = pairSides();
+	try {
+		const next = await bookView(getExtroClient().send.bind(getExtroClient()), bids, asks, nowSec());
+		if (seq === viewSeq) view.current = next;
+	} catch (e) {
+		if (seq === viewSeq) {
+			view.current = EMPTY_VIEW;
+			state.error = String(e);
+		}
+	}
+}
 
 export const orderbook = {
 	get pair() {
@@ -151,27 +163,19 @@ export const orderbook = {
 		return state.diag;
 	},
 	get bids(): LimitOrder[] {
-		return sortBids(live().filter((o) => o.side === 'buy'));
+		return view.current.bids;
 	},
 	get asks(): LimitOrder[] {
-		return sortAsks(live().filter((o) => o.side === 'sell'));
+		return view.current.asks;
 	},
 	get spread(): number | null {
-		const l = live();
-		return calcSpread(
-			l.filter((o) => o.side === 'buy'),
-			l.filter((o) => o.side === 'sell')
-		);
+		return view.current.spread;
 	},
 	get midPrice(): number | null {
-		const l = live();
-		return calcMid(
-			l.filter((o) => o.side === 'buy'),
-			l.filter((o) => o.side === 'sell')
-		);
+		return view.current.midPrice;
 	},
 	get isEmpty(): boolean {
-		return live().length === 0;
+		return view.current.bids.length + view.current.asks.length === 0;
 	},
 	/** The pair-policy verdict for the selected pair. */
 	get verdict() {
@@ -185,6 +189,7 @@ export const assetClasses = (p: TradingPair): [AssetClass, AssetClass] => [p.bas
 
 export function selectPair(pair: TradingPair): void {
 	state.pair = pair;
+	void recomputeView();
 	void refreshBook();
 }
 
@@ -217,6 +222,7 @@ export async function refreshBook(): Promise<void> {
 			// declared the field on the Orders body type.
 			state.diag = ((resp.body as unknown as { diag?: RecvDiag }).diag ?? null);
 			if (state.diag?.peers_connected) notePeersObserved(state.diag.peers_connected);
+			await recomputeView();
 			// Record a REAL observation of the book (mid + resting depth) into the
 			// historic series that backs the candle/volume charts — no mocks.
 			const depth = [...orderbook.bids, ...orderbook.asks].reduce((s, o) => s + o.amount, 0);
@@ -277,12 +283,8 @@ export async function publishOrder(input: {
 	};
 }
 
-/** Walk the current live book for a market order. Pure delegation. */
-export function walkCurrent(params: WalkParams): MarketWalk {
-	const l = live();
-	return walkBook(
-		l.filter((o) => o.side === 'buy'),
-		l.filter((o) => o.side === 'sell'),
-		params
-	);
+/** Walk the current live book for a market order (extro-node `Op::Exchange`). */
+export function walkCurrent(params: NodeWalkParams): Promise<MarketWalk> {
+	const { bids, asks } = pairSides();
+	return walkBookNode(getExtroClient().send.bind(getExtroClient()), bids, asks, params, nowSec());
 }
