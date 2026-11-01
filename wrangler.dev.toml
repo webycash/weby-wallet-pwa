@@ -54,7 +54,6 @@ PUBLIC_TURN_SERVERS_JSON = '[{"url":"turn:openrelay.metered.ca:443","username":"
 # device-local move at ${WALLET_BASE_PATH}/move. Nothing stored here is deleted.
 PUBLIC_WALLET_HOME_ORIGIN = "https://dev.extro.network"
 PUBLIC_CONNECTED_APPS_JSON = '[]'
-PUBLIC_GRANT_TTL_SECS = "3600"
 PUBLIC_LEGACY_WALLET_ORIGINS_JSON = '[]'
 
 # More specific than the marketing site's dev.weby.cash/* — this wins for /wallet*.

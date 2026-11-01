@@ -12,6 +12,7 @@ import {
 } from '@extro/node';
 import { getExtroClient, getExtroScopeTier } from './index';
 import { getRuntimeConfig } from './release-config';
+import { syncNow } from './connections';
 
 export interface ConnectPrompts {
 	consent: (request: ConsentRequest) => Promise<boolean>;
@@ -25,7 +26,11 @@ export function startConnectHost(prompts: ConnectPrompts): WalletConnectHost | n
 		config: getRuntimeConfig(),
 		scopeTier: getExtroScopeTier,
 		consent: prompts.consent,
-		confirm: prompts.confirm
+		confirm: prompts.confirm,
+		// A disconnect made on another device applies before this popup
+		// serves; a new sign-in or disconnect here reaches the others.
+		pullConnections: async () => void (await syncNow()),
+		connectionsChanged: async () => void (await syncNow())
 	});
 }
 

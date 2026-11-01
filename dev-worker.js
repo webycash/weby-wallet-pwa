@@ -5,6 +5,7 @@
 // SPA shell at <base>/index.html (adapter-static fallback). No base path
 // configured = fail closed (nothing is served).
 import { parseRuntimeConfig, runtimeConfigFromPublicEnv } from '@extro/node/runtime-config';
+import { ConnectionRelay, ConnectionSyncError, RELAY_LIMITS } from '@extro/node/connection-sync';
 import { openerPolicy, withSecurityHeaders } from './worker/security-headers.mjs';
 import { mintCloudflareTurnServers } from './worker/turn-relay.mjs';
 
@@ -75,8 +76,77 @@ async function route(request, env) {
     }
     return Response.json(config, { headers: NO_STORE });
   }
+  if (url.pathname === `${base}/api/connections/push` || url.pathname === `${base}/api/connections/pull`) {
+    return connectionSync(request, env, url);
+  }
   const res = await env.ASSETS.fetch(request);
   if (res.status !== 404) return res;
   const shell = new URL(`${base}/index.html`, url.origin);
   return env.ASSETS.fetch(new Request(shell, request));
+}
+
+/**
+ * Connection sync relay (ADR-0008 §13): the wallet home keeps the user's
+ * connected sites in step across their devices. One Durable Object per
+ * identity key; @extro/node/connection-sync verifies every item and read
+ * against that key and keeps items immutable. Only the wallet home itself
+ * calls it (same-origin). No binding = 501, and the wallet shows "sync
+ * unavailable" (connections still persist on each device).
+ */
+async function connectionSync(request, env, url) {
+  if (!env.CONNECTION_SYNC) {
+    return Response.json({ error: 'connection sync is not configured' }, { status: 501, headers: NO_STORE });
+  }
+  if (request.method !== 'POST') {
+    return Response.json({ error: 'POST only' }, { status: 405, headers: { ...NO_STORE, Allow: 'POST' } });
+  }
+  if (request.headers.get('Origin') !== url.origin) {
+    return Response.json({ error: 'same-origin only' }, { status: 403, headers: NO_STORE });
+  }
+  if (Number(request.headers.get('Content-Length') ?? 0) > RELAY_LIMITS.maxBodyBytes) {
+    return Response.json({ error: 'body too large' }, { status: 413, headers: NO_STORE });
+  }
+  let body;
+  try {
+    const text = await request.text();
+    if (text.length > RELAY_LIMITS.maxBodyBytes) throw new ConnectionSyncError(413, 'body too large');
+    body = JSON.parse(text);
+  } catch (error) {
+    const status = error instanceof ConnectionSyncError ? error.status : 400;
+    return Response.json({ error: status === 413 ? 'body too large' : 'JSON required' }, { status, headers: NO_STORE });
+  }
+  const vk = typeof body?.verifying_key_hex === 'string' ? body.verifying_key_hex : '';
+  if (!/^[0-9a-f]{64}$/.test(vk)) {
+    return Response.json({ error: 'verifying_key_hex: 32 bytes lowercase hex' }, { status: 400, headers: NO_STORE });
+  }
+  const stub = env.CONNECTION_SYNC.get(env.CONNECTION_SYNC.idFromName(vk));
+  const action = url.pathname.endsWith('/push') ? 'push' : 'pull';
+  return stub.fetch(`https://connection-sync/${action}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+}
+
+/** One identity's connection-sync items (see connectionSync). */
+export class ConnectionSyncRelay {
+  constructor(ctx) {
+    this.relay = new ConnectionRelay(ctx.storage);
+  }
+
+  async fetch(request) {
+    const action = new URL(request.url).pathname;
+    try {
+      const body = await request.json();
+      const out = action === '/push' ? await this.relay.push(body) : await this.relay.pull(body);
+      return Response.json(out, { headers: NO_STORE });
+    } catch (error) {
+      const status = error instanceof ConnectionSyncError ? error.status : 500;
+      if (status === 500) console.error('[connection-sync]', String(error));
+      return Response.json(
+        { error: status === 500 ? 'connection sync failed' : error.message },
+        { status, headers: NO_STORE }
+      );
+    }
+  }
 }

@@ -1,6 +1,7 @@
 <script lang="ts">
 	// Wallet connect popup (ADR-0008). A connected app opens this page with
-	// window.open; it asks the user once per grant (connect) and once per
+	// window.open to sign in with the user's Extro identity (asked once; the
+	// connection lasts until the user disconnects it) and for each
 	// value-moving request (confirm). The seed never leaves this origin.
 	import { onDestroy, onMount } from 'svelte';
 	import { browser } from '$app/environment';
@@ -80,11 +81,11 @@
 		{@const request = prompt.request}
 		<Card.Root data-testid="connect-consent">
 			<Card.Header>
-				<Card.Title>Connect {request.app.name}?</Card.Title>
+				<Card.Title>Sign in to {request.app.name} with your Extro identity?</Card.Title>
 				<Card.Description>
-					<span class="font-mono" data-testid="connect-origin">{request.app.origin}</span> asks for access for
-					{Math.round(request.ttl_secs / 60)} minutes. It never sees your recovery phrase, and every payment
-					asks you here first.
+					<span class="font-mono" data-testid="connect-origin">{request.app.origin}</span> stays connected until you
+					disconnect it — from this wallet on any of your devices, or from the site. It never sees your recovery
+					phrase, and every payment asks you here first.
 				</Card.Description>
 			</Card.Header>
 			<Card.Content>
@@ -96,7 +97,7 @@
 			</Card.Content>
 			<Card.Footer class="flex gap-2">
 				<Button variant="outline" data-testid="connect-reject" onclick={() => prompt?.answer(false)}>Cancel</Button>
-				<Button data-testid="connect-approve" onclick={() => prompt?.answer(true)}>Connect</Button>
+				<Button data-testid="connect-approve" onclick={() => prompt?.answer(true)}>Sign in</Button>
 			</Card.Footer>
 		</Card.Root>
 	{:else if prompt?.kind === 'confirm'}

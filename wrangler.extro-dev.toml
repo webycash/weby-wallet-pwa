@@ -58,8 +58,19 @@ PUBLIC_TURN_SERVERS_JSON = '[{"url":"turn:openrelay.metered.ca:443","username":"
 # the user-confirmed popup handoff at ${WALLET_BASE_PATH}/migrate.
 PUBLIC_WALLET_HOME_ORIGIN = "https://dev.extro.network"
 PUBLIC_CONNECTED_APPS_JSON = '[{"origin":"https://dev.weby.cash","name":"Weby (dev)","max_tier":"act"},{"origin":"https://dev.extro.life","name":"Extro Life (dev)","max_tier":"act"}]'
-PUBLIC_GRANT_TTL_SECS = "3600"
 PUBLIC_LEGACY_WALLET_ORIGINS_JSON = '["https://dev.weby.cash"]'
+
+# Connected-sites sync (ADR-0008 §13): one Durable Object per Extro identity
+# (named by its verifying key) relays the identity's signed, sealed connection
+# records between the user's devices at ${WALLET_BASE_PATH}/api/connections.
+# Only the wallet home binds it; elsewhere the endpoint answers 501.
+[[durable_objects.bindings]]
+name = "CONNECTION_SYNC"
+class_name = "ConnectionSyncRelay"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ConnectionSyncRelay"]
 
 # A route beats the extro-frontend Custom Domain on dev.extro.network for /wallet*.
 [[routes]]

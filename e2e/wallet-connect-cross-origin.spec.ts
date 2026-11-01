@@ -4,15 +4,19 @@
  * Real browser, real wallet worker and real WASM node on the wallet origin.
  * The connected apps are pages fulfilled by Playwright under their real HTTPS
  * origins (the browser reports that origin to the wallet), running the shipped
- * `@extro/node/wallet-connect` client. Cases: granted, denied (user reject,
- * scope over ceiling, non-allowlisted origin), revoked, and the spend confirm
- * boundary (reject and confirm). Only public BIP39 test vectors are used; the
+ * `@extro/node/wallet-connect` client. Signing in to a site with the Extro
+ * identity lasts until the user disconnects it: it survives an app reload and
+ * a browser restart (on-disk profiles), a disconnect on a second device (same
+ * identity) reaches the first through the wallet home, and the app can
+ * disconnect itself. Also: the spend confirm boundary (reject and confirm) and
+ * denials (user reject, scope over ceiling, non-allowlisted origin). Only public BIP39 test vectors are used; the
  * spend op is a malformed hook that cannot move value.
  *
  * Env: E2E_WALLET_URL (e.g. https://dev.weby.cash/wallet), E2E_APP_ORIGIN (an
  * origin in the served connected_apps), E2E_EVIDENCE_DIR.
  */
-import { expect, test, type BrowserContext, type Page } from '@playwright/test';
+import { chromium, expect, test, type BrowserContext, type Locator, type Page } from '@playwright/test';
+import os from 'node:os';
 import fs from 'node:fs';
 import path from 'node:path';
 import { TEST_MNEMONICS } from './fixtures/real-node';
@@ -33,21 +37,32 @@ const record = (key: string, value: unknown) => {
 };
 
 const appHtml = (origin: string) => `<!doctype html><html><head><title>app ${origin}</title></head><body>
-<button id="connect">Connect wallet</button>
+<button id="connect">Sign in with Extro</button>
+<button id="reopen">Use wallet</button>
 <script type="module">
-import { WalletPopup } from '/sdk/wallet-connect.js';
+import { WalletPopup, keepConnection, keptConnection, forgetConnection } from '/sdk/wallet-connect.js';
+const HOME = ${JSON.stringify(WALLET_ORIGIN)};
 const W = (window.W = { popup: null, grant: null, connected: null });
 const fail = (e) => ({ ok: false, code: e && e.code, message: String(e && e.message) });
+const open = () => WalletPopup.open({ walletHomeOrigin: HOME, path: ${JSON.stringify(CONNECT_PATH)}, timeoutMs: window.TIMEOUT_MS ?? 90000 });
 document.getElementById('connect').onclick = () => {
-	try {
-		W.popup = WalletPopup.open({ walletHomeOrigin: ${JSON.stringify(WALLET_ORIGIN)}, path: ${JSON.stringify(CONNECT_PATH)}, timeoutMs: window.TIMEOUT_MS ?? 90000 });
-	} catch (e) { W.connected = Promise.resolve(fail(e)); return; }
+	try { W.popup = open(); } catch (e) { W.connected = Promise.resolve(fail(e)); return; }
 	W.connected = W.popup.connect(window.SCOPES ?? []).then(
-		(g) => { W.grant = g; return { ok: true, scopes: g.scopes, fingerprint: g.identity.fingerprint_hex, tokenBytes: g.token.length }; },
+		(g) => { W.grant = g; keepConnection(localStorage, HOME, g); return { ok: true, scopes: g.scopes, connection_id: g.connection_id, fingerprint: g.identity.fingerprint_hex, tokenBytes: g.token.length }; },
 		fail
 	);
 };
-W.request = (op) => W.popup.request(W.grant, op).then((r) => ({ ok: true, response: JSON.parse(JSON.stringify(r, (_k, v) => (v instanceof Uint8Array ? 'bytes:' + v.length : v))) }), fail);
+// After a reload or a browser restart: the app's kept sign-in, a fresh popup.
+document.getElementById('reopen').onclick = () => {
+	W.grant = keptConnection(localStorage, HOME);
+	W.popup = open();
+};
+W.kept = () => keptConnection(localStorage, HOME)?.connection_id ?? null;
+W.request = (op) => W.popup.request(W.grant, op).then(
+	(r) => ({ ok: true, response: JSON.parse(JSON.stringify(r, (_k, v) => (v instanceof Uint8Array ? 'bytes:' + v.length : v))) }),
+	(e) => { if (e && e.code === 'Disconnected') forgetConnection(localStorage, HOME); return fail(e); }
+);
+W.disconnect = () => W.popup.disconnect(W.grant).then(() => { forgetConnection(localStorage, HOME); return { ok: true }; }, fail);
 </script></body></html>`;
 
 async function serveApp(context: BrowserContext, origin: string) {
@@ -61,7 +76,8 @@ async function serveApp(context: BrowserContext, origin: string) {
 	});
 }
 
-/** Restore the public test-vector wallet on the wallet origin (no encryption). */
+/** Restore the public test-vector wallet on the wallet origin (no encryption).
+ * Two devices restoring the same phrase hold the same Extro identity. */
 async function onboardWallet(context: BrowserContext) {
 	const page = await context.newPage();
 	await page.goto(`${WALLET_URL}/`);
@@ -73,7 +89,6 @@ async function onboardWallet(context: BrowserContext) {
 		deployment: rc.deployment,
 		wallet_home_origin: rc.wallet_home_origin,
 		connected_apps: rc.connected_apps,
-		grant_ttl_secs: rc.grant_ttl_secs,
 		legacy_wallet_origins: rc.legacy_wallet_origins
 	});
 	const tos = page.getByText('I accept the terms');
@@ -98,13 +113,41 @@ async function onboardWallet(context: BrowserContext) {
 async function openApp(context: BrowserContext, origin: string, scopes: string[], timeoutMs = 90_000) {
 	const app = await context.newPage();
 	await app.goto(`${origin}/`);
+	return { app, popup: await click(context, app, '#connect', scopes, timeoutMs) };
+}
+
+/** Click an app button that opens the wallet popup; returns the popup. */
+async function click(context: BrowserContext, app: Page, selector: string, scopes: string[] = [], timeoutMs = 90_000) {
 	await app.evaluate(([s, t]) => Object.assign(window, { SCOPES: s, TIMEOUT_MS: t }), [scopes, timeoutMs] as const);
 	const popupPromise = context.waitForEvent('page');
-	await app.click('#connect');
+	await app.click(selector);
 	const popup = await popupPromise;
 	await popup.waitForLoadState('domcontentloaded');
-	return { app, popup };
+	return popup;
 }
+
+/** A browser profile on disk: a device whose storage survives a restart. */
+async function device(dir: string) {
+	const context = await chromium.launchPersistentContext(dir, { headless: true });
+	await serveApp(context, APP_ORIGIN);
+	await serveApp(context, EVIL_ORIGIN);
+	return context;
+}
+
+/** The wallet home's Connected sites panel (Settings), after it synced. */
+async function connectedSites(context: BrowserContext) {
+	const page = await context.newPage();
+	await page.goto(`${WALLET_URL}/`);
+	await page.getByRole('button', { name: /^Settings$/ }).first().click();
+	const panel = page.getByTestId('connected-sites');
+	await panel.waitFor({ timeout: 90_000 });
+	const sync = panel.getByTestId('connected-sites-sync');
+	await expect(sync).not.toHaveAttribute('data-sync', 'syncing', { timeout: 90_000 });
+	await panel.locator('[data-testid=connected-site], [data-testid=connected-sites-empty], [data-testid=connected-sites-message]').first().waitFor({ timeout: 30_000 });
+	return { page, panel, sync: await sync.getAttribute('data-sync') };
+}
+const sitesOf = (panel: Locator) =>
+	panel.getByTestId('connected-site').evaluateAll((els) => els.map((e) => ({ origin: e.getAttribute('data-origin'), id: e.getAttribute('data-id') })));
 
 const connected = (app: Page) => app.evaluate(() => (window as any).W.connected);
 const status = (popup: Page) => popup.locator('[data-testid=connect-status]').getAttribute('data-status');
@@ -121,11 +164,12 @@ test.beforeAll(() => {
 	if (!WALLET_URL || !APP_ORIGIN) throw new Error('set E2E_WALLET_URL and E2E_APP_ORIGIN');
 });
 
-test('wallet connect: headers, granted, revoked, spend boundary, denied', async ({ browser, request }) => {
-	test.setTimeout(600_000);
-	const context = await browser.newContext();
-	await serveApp(context, APP_ORIGIN);
-	await serveApp(context, EVIL_ORIGIN);
+test('wallet connect: sign-in persists until disconnected; disconnect syncs across devices', async ({ request }) => {
+	test.setTimeout(900_000);
+	const profiles = fs.mkdtempSync(path.join(os.tmpdir(), 'extro-connect-'));
+	const dirA = path.join(profiles, 'device-a');
+	const dirB = path.join(profiles, 'device-b');
+	let a = await device(dirA);
 
 	// Headers: connect page keeps its opener, every other wallet page is isolated, nothing frames it.
 	const head = async (u: string) => {
@@ -138,21 +182,23 @@ test('wallet connect: headers, granted, revoked, spend boundary, denied', async 
 	expect(headers.root.coop).toBe('same-origin');
 	expect(headers.connect.frame && headers.root.frame).toBe(true);
 
-	await onboardWallet(context);
+	await onboardWallet(a);
 
-	// Granted: consent shows the exact origin; the grant is usable for a read op.
-	const g = await openApp(context, APP_ORIGIN, ['WalletRead(pgp)']);
+	// Sign in: consent names the exact origin and says it lasts until disconnected.
+	const g = await openApp(a, APP_ORIGIN, ['WalletRead(pgp)']);
 	await g.popup.getByTestId('connect-consent').waitFor({ timeout: 120_000 });
 	const shownOrigin = await g.popup.getByTestId('connect-origin').textContent();
+	const consentText = ((await g.popup.getByTestId('connect-consent').textContent()) ?? '').replace(/\s+/g, ' ');
 	expect(shownOrigin).toBe(APP_ORIGIN);
+	expect(consentText).toContain('until you disconnect');
+	expect(consentText).not.toMatch(/minutes?|hours?/);
 	await g.popup.getByTestId('connect-approve').click();
 	const grant = await connected(g.app);
-	record('granted', { shownOrigin, grant });
+	record('signed_in', { shownOrigin, consentText, grant });
 	expect(grant.ok).toBe(true);
 	const read = await g.app.evaluate((op) => (window as any).W.request(op), readOp);
-	record('granted_read', read);
-	expect(read.ok).toBe(true);
-	expect(read.response.kind).toBe('Ok');
+	record('signed_in_read', read);
+	expect(read.ok && read.response.kind).toBe('Ok');
 
 	// Spend boundary: reject → UserRejected; confirm → reaches the node (malformed op errors there).
 	const rejected = g.app.evaluate((op) => (window as any).W.request(op), spendOp());
@@ -174,44 +220,108 @@ test('wallet connect: headers, granted, revoked, spend boundary, denied', async 
 	record('spend_confirmed', spendConfirmed);
 	expect(spendConfirmed.ok).toBe(true);
 	expect(JSON.stringify(spendConfirmed.response)).not.toContain('ConfirmationRequired');
-
-	// Revoked: the wallet revokes the grant; the same token is refused.
-	const token: number[] = await g.app.evaluate(() => Array.from((window as any).W.grant.token as Uint8Array));
-	const revoke = await g.popup.evaluate(async (bytes) => {
-		const client = (window as any).__extro;
-		if (!client) return { ok: false, message: '__extro not exposed (not a development tier)' };
-		const r = await client.send({
-			request_id: crypto.getRandomValues(new Uint8Array(16)),
-			op: { kind: 'Wallet', cmd: { op: 'RevokeCapToken', token: new Uint8Array(bytes) } }
-		});
-		return { ok: r.kind === 'Ok', kind: r.kind };
-	}, token);
-	record('revoke', revoke);
-	expect(revoke.ok).toBe(true);
-	const afterRevoke = await g.app.evaluate((op) => (window as any).W.request(op), readOp);
-	record('revoked_read', afterRevoke);
-	expect(afterRevoke.ok && afterRevoke.response.kind === 'Ok').toBe(false);
 	await g.popup.close();
-	await g.app.close();
+
+	// Reload: the app keeps its sign-in; a fresh popup serves it with no prompt.
+	await g.app.reload();
+	const p1 = await click(a, g.app, '#reopen');
+	const afterReload = await g.app.evaluate((op) => (window as any).W.request(op), readOp);
+	const reloadPrompts = await p1.getByTestId('connect-consent').count();
+	record('after_reload', { kept: await g.app.evaluate(() => (window as any).W.kept()), read: afterReload, prompts: reloadPrompts });
+	expect(afterReload.ok && afterReload.response.kind).toBe('Ok');
+	expect(reloadPrompts).toBe(0);
+	await p1.close();
+
+	// Signing in again with granted scopes: no prompt, same identity.
+	const again = await click(a, g.app, '#connect', ['WalletRead(pgp)']);
+	const regrant = await connected(g.app);
+	record('sign_in_again', { regrant, prompts: await again.getByTestId('connect-consent').count() });
+	expect(regrant.ok).toBe(true);
+	expect(regrant.fingerprint).toBe(grant.fingerprint);
+	await again.close();
+
+	// Restart: close the browser, start it again on the same profile.
+	await a.close();
+	a = await device(dirA);
+	const restarted = await a.newPage();
+	await restarted.goto(`${APP_ORIGIN}/`);
+	const p2 = await click(a, restarted, '#reopen');
+	const afterRestart = await restarted.evaluate((op) => (window as any).W.request(op), readOp);
+	record('after_restart', { kept: await restarted.evaluate(() => (window as any).W.kept()), read: afterRestart, prompts: await p2.getByTestId('connect-consent').count() });
+	expect(afterRestart.ok && afterRestart.response.kind).toBe('Ok');
+	await p2.close();
+
+	// Device A's wallet home lists the site.
+	const homeA = await connectedSites(a);
+	const sitesA = await sitesOf(homeA.panel);
+	record('home_a', { sync: homeA.sync, sites: sitesA });
+	expect(homeA.sync).toBe('synced');
+	expect(sitesA).toContainEqual({ origin: APP_ORIGIN, id: regrant.connection_id });
+	await homeA.page.close();
+
+	// Device B: the same identity on another browser sees the site, and disconnects it.
+	const b = await device(dirB);
+	await onboardWallet(b);
+	const homeB = await connectedSites(b);
+	const sitesB = await sitesOf(homeB.panel);
+	record('home_b_before', { sync: homeB.sync, sites: sitesB });
+	expect(homeB.sync).toBe('synced');
+	expect(sitesB).toContainEqual({ origin: APP_ORIGIN, id: regrant.connection_id });
+	await homeB.panel.locator(`[data-testid=connected-site][data-id="${regrant.connection_id}"]`).getByTestId('connected-site-disconnect').click();
+	await expect(homeB.panel.locator(`[data-testid=connected-site][data-id="${regrant.connection_id}"]`)).toHaveCount(0, { timeout: 60_000 });
+	const syncB = await homeB.panel.getByTestId('connected-sites-sync').getAttribute('data-sync');
+	record('home_b_disconnect', { sync: syncB });
+	expect(syncB).toBe('synced');
+	await b.close();
+
+	// Back on device A: the disconnect arrived; the app is told and forgets its sign-in.
+	const p3 = await click(a, restarted, '#reopen');
+	const afterRemote = await restarted.evaluate((op) => (window as any).W.request(op), readOp);
+	const keptAfter = await restarted.evaluate(() => (window as any).W.kept());
+	record('after_remote_disconnect', { read: afterRemote, kept: keptAfter });
+	expect(afterRemote).toMatchObject({ ok: false, code: 'Disconnected' });
+	expect(keptAfter).toBeNull();
+	await p3.close();
+	const homeA2 = await connectedSites(a);
+	const sitesA2 = await sitesOf(homeA2.panel);
+	record('home_a_after', { sync: homeA2.sync, sites: sitesA2 });
+	expect(sitesA2.map((x) => x.id)).not.toContain(regrant.connection_id);
+	await homeA2.page.close();
+
+	// Disconnect from the app itself.
+	const s2 = await click(a, restarted, '#connect', ['WalletRead(pgp)']);
+	await s2.getByTestId('connect-consent').waitFor({ timeout: 120_000 });
+	await s2.getByTestId('connect-approve').click();
+	const fresh = await connected(restarted);
+	expect(fresh.ok).toBe(true);
+	const appDisconnect = await restarted.evaluate(() => (window as any).W.disconnect());
+	const afterAppDisconnect = await restarted.evaluate((op) => (window as any).W.request(op), readOp);
+	record('app_disconnect', { fresh, appDisconnect, read: afterAppDisconnect });
+	expect(appDisconnect.ok).toBe(true);
+	expect(afterAppDisconnect).toMatchObject({ ok: false, code: 'Disconnected' });
+	await s2.close();
+	await restarted.close();
 
 	// Denied by the user.
-	const d = await openApp(context, APP_ORIGIN, ['WalletRead(pgp)']);
+	const d = await openApp(a, APP_ORIGIN, ['WalletRead(pgp)']);
 	await d.popup.getByTestId('connect-consent').waitFor({ timeout: 120_000 });
 	await d.popup.getByTestId('connect-reject').click();
 	const denied = await connected(d.app);
 	record('denied_user', denied);
 	expect(denied).toMatchObject({ ok: false, code: 'UserRejected' });
+	await d.popup.close().catch(() => {});
 	await d.app.close();
 
 	// Denied: a spend scope can never be granted by token.
-	const s = await openApp(context, APP_ORIGIN, ['Rail402(webcash)']);
+	const s = await openApp(a, APP_ORIGIN, ['Rail402(webcash)']);
 	const overCeiling = await connected(s.app);
 	record('denied_scope', overCeiling);
 	expect(overCeiling).toMatchObject({ ok: false, code: 'ScopeNotAllowed' });
+	await s.popup.close().catch(() => {});
 	await s.app.close();
 
 	// Denied: a site not in connected_apps never gets an answer or a prompt.
-	const e = await openApp(context, EVIL_ORIGIN, ['WalletRead(pgp)'], 20_000);
+	const e = await openApp(a, EVIL_ORIGIN, ['WalletRead(pgp)'], 20_000);
 	const evil = await connected(e.app);
 	const evilPrompt = await e.popup.getByTestId('connect-consent').count();
 	const evilStatus = await status(e.popup).catch(() => null);
@@ -219,5 +329,5 @@ test('wallet connect: headers, granted, revoked, spend boundary, denied', async 
 	expect(evil).toMatchObject({ ok: false, code: 'Timeout' });
 	expect(evilPrompt).toBe(0);
 
-	await context.close();
+	await a.close();
 });

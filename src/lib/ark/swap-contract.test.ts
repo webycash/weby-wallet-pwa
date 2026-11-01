@@ -73,7 +73,6 @@ const config: ExtroRuntimeConfig = {
 	turn_servers: [],
 	wallet_home_origin: 'https://wallet.test',
 	connected_apps: [],
-	grant_ttl_secs: 3600,
 	legacy_wallet_origins: []
 };
 

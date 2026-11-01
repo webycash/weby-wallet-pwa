@@ -28,6 +28,8 @@
 	import VerifyView from './VerifyView.svelte';
 	import StatsView from './StatsView.svelte';
 	import SettingsPanel from './SettingsPanel.svelte';
+	import ConnectedSitesPanel from './ConnectedSitesPanel.svelte';
+	import { isWalletHome } from '$lib/extro/connections';
 	import AppDialog from './AppDialog.svelte';
 	import ExchangeView from '../exchange/ExchangeView.svelte';
 	import BitcoinView from '../bitcoin/BitcoinView.svelte';
@@ -386,6 +388,7 @@
 				<div class="flex-1 overflow-y-auto px-4 pb-5">
 					<SettingsPanel {activeFamily} {activeLabel} {isRoamingWallet}
 						onRefresh={refresh} onMessage={showMessage} {appDialog} />
+					{#if isWalletHome()}<ConnectedSitesPanel />{/if}
 				</div>
 			</div>
 		{/if}

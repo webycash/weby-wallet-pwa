@@ -61,7 +61,6 @@ PUBLIC_ICE_SERVERS_JSON = '["stun:stun.l.google.com:19302","stun:stun.cloudflare
 # site exists for staging yet, so no site may connect (fail closed).
 PUBLIC_WALLET_HOME_ORIGIN = "https://weby-wallet-pwa-staging.harmoniis.workers.dev"
 PUBLIC_CONNECTED_APPS_JSON = '[]'
-PUBLIC_GRANT_TTL_SECS = "3600"
 # No former wallet home on this tier ([] = no move handoff accepted).
 PUBLIC_LEGACY_WALLET_ORIGINS_JSON = '[]'
 # Managed TURN: Cloudflare Realtime TURN credentials minted per runtime-config
