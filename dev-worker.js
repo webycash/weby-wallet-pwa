@@ -14,11 +14,12 @@ import { mintCloudflareTurnServers } from './worker/turn-relay.mjs';
 async function turnServers(env, request) {
   switch (env.PUBLIC_TURN_PROVIDER ?? 'static') {
     case 'cloudflare': {
-      if (env.TURN_MINT_LIMITER) {
-        const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
-        const { success } = await env.TURN_MINT_LIMITER.limit({ key: ip });
-        if (!success) throw new HttpError(429, 'TURN credential rate limit exceeded');
-      }
+      // Fail closed: minting without the limiter would let anyone drain the
+      // TURN key's credentials, so a missing binding refuses the config.
+      if (!env.TURN_MINT_LIMITER) throw new Error('TURN_MINT_LIMITER binding is not configured');
+      const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
+      const { success } = await env.TURN_MINT_LIMITER.limit({ key: ip });
+      if (!success) throw new HttpError(429, 'TURN credential rate limit exceeded');
       return mintCloudflareTurnServers(env);
     }
     case 'static':
