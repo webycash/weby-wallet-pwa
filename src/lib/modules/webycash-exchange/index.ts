@@ -9,6 +9,7 @@ export * from './types';
 export * from './pair-policy';
 export * from './book-math';
 export * from './publication-fee';
+export * from './exchange-core';
 export * from './publish';
 export * from './push-hooks';
 export * from './referee-client';
