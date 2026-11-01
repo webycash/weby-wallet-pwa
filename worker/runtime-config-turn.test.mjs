@@ -7,6 +7,7 @@ import worker from '../dev-worker.js';
 const URL_ = 'https://w.example/wallet/runtime-config.json';
 const req = () => new Request(URL_, { headers: { 'CF-Connecting-IP': '203.0.113.9' } });
 const base = {
+  WALLET_BASE_PATH: '/wallet',
   PUBLIC_DEPLOYMENT: 'staging',
   PUBLIC_TURN_PROVIDER: 'cloudflare',
   PUBLIC_TURN_TTL_SECONDS: '43200',

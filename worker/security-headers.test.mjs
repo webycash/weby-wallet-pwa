@@ -15,6 +15,7 @@ async function sha(s) {
 
 function assetsEnv(files) {
   return {
+    WALLET_BASE_PATH: '/wallet',
     PUBLIC_TURN_PROVIDER: 'static',
     PUBLIC_DEPLOYMENT: 'staging',
     ASSETS: {
