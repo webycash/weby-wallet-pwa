@@ -375,7 +375,10 @@
 			<!-- svelte-ignore a11y_click_events_have_key_events -->
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<div class="fixed inset-0 z-50 bg-background/60 backdrop-blur-md" onclick={closeSettings}></div>
-			<div class="fixed top-4 left-4 right-4 bottom-4 md:inset-x-auto md:inset-y-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-md md:max-h-[80vh] z-50 bg-background rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-scale-in"
+			<!-- Centred by a flex wrapper, not translate: animate-scale-in keeps its
+			     final transform, which would cancel a translate on the dialog. -->
+			<div class="fixed inset-4 md:inset-0 md:flex md:items-center md:justify-center z-50 pointer-events-none">
+			<div class="pointer-events-auto h-full w-full md:h-auto md:max-w-md md:max-h-[80vh] bg-background rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-scale-in"
 				role="dialog" aria-modal="true" aria-label="Settings">
 				<div class="flex items-center justify-between px-6 py-5">
 					<h2 class="text-[17px] font-semibold">Settings</h2>
@@ -385,11 +388,12 @@
 						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
 					</button>
 				</div>
-				<div class="flex-1 overflow-y-auto px-4 pb-5">
+				<div class="min-h-0 flex-1 overflow-y-auto px-4 pb-5">
 					<SettingsPanel {activeFamily} {activeLabel} {isRoamingWallet}
 						onRefresh={refresh} onMessage={showMessage} {appDialog} />
 					{#if isWalletHome()}<ConnectedSitesPanel />{/if}
 				</div>
+			</div>
 			</div>
 		{/if}
 	</div>

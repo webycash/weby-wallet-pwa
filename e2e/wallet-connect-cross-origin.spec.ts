@@ -184,6 +184,20 @@ test('wallet connect: sign-in persists until disconnected; disconnect syncs acro
 
 	await onboardWallet(a);
 
+	// The test identity is fixed, and its sign-ins persist (synced) until
+	// disconnected: start from the home with every site disconnected, the way
+	// a user would, so the first sign-in below asks for consent.
+	const start = await connectedSites(a);
+	const leftover = await sitesOf(start.panel);
+	for (const site of leftover) {
+		const row = start.panel.locator(`[data-testid=connected-site][data-id="${site.id}"]`);
+		await row.getByTestId('connected-site-disconnect').click();
+		await expect(row).toHaveCount(0, { timeout: 60_000 });
+	}
+	await expect(start.panel.getByTestId('connected-sites-sync')).toHaveAttribute('data-sync', 'synced', { timeout: 60_000 });
+	record('home_a_start', { sync: start.sync, disconnected: leftover });
+	await start.page.close();
+
 	// Sign in: consent names the exact origin and says it lasts until disconnected.
 	const g = await openApp(a, APP_ORIGIN, ['WalletRead(pgp)']);
 	await g.popup.getByTestId('connect-consent').waitFor({ timeout: 120_000 });
