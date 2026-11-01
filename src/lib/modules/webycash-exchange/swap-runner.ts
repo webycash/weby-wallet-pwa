@@ -242,7 +242,7 @@ export async function executeSwap(input: ExecuteSwapInput): Promise<ExecuteSwapR
 			bearerLegFromWallet(slot, index, fillAmountRaw)
 		]);
 
-		const facts = buildSwapInitiateFacts({
+		const facts = await buildSwapInitiateFacts({
 			order,
 			bearer,
 			provider,

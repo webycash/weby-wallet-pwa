@@ -1034,7 +1034,7 @@ export async function runBearerSellerSide(
 				providerVk: material.provider_pgp_pubkey,
 				swapId
 			});
-			initFacts = buildSwapInitiateFacts({
+			initFacts = await buildSwapInitiateFacts({
 				order,
 				bearer,
 				provider: providerMaterialFromWire(material, frameConditionalPayload(pp.sealed)),
