@@ -12,7 +12,7 @@
 # + mainnet referee + voucher + RGB endpoints and their pins); a REPLACE_ME value
 # makes the boot refuse with a named error instead of running on dev trust.
 # `scripts/check-release-trust.mjs` (CI) rejects development trust roots here.
-# Build with BASE_PATH=/wallet, nest output under staging-deploy/wallet/, then:
+# Build with WALLET_TIER=staging (base = WALLET_BASE_PATH below), nest output under staging-deploy/wallet/, then:
 #   wrangler deploy --config wrangler.staging.toml
 # Served at https://weby-wallet-pwa-staging.<account>.workers.dev/wallet (no DNS change).
 name = "weby-wallet-pwa-staging"
@@ -23,6 +23,9 @@ workers_dev = true
 assets = { directory = "staging-deploy", binding = "ASSETS", run_worker_first = true }
 
 [vars]
+# The ONE source of this tier's base path: the build (WALLET_TIER) and
+# dev-worker.js both read it; scripts/base-path.mjs checks it against the route.
+WALLET_BASE_PATH = "/wallet"
 PUBLIC_BOOT_SCHEMA_VERSION = "2"
 PUBLIC_DEPLOYMENT = "staging"
 PUBLIC_EXTRO_DB_NAME = "extro-node-staging-mainnet"

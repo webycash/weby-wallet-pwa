@@ -1,8 +1,9 @@
-// Worker serving the static PWA under /wallet (dev: dev.weby.cash/wallet;
-// staging/production: their own wrangler config) and its runtime config.
-// Assets live under /wallet/* (built with BASE_PATH=/wallet, nested in the
-// asset dir under wallet/). Unmatched client-side routes fall back to the
-// SPA shell at /wallet/index.html (adapter-static fallback).
+// Worker serving the static PWA under its tier's WALLET_BASE_PATH (the one
+// source in wrangler.<tier>.toml, also used by the build) and its runtime
+// config. Assets live under <base>/* (built with WALLET_TIER=<tier>, nested in
+// the asset dir under <base>/). Unmatched client-side routes fall back to the
+// SPA shell at <base>/index.html (adapter-static fallback). No base path
+// configured = fail closed (nothing is served).
 import { parseRuntimeConfig, runtimeConfigFromPublicEnv } from '@extro/node/runtime-config';
 import { mintCloudflareTurnServers } from './worker/turn-relay.mjs';
 
@@ -41,7 +42,12 @@ const NO_STORE = { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosni
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    if (url.pathname === '/wallet/runtime-config.json') {
+    const base = env.WALLET_BASE_PATH;
+    if (typeof base !== 'string' || !/^\/[a-z0-9][a-z0-9-]*$/.test(base)) {
+      console.error('[wallet] refusing to serve: WALLET_BASE_PATH is not configured');
+      return new Response('wallet base path not configured', { status: 500, headers: NO_STORE });
+    }
+    if (url.pathname === `${base}/runtime-config.json`) {
       // Same PUBLIC_* mapping and strict validation the app applies, from
       // @extro/node; an invalid or incomplete tier config is never served.
       // Fail closed: no runtime config means the wallet refuses to boot (no
@@ -63,7 +69,7 @@ export default {
     }
     const res = await env.ASSETS.fetch(request);
     if (res.status !== 404) return res;
-    const shell = new URL('/wallet/index.html', url.origin);
+    const shell = new URL(`${base}/index.html`, url.origin);
     return env.ASSETS.fetch(new Request(shell, request));
   }
 };
