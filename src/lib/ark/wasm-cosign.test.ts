@@ -5,7 +5,7 @@ vi.mock('$lib/extro', () => ({ getExtroClient: () => ({ send }) }));
 
 import { providerFillId, WasmProviderCosignBackend, wasmProviderPartialSign } from './wasm-cosign';
 import { buildRefundTemplate, buildSettleTemplate, setDedicatedCosignBackend, signRefundRecovery, signSettlePartial } from './swap-spend';
-import { fixturePlan } from './blocker3-fixture';
+import { fixturePlan } from '../../test/fixtures/blocker3-fixture';
 
 const RECOVERY_X = 'c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5';
 const locked = `${'22'.repeat(32)}:1`;

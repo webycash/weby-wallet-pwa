@@ -1,4 +1,5 @@
-// Mock orderbook + seeder data for dev and the default mock adapter.
+// TEST-ONLY mock orderbook + seeder data (audit M8: lives under src/test/,
+// never imported by production modules; see scripts/check-no-test-code.mjs).
 //
 // This is DEVELOPMENT scaffolding: real orders arrive from the Extro orderbook
 // torrent/DHTX after signature + expiry + pair-policy verification, and real
@@ -6,28 +7,16 @@
 // items. The shapes here match the production types exactly so the UI and
 // stores are exercised end-to-end.
 
-import { bytesToB64, bytesToHex } from './push-hooks';
-import type { AssetClass } from './pair-policy';
-import type { LimitOrder, Seeder, TradingPair } from './types';
+import { bytesToB64, bytesToHex } from '$lib/modules/webycash-exchange/push-hooks';
+import { MARKET_PAIRS, assetClassesOf, pairKey } from '$lib/modules/webycash-exchange/pairs';
+import type { LimitOrder, Seeder, TradingPair } from '$lib/modules/webycash-exchange/types';
 
-const randBytes = (n: number): Uint8Array => {
-	const b = new Uint8Array(n);
-	if (typeof crypto !== 'undefined' && crypto.getRandomValues) crypto.getRandomValues(b);
-	else for (let i = 0; i < n; i++) b[i] = Math.floor(Math.random() * 256);
-	return b;
-};
+const randBytes = (n: number): Uint8Array => crypto.getRandomValues(new Uint8Array(n));
 
 const nowSec = () => Math.floor(Date.now() / 1000);
 
-/** A handful of pairs the exchange surfaces in the mock book. */
-export const MOCK_PAIRS: TradingPair[] = [
-	{ base: 'BitcoinArk', quote: 'Webcash' },
-	{ base: 'Rgb20', quote: 'BitcoinArk' },
-	{ base: 'Rgb21', quote: 'BitcoinArk' },
-	{ base: 'Rgb20', quote: 'Webcash' },
-	// Intentionally include a BLOCKED pair so the UI can demonstrate the gate.
-	{ base: 'Webcash', quote: 'Voucher' }
-];
+/** Test alias for the production market list. */
+export const MOCK_PAIRS: TradingPair[] = MARKET_PAIRS;
 
 const FP = () => bytesToHex(randBytes(20));
 const VK = () => bytesToHex(randBytes(32));
@@ -71,6 +60,4 @@ export function mockSeeders(n: number): Seeder[] {
 	}));
 }
 
-export const pairKey = (p: TradingPair): string => `${p.base}/${p.quote}`;
-
-export const assetClassesOf = (p: TradingPair): [AssetClass, AssetClass] => [p.base, p.quote];
+export { pairKey, assetClassesOf };

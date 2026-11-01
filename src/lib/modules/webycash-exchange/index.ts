@@ -17,7 +17,7 @@ export * from './swap-prepare';
 export * from './trade-timeline';
 export * from './swap-facts';
 export * from './swap-runner';
-export * from './mock-data';
+export * from './pairs';
 
 // Reactive stores (Svelte 5 runes — import where a component needs them).
 export {

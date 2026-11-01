@@ -8,7 +8,7 @@
 
 import { bookView, walkBookNode, type BookView, type NodeWalkParams } from './exchange-core';
 import { evaluatePair, type AssetClass } from './pair-policy';
-import { MOCK_PAIRS, pairKey } from './mock-data';
+import { MARKET_PAIRS, pairKey } from './pairs';
 import { recordObservation } from './market-data';
 import { getExtroClient } from '$lib/extro';
 import { notePeersObserved } from '$lib/extro/connection';
@@ -99,7 +99,7 @@ interface BookState {
 }
 
 const state = $state<BookState>({
-	pair: MOCK_PAIRS[0],
+	pair: MARKET_PAIRS[0],
 	orders: [],
 	loading: false,
 	error: null,
@@ -145,7 +145,7 @@ export const orderbook = {
 		return state.pair;
 	},
 	get pairs() {
-		return MOCK_PAIRS;
+		return MARKET_PAIRS;
 	},
 	get loading() {
 		return state.loading;

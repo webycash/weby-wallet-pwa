@@ -8,7 +8,7 @@
 // a never-observed pair has an EMPTY series (the chart shows "awaiting data"),
 // and we never fabricate a price when the book is empty.
 
-import { pairKey } from './mock-data';
+import { pairKey } from './pairs';
 import type { TradingPair } from './types';
 
 export interface Candle {

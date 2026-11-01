@@ -1,4 +1,4 @@
-import type { VerifiedArkContractPlan } from './swap-contract';
+import type { VerifiedArkContractPlan } from '$lib/ark/swap-contract';
 
 const hex = (value: string): Uint8Array =>
 	Uint8Array.from({ length: value.length / 2 }, (_, i) => Number.parseInt(value.slice(i * 2, i * 2 + 2), 16));

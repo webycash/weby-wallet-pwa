@@ -8,8 +8,8 @@ import type {
 	RefereeHealth,
 	RefereePubkey,
 	WalletAck
-} from './referee-client';
-import type { TradePhase } from './types';
+} from '$lib/modules/webycash-exchange/referee-client';
+import type { TradePhase } from '$lib/modules/webycash-exchange/types';
 
 export interface MockRefereeScript {
 	[swapId: string]: TradePhase[];

@@ -9,8 +9,13 @@ const prohibited = [
 	['unresolved deployment placeholder', /REPLACE_ME/],
 	['bundled Extro mock adapter', /mock not booted|mock-bearer-secret|mock-public-token|mode\s*=\s*["']mock["']/i],
 	['bundled mock referee', /referee_version\s*:\s*["']mock["']|swap_id\s*:\s*`mock-/i],
-	['fixture-only provider material', /(?:aa|11|22){16,}/i]
+	['fixture-only provider material', /(?:aa|11|22){16,}/i],
+	['bundled test fixture (audit M8)', /settle-tx-fixture|b3-fixture|MockRefereeClient|createRegtestCosignBackend/]
 ];
+
+// Known third-party constants that are not reachable from release config:
+// @arkade-os/sdk's per-network esplora map ships a `regtest` localhost default.
+const allowed = [/regtest:\s*["']http:\/\/localhost:3000\/api["']/g];
 
 async function files(directory) {
 	const out = [];
@@ -24,7 +29,8 @@ async function files(directory) {
 
 const failures = [];
 for (const path of await files(build)) {
-	const contents = await readFile(path, 'utf8');
+	let contents = await readFile(path, 'utf8');
+	for (const pattern of allowed) contents = contents.replace(pattern, '');
 	for (const [label, pattern] of prohibited) {
 		if (pattern.test(contents)) failures.push(`${relative(root, path)}: ${label}`);
 	}
