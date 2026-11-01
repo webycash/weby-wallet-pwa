@@ -7,7 +7,7 @@
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import type { ArkPrepareTerms, ExtroCommand, ExtroResponse, WireProviderMaterial } from '@extro/node';
+import type { ArkPrepareTerms, BearerAssetRef, ExtroCommand, ExtroResponse, WireProviderMaterial } from '@extro/node';
 import { bootArkNode } from '$lib/ark/ark-node.testkit';
 
 let send: (c: ExtroCommand) => Promise<ExtroResponse>;
@@ -31,7 +31,12 @@ const prep = JSON.parse(readFileSync(require.resolve('@extro/node/vectors/prepar
 	cases: { name: string; input: Raw; expected: Exp }[];
 };
 const check = JSON.parse(readFileSync(require.resolve('@extro/node/vectors/provider_check_terms.json'), 'utf8')) as {
-	cases: { name: string; terms_input: Raw; facts: Record<string, string> & { offer: Record<string, string>; now_unix: number }; expected: Exp }[];
+	cases: {
+		name: string;
+		terms_input: Raw;
+		facts: Record<string, string> & { offer: Record<string, string>; now_unix: number; bearer_asset: BearerAssetRef };
+		expected: Exp;
+	}[];
 };
 
 const hb = (h: string) => Uint8Array.from(h.match(/../g) ?? [], (x) => parseInt(x, 16));
@@ -56,6 +61,8 @@ const buildInput = (i: Raw) => ({
 	orderId16: hb(i.order_id as string),
 	signedOrderCommitmentSha256: hb(i.signed_order_commitment_sha256 as string),
 	fillAmountRaw: BigInt(i.fill_amount_raw as string),
+	// Vector inputs predating prepare v3 are webcash; cases that set it say so.
+	bearerAsset: (i.bearer_asset ?? { family: 'Webcash' }) as BearerAssetRef,
 	provider: offer(i.provider),
 	allowOffer: i.allow_offer as boolean,
 	bearerSellerFpHex: i.bearer_seller_fp_hex as string,
@@ -91,13 +98,13 @@ describe('prepare terms: extro-node vector = wallet', () => {
 				expect('error' in got && got.error.endsWith(c.expected.error), `${c.name}: ${JSON.stringify(plain(got))}`).toBe(true);
 			} else {
 				if (!('ok' in got)) throw new Error(`${c.name}: ${got.error}`);
-				expect(plain(got.ok), c.name).toEqual(c.expected.terms);
+				expect(plain(got.ok), c.name).toEqual({ ...(c.expected.terms as object), bearer_asset: { family: 'Webcash' } });
 			}
 		}
 	});
 
 	it('assertProviderOwnedTerms matches every provider_check_terms case', async () => {
-		expect(check.cases.length).toBeGreaterThanOrEqual(23);
+		expect(check.cases.length).toBeGreaterThanOrEqual(30);
 		for (const c of check.cases) {
 			cfg = cfgOf(c.terms_input);
 			const terms = (await buildArkPrepareTermsFromProvider(buildInput(c.terms_input))) as ArkPrepareTerms;
@@ -112,7 +119,9 @@ describe('prepare terms: extro-node vector = wallet', () => {
 					arkDestination: f.ark_destination,
 					orderId16: hb(f.order_id),
 					counterpartyFpHex: f.counterparty_fp_hex,
-					arkAmountSats: BigInt(f.ark_amount_sats)
+					arkAmountSats: BigInt(f.ark_amount_sats),
+					fillAmountRaw: BigInt(f.fill_amount_raw),
+					bearerAsset: f.bearer_asset
 				})
 			);
 			vi.restoreAllMocks();

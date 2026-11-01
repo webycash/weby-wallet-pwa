@@ -23,7 +23,11 @@
 // the bearer witness inside the WASM worker from the imported seed.
 
 import { getExtroClient } from "$lib/extro";
-import { newRequestId, type SwapFactsInput } from "@extro/node";
+import {
+  newRequestId,
+  type BearerAssetRef,
+  type SwapFactsInput,
+} from "@extro/node";
 import type { ExtroSend } from "./exchange-core";
 import type { LimitOrder } from "./types";
 
@@ -90,6 +94,11 @@ export interface BearerLeg {
   bearerAmount: string;
   /** Atomic fill amount, as a bigint (the ZKP binds this as `fill_amount_raw`). */
   fillAmountRaw: bigint;
+  /**
+   * The bearer asset (prepare v3 `bearer_asset`): Webcash, or a namespaced
+   * Voucher. Must equal the order's bearer side ({@link bearerAssetFor}).
+   */
+  asset: BearerAssetRef;
 }
 
 /**
@@ -109,6 +118,8 @@ export interface TwoProofFacts {
   prepared_swap_id: string;
   prepare_request_commitment: Uint8Array; // 32
   asset: { family: "BitcoinArk" };
+  /** The bearer leg's asset, carried from {@link BearerLeg.asset}. */
+  bearer_asset: BearerAssetRef;
   order_id: Uint8Array; // 32
   fill_amount_raw: bigint;
   public_token_hash: Uint8Array; // 32
@@ -189,7 +200,48 @@ export async function bearerLegFromWallet(
     publicTokenHash: hash,
     bearerAmount: amount,
     fillAmountRaw: fillAmountRaw ?? BigInt(amount),
+    asset: { family: "Webcash" },
   };
+}
+
+/**
+ * The order's bearer asset (prepare v3 `bearer_asset`): the non-Ark side of the
+ * pair. Webcash needs no namespace. A Voucher must name its contract and issuer
+ * (extrolib `validate_bearer_asset`), and the DHTX order wire carries only the
+ * family, so a voucher order fails closed here until that wire is namespaced.
+ */
+export function bearerAssetFor(order: LimitOrder): BearerAssetRef {
+  const { base, quote } = order.pair;
+  const bearer =
+    base === "BitcoinArk" ? quote : quote === "BitcoinArk" ? base : null;
+  if (bearer === "Webcash") return { family: "Webcash" };
+  if (bearer === "Voucher") {
+    throw new Error(
+      "BEARER_ASSET_UNNAMESPACED: voucher order carries no contract/issuer on the DHTX wire",
+    );
+  }
+  throw new Error(
+    `BEARER_ASSET_UNSUPPORTED: no Ark-bearer leg in ${base}/${quote}`,
+  );
+}
+
+/** Refuse a wallet bearer leg whose asset is not the order's bearer asset. */
+export function assertLegMatchesOrder(
+  leg: BearerLeg,
+  order: LimitOrder,
+): BearerLeg {
+  const want = bearerAssetFor(order);
+  const a = leg.asset;
+  if (
+    a.family !== want.family ||
+    (a.contract_id ?? null) !== (want.contract_id ?? null) ||
+    (a.issuer_fp ?? "").toLowerCase() !== (want.issuer_fp ?? "").toLowerCase()
+  ) {
+    throw new Error(
+      `BEARER_ASSET_MISMATCH: wallet leg ${a.family}, order ${want.family}`,
+    );
+  }
+  return leg;
 }
 
 export interface BuildFactsInput {
@@ -234,6 +286,8 @@ export function swapFactsOpInput(input: BuildFactsInput): SwapFactsInput {
     public_token_hash: bytes(bearer?.publicTokenHash),
     bearer_amount: str(bearer?.bearerAmount),
     fill_amount_raw: int(bearer?.fillAmountRaw),
+    // No default: a missing asset is refused by extro-node's codec.
+    bearer_asset: bearer?.asset as BearerAssetRef,
     provider: {
       musig2_pubkey: str(p.musig2_pubkey),
       settle_nonce: str(p.settle_nonce),

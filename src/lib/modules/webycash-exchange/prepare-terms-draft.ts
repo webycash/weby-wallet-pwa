@@ -14,6 +14,7 @@ export type PrepareTermsDraftWire = {
 	order_id: string;
 	signed_order_commitment_sha256: string;
 	fill_amount_raw: string;
+	bearer_asset: ArkPrepareTerms['bearer_asset'];
 	parties: ArkPrepareTerms['parties'];
 	provider_nonces: ArkPrepareTerms['provider_nonces'];
 	ark_network: ArkPrepareTerms['ark_network'];
@@ -47,6 +48,7 @@ export function serializePrepareTermsDraft(terms: ArkPrepareTerms): PrepareTerms
 		order_id: bytesToHex(terms.order_id),
 		signed_order_commitment_sha256: bytesToHex(terms.signed_order_commitment_sha256),
 		fill_amount_raw: terms.fill_amount_raw.toString(),
+		bearer_asset: terms.bearer_asset,
 		parties: terms.parties,
 		provider_nonces: terms.provider_nonces,
 		ark_network: terms.ark_network,
@@ -67,6 +69,7 @@ export function parsePrepareTermsDraft(draft: PrepareTermsDraftWire): ArkPrepare
 		order_id: hexToBytes(draft.order_id),
 		signed_order_commitment_sha256: hexToBytes(draft.signed_order_commitment_sha256),
 		fill_amount_raw: BigInt(draft.fill_amount_raw),
+		bearer_asset: draft.bearer_asset,
 		parties: draft.parties,
 		provider_nonces: draft.provider_nonces,
 		ark_network: draft.ark_network,

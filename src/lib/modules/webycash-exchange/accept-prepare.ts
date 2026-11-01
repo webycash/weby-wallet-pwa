@@ -13,6 +13,7 @@ import {
 	newRequestId,
 	type ArkPrepareExpectation,
 	type ArkPrepareTerms,
+	type BearerAssetRef,
 	type ExchangeCommand,
 	type ExtroResponse,
 	type WireProviderMaterial
@@ -57,6 +58,8 @@ export type BuildPrepareTermsInput = {
 	orderId16: Uint8Array;
 	signedOrderCommitmentSha256: Uint8Array;
 	fillAmountRaw: bigint;
+	/** The order's bearer asset (prepare v3; see `bearerAssetFor`). No default. */
+	bearerAsset: BearerAssetRef;
 	provider: WireProviderMaterial;
 	/** Accept a pre-funding `offer:<dest>` provider body (terms precede funding). */
 	allowOffer?: boolean;
@@ -124,6 +127,7 @@ export async function buildArkPrepare(
 				order_id: input.orderId16,
 				signed_order_commitment_sha256: input.signedOrderCommitmentSha256,
 				fill_amount_raw: input.fillAmountRaw,
+				bearer_asset: input.bearerAsset,
 				provider: input.provider,
 				allow_offer: input.allowOffer === true,
 				bearer_seller_fp_hex: input.bearerSellerFpHex,

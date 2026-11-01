@@ -55,6 +55,8 @@ const typed = (b: Raw): BuildFactsInput =>
       publicTokenHash: hb(b.bearer.public_token_hash),
       bearerAmount: b.bearer.bearer_amount,
       fillAmountRaw: BigInt(b.bearer.fill_amount_raw),
+      // extro-node's vector predates the bearer asset (webcash only).
+      asset: { family: "Webcash" },
     },
     provider: {
       ...b.provider,
@@ -98,7 +100,10 @@ describe("swap facts: extro-node vector = wallet", () => {
         ).toBe(true);
       } else {
         if (!("ok" in got)) throw new Error(`${c.name}: ${got.error}`);
-        expect(plain(got.ok), c.name).toEqual(c.expected.facts);
+        expect(plain(got.ok), c.name).toEqual({
+          ...c.expected.facts,
+          bearer_asset: { family: "Webcash" },
+        });
         expect(
           typeof (got.ok as { fill_amount_raw: unknown }).fill_amount_raw,
           c.name,

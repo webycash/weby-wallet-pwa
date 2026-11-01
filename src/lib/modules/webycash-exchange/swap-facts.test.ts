@@ -14,6 +14,8 @@ beforeAll(async () => {
 
 import type { LimitOrder } from "./types";
 import {
+  assertLegMatchesOrder,
+  bearerAssetFor,
   buildSwapInitiateFacts,
   type BearerLeg,
   type BearerSellerIdentity,
@@ -43,6 +45,7 @@ const bearer: BearerLeg = {
   publicTokenHash: new Uint8Array(32).fill(0x77),
   bearerAmount: "1",
   fillAmountRaw: 1n,
+  asset: { family: "Webcash" },
 };
 
 const bearerSeller: BearerSellerIdentity = {
@@ -99,6 +102,38 @@ describe("buildSwapInitiateFacts fail-closed boundary", () => {
     expect(facts.locked_ref).toBe(`${"ee".repeat(32)}:0`);
     expect(facts.provider_musig2_pubkey).toBe(providerPubkey);
     expect(facts.conditional_payload).toHaveLength(128);
+    expect(facts.bearer_asset).toEqual({ family: "Webcash" });
+  });
+
+  it("carries a namespaced voucher bearer asset through", async () => {
+    const voucher = {
+      family: "Voucher" as const,
+      contract_id: "credits",
+      issuer_fp: "CD".repeat(20),
+    };
+    const facts = await buildSwapInitiateFacts({
+      order,
+      bearer: { ...bearer, asset: voucher },
+      provider: provider(),
+      bearerSeller,
+      encSecretForProvider: encryptedSecret(),
+      prepared: prepared(),
+    });
+    expect(facts.bearer_asset).toEqual(voucher);
+  });
+
+  it("refuses a bearer leg without an asset", async () => {
+    const { asset: _drop, ...noAsset } = bearer;
+    await expect(
+      buildSwapInitiateFacts({
+        order,
+        bearer: noAsset as BearerLeg,
+        provider: provider(),
+        bearerSeller,
+        encSecretForProvider: encryptedSecret(),
+        prepared: prepared(),
+      }),
+    ).rejects.toThrow();
   });
 
   it("rejects the former missing-provider-field fallback path", async () => {
@@ -190,5 +225,42 @@ describe("buildSwapInitiateFacts fail-closed boundary", () => {
         prepared: { ...prepared(), idempotencyKey: new Uint8Array(16) },
       }),
     ).rejects.toThrow(/idempotency_key.*zero/);
+  });
+});
+
+describe("bearer asset from the order", () => {
+  const ord = (base: string, quote: string) =>
+    ({ ...order, pair: { base, quote } }) as LimitOrder;
+  it("is Webcash for an Ark/Webcash pair on either side", () => {
+    expect(bearerAssetFor(ord("BitcoinArk", "Webcash"))).toEqual({
+      family: "Webcash",
+    });
+    expect(bearerAssetFor(ord("Webcash", "BitcoinArk"))).toEqual({
+      family: "Webcash",
+    });
+  });
+  it("fails closed for a voucher order (no namespace on the DHTX wire)", () => {
+    expect(() => bearerAssetFor(ord("BitcoinArk", "Voucher"))).toThrow(
+      /^BEARER_ASSET_UNNAMESPACED/,
+    );
+  });
+  it("refuses a pair without an Ark/bearer leg", () => {
+    expect(() => bearerAssetFor(ord("Webcash", "Rgb20"))).toThrow(
+      /^BEARER_ASSET_UNSUPPORTED/,
+    );
+  });
+  it("refuses a wallet leg whose asset is not the order's", () => {
+    expect(assertLegMatchesOrder(bearer, order)).toBe(bearer);
+    const v = {
+      ...bearer,
+      asset: {
+        family: "Voucher" as const,
+        contract_id: "c",
+        issuer_fp: "cd".repeat(20),
+      },
+    };
+    expect(() => assertLegMatchesOrder(v, order)).toThrow(
+      /^BEARER_ASSET_MISMATCH/,
+    );
   });
 });

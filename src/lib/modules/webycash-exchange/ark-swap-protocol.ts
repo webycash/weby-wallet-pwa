@@ -24,7 +24,13 @@
  */
 import { getExtroClient } from '$lib/extro';
 import { getSelfIdentity } from '$lib/extro/self-identity';
-import { newRequestId, type ArkPrepareExpectation, type ArkPrepareTerms, type WireProviderMaterial } from '@extro/node';
+import {
+	newRequestId,
+	type ArkPrepareExpectation,
+	type ArkPrepareTerms,
+	type BearerAssetRef,
+	type WireProviderMaterial
+} from '@extro/node';
 import { getRuntimeConfig, refereeAvailable } from '$lib/extro/release-config';
 import { loadArkOverview } from '$lib/ark/ark-view';
 import {
@@ -75,7 +81,8 @@ import {
 } from './accept-prepare';
 import { fetchSwapMsgs, probeProviderMaterial, providerMaterialFromWire } from './accept-run-swap';
 import { frameConditionalPayload, type SettleTransport } from './ark-settle-transport';
-import { bearerLegFromWallet, buildSwapInitiateFacts } from './swap-facts';
+import { assertLegMatchesOrder, bearerAssetFor, bearerLegFromWallet, buildSwapInitiateFacts } from './swap-facts';
+export { bearerAssetFor } from './swap-facts';
 import { assertBearerLegIssued, awaitRefereePrecheck, railTokenStatus, submitBearerPrecheck } from './bearer-precheck';
 import { reserveBearerLeg, walletReserveDeps, type BearerReserveDeps } from './bearer-reserve';
 import { HttpRefereeClient } from './referee-client';
@@ -267,6 +274,11 @@ export function fillAmountRawFor(order: LimitOrder): bigint {
 	return BigInt(Math.max(1, raw));
 }
 
+/** The wallet's bearer leg, refused unless it is the order's bearer asset. */
+async function orderBearerLeg(order: LimitOrder, slot: number) {
+	return assertLegMatchesOrder(await bearerLegFromWallet(slot, 0, fillAmountRawFor(order)), order);
+}
+
 async function selfIdentity(slot: number): Promise<{ fpHex: string; pgpHex: string }> {
 	const id = await getSelfIdentity(getExtroClient(), slot);
 	return { fpHex: id.fingerprintHex, pgpHex: bytesToHex(id.verifyingKey).toLowerCase() };
@@ -357,6 +369,9 @@ export async function assertProviderOwnedTerms(
 		orderId16: Uint8Array;
 		counterpartyFpHex: string;
 		arkAmountSats: bigint;
+		/** The order's bearer fill and asset; the terms must match both exactly. */
+		fillAmountRaw: bigint;
+		bearerAsset: BearerAssetRef;
 	},
 	send: ExtroSend = (c) => getExtroClient().send(c)
 ): Promise<ArkPrepareExpectation> {
@@ -371,6 +386,8 @@ export async function assertProviderOwnedTerms(
 			order_id: input.orderId16,
 			counterparty_fp_hex: input.counterpartyFpHex,
 			ark_amount_sats: input.arkAmountSats,
+			fill_amount_raw: input.fillAmountRaw,
+			bearer_asset: input.bearerAsset,
 			...arkPinsFromConfig(),
 			now_unix: Math.floor(Date.now() / 1000)
 		},
@@ -445,7 +462,9 @@ export async function runProviderSide(
 		arkDestination: overview.arkAddress,
 		orderId16,
 		counterpartyFpHex,
-		arkAmountSats
+		arkAmountSats,
+		fillAmountRaw: fillAmountRawFor(order),
+		bearerAsset: bearerAssetFor(order)
 	});
 	const countersigned = await countersignSwapPrepare(sellerSigned, expectation, slot);
 	await relaySwapPrepareSignature({
@@ -840,6 +859,7 @@ export async function runBearerSellerSide(
 		orderId16,
 		signedOrderCommitmentSha256: commitment,
 		fillAmountRaw: fillAmountRawFor(order),
+		bearerAsset: bearerAssetFor(order),
 		provider: offer,
 		allowOffer: true,
 		bearerSellerFpHex: me.fpHex,
@@ -916,7 +936,7 @@ export async function runBearerSellerSide(
 	// token from the real wallet balance (never minted/mined here), and the
 	// referee must record the pre-check the provider waits on.
 	try {
-		const leg = await bearerLegFromWallet(slot, 0, fillAmountRawFor(order));
+		const leg = await orderBearerLeg(order, slot);
 		const legPublic = `e${leg.bearerAmount}:public:${bytesToHex(leg.publicTokenHash)}`;
 		if (opts.bearerReserve !== false) {
 			const railBase = getRuntimeConfig().webcash_server_url;
@@ -1025,12 +1045,13 @@ export async function runBearerSellerSide(
 		let publicWebcash: string;
 		try {
 			await verifyCeremonyPartial(inputs, 'provider', pp.partialHex);
-			const bearer = await bearerLegFromWallet(slot, 0, fillAmountRawFor(order));
+			const bearer = await orderBearerLeg(order, slot);
 			publicWebcash = `e${bearer.bearerAmount}:public:${bytesToHex(bearer.publicTokenHash)}`;
 			const encSecretForProvider = await transport.sealBearerSecret({
 				slot,
 				publicTokenHash: bearer.publicTokenHash,
 				amount: bearer.bearerAmount,
+				bearerAsset: bearer.asset,
 				providerVk: material.provider_pgp_pubkey,
 				swapId
 			});

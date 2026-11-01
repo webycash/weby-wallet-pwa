@@ -48,11 +48,13 @@ vi.mock('$lib/extro', () => ({
 		}
 	})
 }));
-vi.mock('./swap-facts', () => ({
+vi.mock('./swap-facts', async (orig) => ({
+	assertLegMatchesOrder: (await orig<typeof import('./swap-facts')>()).assertLegMatchesOrder,
 	bearerLegFromWallet: async (_s: number, _i: number, fill: bigint) => ({
 		publicTokenHash: Uint8Array.from({ length: 32 }, () => 0xe1),
 		bearerAmount: (Number(fill) / 1e8).toString(),
-		fillAmountRaw: fill
+		fillAmountRaw: fill,
+		asset: { family: 'Webcash' }
 	})
 }));
 

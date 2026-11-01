@@ -106,11 +106,14 @@ vi.mock('./accept-run-swap', () => ({
 	probeProviderMaterial: async () => ({ ok: true }),
 	providerMaterialFromWire: (m: unknown, payload: Uint8Array) => ({ wire: m, payload })
 }));
-vi.mock('./swap-facts', () => ({
+vi.mock('./swap-facts', async (orig) => ({
+	bearerAssetFor: (await orig<typeof import('./swap-facts')>()).bearerAssetFor,
+	assertLegMatchesOrder: (await orig<typeof import('./swap-facts')>()).assertLegMatchesOrder,
 	bearerLegFromWallet: async () => ({
 		publicTokenHash: hex('e1'.repeat(32)),
 		bearerAmount: '100',
-		fillAmountRaw: 100n
+		fillAmountRaw: 100n,
+		asset: { family: 'Webcash' }
 	}),
 	buildSwapInitiateFacts: (input: unknown) => {
 		state.initFacts = input;
@@ -206,7 +209,8 @@ function providerTerms() {
 	return {
 		order_id: id32,
 		signed_order_commitment_sha256: hex('01'.repeat(32)),
-		fill_amount_raw: 1n,
+		fill_amount_raw: 100n, // = fillAmountRawFor(order); the provider now checks it
+		bearer_asset: { family: 'Webcash' },
 		parties: {
 			provider_fp: PROVIDER_FP,
 			provider_pgp_pubkey_hex: '77'.repeat(32),
@@ -623,7 +627,12 @@ describe('bearer-seller side', () => {
 		expect(initiate).toHaveBeenCalledWith({ slot: 0, facts: { facts: 'two-proof' } });
 		expect(advance).toHaveBeenCalledTimes(1);
 		expect(sealBearerSecret).toHaveBeenCalledWith(
-			expect.objectContaining({ amount: '100', swapId: SWAP_ID, providerVk: hex('77'.repeat(32)) })
+			expect.objectContaining({
+				amount: '100',
+				bearerAsset: { family: 'Webcash' },
+				swapId: SWAP_ID,
+				providerVk: hex('77'.repeat(32))
+			})
 		);
 		const init = state.initFacts as {
 			provider: { payload: Uint8Array };
