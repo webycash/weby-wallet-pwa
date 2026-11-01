@@ -18,12 +18,22 @@
 // Test doubles live in `mock-referee-client.ts`, which production code never
 // imports.
 
-/** A redaction-safe audit entry as served by GET /v1/swap/:id/audit. */
+import { newRequestId, type RefereeCall, type RefereeReply } from '@extro/node';
+import { getExtroClient } from '$lib/extro';
+import type { ExtroSend } from './exchange-core';
+
+/**
+ * One audit entry as served by GET /v1/swap/:id/audit (the referee's
+ * `AuditEntry`). `phase_payload` is the entry's public JSON (compact);
+ * `signature` is '' when the referee did not sign the entry.
+ */
 export interface AuditEntry {
 	swap_id: string;
 	phase: string;
-	at: number;
-	note: string;
+	ts_unix: number;
+	prior_tip: string;
+	phase_payload: string;
+	signature: string;
 }
 
 export interface AdvanceResult {
@@ -45,12 +55,14 @@ export interface RefereePubkey {
 	capabilities?: string[];
 }
 
-/** A signed wallet ack POSTed to /v1/swap/:id/ack. Never carries a secret. */
+/**
+ * The bearer seller's signed ack POSTed to /v1/swap/:id/ack (the referee's
+ * `BearerSellerAck`). Never carries a secret.
+ */
 export interface WalletAck {
 	swap_id: string;
-	/** Push kind, e.g. `"Invalidate"`. */
-	kind: string;
 	outcome: string;
+	signature_hex: string;
 }
 
 /** The referee's reply to `POST /v1/swap/initiate`. */
@@ -76,20 +88,29 @@ export interface RefereeClient {
 	initiate(envelope: Uint8Array): Promise<InitiateResult>;
 	/** Advance the swap one step; returns the new phase + terminality. */
 	advance(swapId: string): Promise<AdvanceResult>;
-	/** Post a signed wallet ack. */
-	ack(swapId: string, ack: WalletAck): Promise<{ swap_id: string; verdict: string }>;
+	/** Post the signed bearer-seller ack (its `swap_id` names the swap). */
+	ack(ack: WalletAck): Promise<{ swap_id: string; verdict: string }>;
 	audit(swapId: string): Promise<AuditEntry[]>;
 }
 
-// ── HTTP referee (targets the real routes) ────────────────────────────────────
+// ── HTTP referee (extro-node's client, ADR-0007 H3) ──────────────────────────
+//
+// The requests are built, sent (through the node's fetch) and strictly parsed
+// by extro-node (`Op::Exchange Referee`, pinned by
+// `@extro/node/vectors/referee_client.json`). The pinned referee key is
+// required: every call fails closed without it, and `/v1/pubkey` refuses a
+// referee whose key differs.
 
 export interface HttpRefereeOptions {
 	/** Referee base URL, e.g. `https://referee.webycash.example`. */
 	baseUrl: string;
-	/** Pinned referee ed25519 pubkey (hex) — verified before trusting messages. */
-	pinnedPubkeyHex?: string;
-	fetchFn?: typeof fetch;
+	/** Pinned referee ed25519 pubkey (32-byte lower-case hex). */
+	pinnedPubkeyHex: string;
+	/** The node's `send`; defaults to the app's extro client. */
+	send?: ExtroSend;
 }
+
+type Reply<K extends RefereeReply['reply']> = Extract<RefereeReply, { reply: K }>;
 
 export class HttpRefereeClient implements RefereeClient {
 	readonly mode = 'http' as const;
@@ -99,66 +120,53 @@ export class HttpRefereeClient implements RefereeClient {
 		this.opts = opts;
 	}
 
-	private get f(): typeof fetch {
-		return this.opts.fetchFn ?? fetch;
-	}
-
-	private url(path: string): string {
-		return `${this.opts.baseUrl.replace(/\/$/, '')}${path}`;
+	private async call<K extends RefereeReply['reply']>(call: RefereeCall, want: K): Promise<Reply<K>> {
+		const send = this.opts.send ?? getExtroClient().send;
+		const r = await send({
+			request_id: newRequestId(),
+			op: {
+				kind: 'Exchange',
+				cmd: { op: 'Referee', base_url: this.opts.baseUrl, pinned_vk_hex: this.opts.pinnedPubkeyHex, call }
+			}
+		});
+		if (r.kind === 'Err') throw new Error(r.message);
+		if (r.body.kind !== 'ExchangeReferee' || r.body.reply.reply !== want) {
+			throw new Error(`referee ${call.call}: unexpected ${r.body.kind}`);
+		}
+		return r.body.reply as Reply<K>;
 	}
 
 	async health(): Promise<RefereeHealth> {
-		const r = await this.f(this.url('/v1/health'));
-		if (!r.ok) throw new Error(`referee /v1/health ${r.status}`);
-		return (await r.json()) as RefereeHealth;
+		const { status, version } = await this.call({ call: 'Health' }, 'Health');
+		return { status, version };
 	}
 
 	async pubkey(): Promise<RefereePubkey> {
-		const r = await this.f(this.url('/v1/pubkey'));
-		if (!r.ok) throw new Error(`referee /v1/pubkey ${r.status}`);
-		const body = (await r.json()) as RefereePubkey;
-		if (this.opts.pinnedPubkeyHex && body.ed25519_pubkey_hex !== this.opts.pinnedPubkeyHex) {
-			throw new Error('referee pubkey does not match the pinned key — refusing to trust');
-		}
-		return body;
+		const p = await this.call({ call: 'Pubkey' }, 'Pubkey');
+		return {
+			ed25519_pubkey_hex: p.ed25519_pubkey_hex,
+			musig2_pubshare_hex: p.musig2_pubshare_hex,
+			referee_version: p.referee_version,
+			...(p.capabilities ? { capabilities: p.capabilities } : {})
+		};
 	}
 
 	async prepare(envelope: Uint8Array): Promise<Uint8Array> {
-		const r = await this.f(this.url('/v1/swap/prepare'), {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/octet-stream' },
-			body: envelope.slice()
-		});
-		if (!r.ok) {
-			const detail = await r.text().catch(() => '');
-			throw new Error(`referee /v1/swap/prepare ${r.status}: ${detail || r.statusText}`);
-		}
-		return new Uint8Array(await r.arrayBuffer());
+		return (await this.call({ call: 'Prepare', envelope: envelope.slice() }, 'Prepared')).signed;
 	}
 
 	async advance(swapId: string): Promise<AdvanceResult> {
-		const r = await this.f(this.url(`/v1/swap/${encodeURIComponent(swapId)}/advance`), {
-			method: 'POST'
-		});
-		if (!r.ok) throw new Error(`referee advance ${r.status}`);
-		const body = (await r.json()) as { swap_id: string; phase: string; terminal: boolean };
-		return { swapId: body.swap_id, phase: body.phase, terminal: body.terminal };
+		const r = await this.call({ call: 'Advance', swap_id: swapId }, 'Advanced');
+		return { swapId: r.swap_id, phase: r.phase, terminal: r.terminal };
 	}
 
-	async ack(swapId: string, ack: WalletAck): Promise<{ swap_id: string; verdict: string }> {
-		const r = await this.f(this.url(`/v1/swap/${encodeURIComponent(swapId)}/ack`), {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(ack)
-		});
-		if (!r.ok) throw new Error(`referee ack ${r.status}`);
-		return (await r.json()) as { swap_id: string; verdict: string };
+	async ack(ack: WalletAck): Promise<{ swap_id: string; verdict: string }> {
+		const { swap_id, verdict } = await this.call({ call: 'Ack', ack }, 'Acked');
+		return { swap_id, verdict };
 	}
 
 	async audit(swapId: string): Promise<AuditEntry[]> {
-		const r = await this.f(this.url(`/v1/swap/${encodeURIComponent(swapId)}/audit`));
-		if (!r.ok) throw new Error(`referee audit ${r.status}`);
-		return (await r.json()) as AuditEntry[];
+		return (await this.call({ call: 'Audit', swap_id: swapId }, 'Audit')).entries;
 	}
 
 	/**
@@ -167,19 +175,7 @@ export class HttpRefereeClient implements RefereeClient {
 	 * its binding gate and replies with the assigned `{swap_id, phase}`.
 	 */
 	async initiate(envelope: Uint8Array): Promise<InitiateResult> {
-		// Copy into a tight ArrayBuffer so a subarray-backed view (e.g. the
-		// worker's transferred buffer) is sent whole, not its parent buffer.
-		const body = envelope.slice();
-		const r = await this.f(this.url('/v1/swap/initiate'), {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/octet-stream' },
-			body
-		});
-		if (!r.ok) {
-			const detail = await r.text().catch(() => '');
-			throw new Error(`referee /v1/swap/initiate ${r.status}: ${detail || r.statusText}`);
-		}
-		const parsed = (await r.json()) as { swap_id: string; phase: string };
-		return { swap_id: parsed.swap_id, phase: parsed.phase };
+		const { swap_id, phase } = await this.call({ call: 'Initiate', envelope: envelope.slice() }, 'Initiated');
+		return { swap_id, phase };
 	}
 }

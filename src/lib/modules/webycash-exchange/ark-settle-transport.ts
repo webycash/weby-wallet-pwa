@@ -402,8 +402,7 @@ export function defaultSettleTransport(
 			const envelope = await proveSwapInitiate({ mnemonic, bearerPk, conditionalPk, facts: ctx.facts });
 			const referee = new HttpRefereeClient({
 				baseUrl: cfg().referee_url,
-				pinnedPubkeyHex: cfg().referee_vk_hex,
-				fetchFn
+				pinnedPubkeyHex: cfg().referee_vk_hex
 			});
 			const r = await referee.initiate(envelope);
 			return { swapId: r.swap_id, phase: r.phase };
@@ -412,8 +411,7 @@ export function defaultSettleTransport(
 			const { HttpRefereeClient } = await import('./referee-client');
 			const referee = new HttpRefereeClient({
 				baseUrl: cfg().referee_url,
-				pinnedPubkeyHex: cfg().referee_vk_hex,
-				fetchFn
+				pinnedPubkeyHex: cfg().referee_vk_hex
 			});
 			const r = await referee.advance(swapId);
 			return { phase: r.phase, terminal: r.terminal };

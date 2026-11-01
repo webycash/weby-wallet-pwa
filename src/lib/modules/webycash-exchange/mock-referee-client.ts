@@ -57,15 +57,17 @@ export class MockRefereeClient implements RefereeClient {
 		const entry: AuditEntry = {
 			swap_id: swapId,
 			phase,
-			at: this.now(),
-			note: `advance → ${phase}`
+			ts_unix: this.now(),
+			prior_tip: '',
+			phase_payload: JSON.stringify({ note: `advance → ${phase}` }),
+			signature: ''
 		};
 		this.auditLog.set(swapId, [...(this.auditLog.get(swapId) ?? []), entry]);
 		return { swapId, phase, terminal };
 	}
 
-	async ack(swapId: string, ack: WalletAck): Promise<{ swap_id: string; verdict: string }> {
-		return { swap_id: swapId, verdict: `Acked(${ack.outcome})` };
+	async ack(ack: WalletAck): Promise<{ swap_id: string; verdict: string }> {
+		return { swap_id: ack.swap_id, verdict: `Acked(${ack.outcome})` };
 	}
 
 	async audit(swapId: string): Promise<AuditEntry[]> {
