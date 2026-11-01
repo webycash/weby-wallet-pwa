@@ -4,8 +4,14 @@
  * committed provider cancel key, TTL ≤ 600 s, ONE prepared refund nonce that is
  * consumed once (identical retry → identical partial), real MuSig2 partials.
  */
-import { describe, expect, it } from 'vitest';
-import { Session, nonceAggregate, nonceGen } from '@scure/btc-signer/musig2.js';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { nonceAggregate, nonceGen } from '@scure/btc-signer/musig2.js';
+import { bootArkNode } from './ark-node.testkit';
+
+// The ceremony crypto runs in the real extro-node WASM (Op::Ark).
+const node = vi.hoisted(() => ({ client: null as unknown }));
+vi.mock('$lib/extro', () => ({ getExtroClient: () => node.client }));
+
 import { schnorr } from '@noble/curves/secp256k1.js';
 import { ed25519 } from '@noble/curves/ed25519.js';
 import { fundingRefsFromSpends, splitAggregateBundle } from './settle-tx';
@@ -13,9 +19,10 @@ import {
 	TEST_CHECKPOINT_HEX,
 	TEST_PROVIDER_PUB,
 	TEST_PROVIDER_SK,
-	TEST_Q,
 	TEST_REFEREE_PUB,
 	TEST_REFEREE_SK,
+	testOwnerKey,
+	testSigningSession,
 	testSwapContract
 } from './settle-tx.fixture';
 import { coopRefundAggregate, type CoopRefundDeps, type CoopRefundInput } from './coop-refund';
@@ -23,10 +30,11 @@ import { coopRefundAggregate, type CoopRefundDeps, type CoopRefundInput } from '
 const hx = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
 const unhex = (h: string) => Uint8Array.from(h.match(/../g) ?? [], (b) => Number.parseInt(b, 16));
 const LOCKED = `${'5a'.repeat(32)}:1`;
-const contract = testSwapContract('coop-swap');
-const refs = fundingRefsFromSpends(contract, LOCKED, TEST_CHECKPOINT_HEX);
-const keys = [TEST_REFEREE_PUB, TEST_PROVIDER_PUB];
 const COMMIT = 'cd'.repeat(32);
+/** The per-swap tweaked owner key of this swap (audit C1). */
+const TEST_Q = testOwnerKey('coop-swap', unhex(COMMIT));
+const contract = testSwapContract('coop-swap', unhex(COMMIT));
+const refs = fundingRefsFromSpends(contract, LOCKED, TEST_CHECKPOINT_HEX);
 const DEST = 'ark1qprovider';
 const CANCEL_SK = new Uint8Array(32).fill(9);
 const CANCEL_PK = hx(ed25519.getPublicKey(CANCEL_SK));
@@ -42,7 +50,13 @@ function partial(which: 0 | 1, mine: N[], otherPubHex: string, h: string): strin
 		.map((i) => {
 			const other = unhex(otherPubHex.slice(i * 132, i * 132 + 132));
 			const pubs = which === 0 ? [mine[i].public, other] : [other, mine[i].public];
-			return hx(new Session(nonceAggregate(pubs), keys, unhex(h.slice(i * 64, i * 64 + 64))).sign(mine[i].secret, sk));
+			const session = testSigningSession(
+				nonceAggregate(pubs),
+				unhex(h.slice(i * 64, i * 64 + 64)),
+				'coop-swap',
+				unhex(COMMIT)
+			);
+			return hx(session.sign(mine[i].secret, sk));
 		})
 		.join('');
 }
@@ -125,6 +139,10 @@ const input = (over: Partial<CoopRefundInput> = {}): CoopRefundInput => ({
 	expectDestination: DEST,
 	expectCancelPubkeyHex: CANCEL_PK,
 	...over
+});
+
+beforeAll(async () => {
+	node.client = await bootArkNode();
 });
 
 describe('coop-refund-v1 client', () => {

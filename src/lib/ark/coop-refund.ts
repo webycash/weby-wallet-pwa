@@ -24,7 +24,7 @@ import {
 	checkCeremonyInputs,
 	verifyCeremonyPartial,
 	type CeremonyInputs
-} from './settle-ceremony';
+} from './ceremony';
 import type { ProviderPartialSigner } from './settle-step';
 import { wasmProviderPartialSign } from './wasm-cosign';
 
@@ -201,6 +201,7 @@ export async function coopRefundAggregate(input: CoopRefundInput, deps: CoopRefu
 		throw fail('refund sighash bundle must be 1..2 × 32 bytes hex');
 	}
 	if (!/^[0-9a-f]{32}$/i.test(input.orderIdHex)) throw fail('order id must be 16 bytes hex');
+	if (!/^[0-9a-f]{64}$/i.test(input.requestCommitmentHex)) throw fail('request commitment must be 32 bytes hex');
 
 	// 1) Durable terms → bind to the own contract.
 	const terms = await post(f, input, d, 'terms', '', '');
@@ -219,11 +220,13 @@ export async function coopRefundAggregate(input: CoopRefundInput, deps: CoopRefu
 		inputs = checkCeremonyInputs({
 			refereePubkeyHex: terms.referee_musig2_pubshare_hex,
 			providerPubkeyHex: fresh.pubkeyHex,
+			swapId: input.swapId,
+			requestCommitment: unhex(input.requestCommitmentHex),
 			refereeNonceHex: terms.referee_refund_nonce_bundle_hex,
 			providerNonceHex: fresh.refundNonceHex,
 			sighashHex: refundHash
 		});
-		assertCeremonyMatchesOwnerKey(inputs, input.aggregateOwnerKey);
+		await assertCeremonyMatchesOwnerKey(inputs, input.aggregateOwnerKey);
 	} catch (e) {
 		throw fail(`ceremony inputs do not bind to Q: ${e instanceof Error ? e.message : String(e)}`);
 	}
@@ -237,17 +240,19 @@ export async function coopRefundAggregate(input: CoopRefundInput, deps: CoopRefu
 
 	// 4) Verify referee, sign own (WASM), self-verify, aggregate under Q.
 	try {
-		verifyCeremonyPartial(inputs, 'referee', refereePartial);
+		await verifyCeremonyPartial(inputs, 'referee', refereePartial);
 		const own = await (deps.sign ?? wasmProviderPartialSign)({
 			slot: input.slot,
 			fillId,
 			session: 'refund',
 			refereePkHex: inputs.refereePubkeyHex,
+			swapId: inputs.swapId,
+			requestCommitment: inputs.requestCommitment,
 			refereeNonceHex: inputs.refereeNonceHex,
 			msg: unhex(inputs.sighashHex)
 		});
-		verifyCeremonyPartial(inputs, 'provider', own);
-		const signaturesHex = aggregateSettleSignature(inputs, refereePartial, own);
+		await verifyCeremonyPartial(inputs, 'provider', own);
+		const signaturesHex = await aggregateSettleSignature(inputs, refereePartial, own);
 		return { signaturesHex, phase: refund.phase, fillId, inputs };
 	} catch (e) {
 		if (e instanceof NamedArkGateError && e.gate.startsWith('ARK_COOP_REFUND_FAILED')) throw e;

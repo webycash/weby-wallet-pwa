@@ -1,10 +1,27 @@
 /**
- * Protocol-level wiring of the settle ceremony (both roles), with every
- * WASM/network edge mocked. Uses the Rust musig2 cross-impl vector so the
- * seller's aggregation is checked against real BIP327 output.
+ * Protocol-level wiring of the settle ceremony (both roles). Every network
+ * edge is mocked; the ceremony crypto runs in the real extro-node WASM
+ * (`Op::Ark`) over the per-swap tweaked cross-backend vector extro-node ships
+ * (audit C1), so the seller's aggregation is checked against Rust output.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import vector from '$lib/ark/settle-ceremony.vector.json';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { arkCeremonyVector, bootArkNode } from '$lib/ark/ark-node.testkit';
+
+const V = arkCeremonyVector();
+/** The vector under the field names this suite reads. */
+const vector = {
+	referee_pubkey_hex: V.referee_pubkey_hex,
+	provider_pubkey_hex: V.provider_pubkey_hex,
+	owner_q_xonly_hex: V.owner_q_xonly_hex,
+	sighash_hex: V.sighashes_hex,
+	referee_nonce_hex: V.referee_nonces_hex,
+	provider_nonce_hex: V.provider_nonces_hex,
+	referee_partial_hex: V.referee_partials_hex,
+	provider_partial_hex: V.provider_partials_hex,
+	signature_hex: V.signatures_hex.join('')
+};
+const SWAP_ID = V.swap_id;
+const REQUEST_COMMITMENT_HEX = V.request_commitment_hex;
 
 const hex = (h: string) => Uint8Array.from(h.match(/../g) ?? [], (b) => Number.parseInt(b, 16));
 const ORDER_ID = '0f'.repeat(16);
@@ -32,6 +49,7 @@ const CAPS = [
 ];
 
 const state = vi.hoisted(() => ({
+	node: null as null | { send(req: unknown): Promise<unknown> },
 	refereePubkey: null as unknown,
 	msgs: [] as unknown[],
 	material: null as unknown,
@@ -40,7 +58,7 @@ const state = vi.hoisted(() => ({
 	q: '',
 	refundHash: '',
 	initFacts: null as unknown,
-	precheck: vi.fn(async () => ({ swap_id: 'swap-1', bearer: { ok: true }, provider: { ok: true } })),
+	precheck: vi.fn(async () => ({ swap_id: SWAP_ID, bearer: { ok: true }, provider: { ok: true } })),
 	legIssued: vi.fn(async () => ({ amount: '100' })),
 	submitPrecheck: vi.fn(async () => undefined),
 	coop: vi.fn()
@@ -62,7 +80,8 @@ vi.mock('$lib/ark/ark-view', () => ({
 }));
 vi.mock('$lib/extro', () => ({
 	getExtroClient: () => ({
-		send: async (req: { op: { cmd: { op: string } } }) => {
+		send: async (req: { op: { kind: string; cmd: { op: string } } }) => {
+			if (req.op.kind === 'Ark') return state.node!.send(req);
 			if (req.op.cmd.op === 'SendProviderOffer') return { kind: 'Ok', body: { kind: 'SwapMsgSent', delivered: true } };
 			if (req.op.cmd.op === 'InspectSwapPrepare') return { kind: 'Ok', body: { kind: 'SwapPrepareTerms', terms: providerTerms() } };
 			throw new Error(`unexpected op ${req.op.cmd.op}`);
@@ -96,8 +115,8 @@ vi.mock('./swap-facts', () => ({
 	}
 }));
 vi.mock('./swap-prepare', () => ({
-	signSwapPrepare: async () => ({ signed: new Uint8Array([1]), requestCommitment: hex('88'.repeat(32)) }),
-	countersignSwapPrepare: async () => ({ signed: new Uint8Array([2]), requestCommitment: hex('88'.repeat(32)) }),
+	signSwapPrepare: async () => ({ signed: new Uint8Array([1]), requestCommitment: hex(REQUEST_COMMITMENT_HEX) }),
+	countersignSwapPrepare: async () => ({ signed: new Uint8Array([2]), requestCommitment: hex(REQUEST_COMMITMENT_HEX) }),
 	relaySwapPrepareSignature: async () => true,
 	fetchSwapPrepareInbox: async () => ({
 		providerSigned: new Uint8Array([2]),
@@ -112,7 +131,8 @@ vi.mock('./accept-prepare', async (orig) => ({
 }));
 vi.mock('$lib/ark/swap-contract', () => ({
 	deriveVerifiedArkContractPlan: async () => ({
-		swapId: 'swap-1',
+		swapId: SWAP_ID,
+		requestCommitment: hex(REQUEST_COMMITMENT_HEX),
 		amountSats: 1000n,
 		aggregateOwnerKey: hex(state.q)
 	}),
@@ -142,8 +162,8 @@ import { memoryContractJournal, type ContractJournalBackend } from '$lib/ark/con
 
 function prepared() {
 	return {
-		swapId: 'swap-1',
-		requestCommitment: hex('88'.repeat(32)),
+		swapId: SWAP_ID,
+		requestCommitment: hex(REQUEST_COMMITMENT_HEX),
 		idempotencyKey: hex('99'.repeat(16)),
 		expiresAtUnix: 0,
 		signedResponse: new Uint8Array([3]),
@@ -228,6 +248,10 @@ const fast = {
 };
 const phases = (log: SwapProgress[]) => log.map((p) => p.phase);
 
+beforeAll(async () => {
+	state.node = (await bootArkNode()) as never;
+});
+
 beforeEach(() => {
 	journal = memoryContractJournal();
 	state.refereePubkey = { ed25519_pubkey_hex: CFG.referee_vk_hex, musig2_pubshare_hex: vector.referee_pubkey_hex, capabilities: CAPS };
@@ -239,7 +263,7 @@ beforeEach(() => {
 	state.refundHash = 'a5'.repeat(32);
 	state.initFacts = null;
 	state.precheck.mockReset();
-	state.precheck.mockResolvedValue({ swap_id: 'swap-1', bearer: { ok: true }, provider: { ok: true } });
+	state.precheck.mockResolvedValue({ swap_id: SWAP_ID, bearer: { ok: true }, provider: { ok: true } });
 	state.legIssued.mockReset();
 	state.legIssued.mockResolvedValue({ amount: '100' });
 	state.submitPrecheck.mockReset();
@@ -261,7 +285,7 @@ describe('provider side', () => {
 		expect(out.gate).toMatch(/^REFEREE_PRECHECK_PENDING/);
 		expect(phases(log)).not.toContain('funding');
 		expect(state.walletCreate).not.toHaveBeenCalled();
-		expect(state.precheck).toHaveBeenCalledWith(expect.objectContaining({ swapId: 'swap-1' }));
+		expect(state.precheck).toHaveBeenCalledWith(expect.objectContaining({ swapId: SWAP_ID }));
 	});
 
 	it('refuses to fund when the signed terms cannot be persisted durably', async () => {
@@ -291,7 +315,7 @@ describe('provider side', () => {
 		state.material = offer();
 		state.precheck.mockRejectedValue(new Error('REFEREE_PRECHECK_PENDING: x'));
 		await runSwapRole('provider', order, SELLER_FP, fast);
-		const raw = journal.map.get('contract:swap-1');
+		const raw = journal.map.get(`contract:${SWAP_ID}`);
 		expect(raw).toBeTruthy();
 		const rec = JSON.parse(raw!);
 		expect(rec).toMatchObject({ role: 'provider', contractAddress: 'tark1contract', arkAmountSats: '1000' });
@@ -352,7 +376,7 @@ describe('provider side', () => {
 			orderIdHex: ORDER_ID,
 			sellerFpHex: SELLER_FP,
 			sellerVkHex: '78'.repeat(32),
-			swapId: 'swap-1',
+			swapId: SWAP_ID,
 			lockedRef: LOCKED,
 			partialHex: vector.provider_partial_hex
 		});
@@ -561,7 +585,7 @@ describe('bearer-seller side', () => {
 		state.msgs = [offer()];
 		state.material = fundedMaterial();
 		const sealed = new Uint8Array([9, 9, 9]);
-		const initiate = vi.fn(async () => ({ swapId: 'swap-1', phase: 'insert-pushed' }));
+		const initiate = vi.fn(async () => ({ swapId: SWAP_ID, phase: 'insert-pushed' }));
 		const spent = [false, true];
 		const advance = vi.fn(async () => ({ phase: 'settled', terminal: true }));
 		const submitSpend = vi.fn(async () => 'e0'.repeat(32));
@@ -591,7 +615,7 @@ describe('bearer-seller side', () => {
 		expect(initiate).toHaveBeenCalledWith({ slot: 0, facts: { facts: 'two-proof' } });
 		expect(advance).toHaveBeenCalledTimes(1);
 		expect(sealBearerSecret).toHaveBeenCalledWith(
-			expect.objectContaining({ amount: '100', swapId: 'swap-1', providerVk: hex('77'.repeat(32)) })
+			expect.objectContaining({ amount: '100', swapId: SWAP_ID, providerVk: hex('77'.repeat(32)) })
 		);
 		const init = state.initFacts as {
 			provider: { payload: Uint8Array };
@@ -611,7 +635,7 @@ describe('bearer-seller side', () => {
 	it('two-proof initiate: refuses a provider partial that does not verify (no initiate)', async () => {
 		state.msgs = [offer()];
 		state.material = fundedMaterial();
-		const initiate = vi.fn(async () => ({ swapId: 'swap-1', phase: 'insert-pushed' }));
+		const initiate = vi.fn(async () => ({ swapId: SWAP_ID, phase: 'insert-pushed' }));
 		const out = await runSwapRole('bearer-seller', order, PROVIDER_FP, {
 			...fast,
 			settleTransport: {
@@ -640,7 +664,7 @@ describe('bearer-seller side', () => {
 					partialHex: vector.provider_partial_hex
 				}),
 				sealBearerSecret: async () => new Uint8Array([7]),
-				initiate: async () => ({ swapId: 'swap-1', phase: 'insert-pushed' }),
+				initiate: async () => ({ swapId: SWAP_ID, phase: 'insert-pushed' }),
 				bearerSpent: async () => false,
 				advance: async () => ({ phase: 'refunded', terminal: true }),
 				awaitReleaseSettle

@@ -12,7 +12,9 @@ const locked = `${'22'.repeat(32)}:1`;
 const opts = {
 	fillId: providerFillId('0a'.repeat(16), '0b'.repeat(20)),
 	refereePkHex: '02' + '79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798',
-	refereeSettleNonceHex: '02'.repeat(66)
+	refereeSettleNonceHex: '02'.repeat(66),
+	swapId: 'swap-0001',
+	requestCommitment: new Uint8Array(32).fill(0x5c)
 };
 
 beforeEach(() => {
@@ -38,6 +40,9 @@ describe('WASM-backed Ark cosigner (blocker 3)', () => {
 		expect(cmd.cmd.session).toBe('settle');
 		expect(cmd.cmd.fill_id).toBe(opts.fillId);
 		expect(Buffer.from(cmd.cmd.msg).toString('hex')).toBe(tpl.templateDigestHex);
+		// Audit C1: the op is bound to this swap's tweaked key.
+		expect(cmd.cmd.swap_id).toBe(opts.swapId);
+		expect(Buffer.from(cmd.cmd.request_commitment).toString('hex')).toBe('5c'.repeat(32));
 	});
 
 	it('settle propagates WASM lock/scope refusals (fail closed)', async () => {
