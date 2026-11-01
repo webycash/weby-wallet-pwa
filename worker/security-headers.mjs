@@ -11,12 +11,23 @@
 //   webcash, Ark, explorers, signalling) come from the tier's runtime config.
 // - frame-ancestors 'none' (and X-Frame-Options DENY for old browsers):
 //   the wallet is never framed.
+//
+// Cross-Origin-Opener-Policy (ADR-0008): every wallet page is `same-origin`
+// (no other site keeps a handle to a wallet window) EXCEPT the connect popup,
+// which must stay reachable from the connected app that opened it
+// (`unsafe-none`; `same-origin-allow-popups` on the popup would still sever a
+// cross-origin opener). The popup protocol itself checks opener + origin.
 
 export const BASE_SECURITY_HEADERS = Object.freeze({
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'no-referrer',
   'X-Frame-Options': 'DENY'
 });
+
+/** True for the connect popup document under the tier base path (with or without `.html` / trailing slash). */
+export function isConnectPopupPath(pathname, base) {
+  return [`${base}/connect`, `${base}/connect/`, `${base}/connect.html`].includes(pathname);
+}
 
 /** sha256 CSP sources for each inline (src-less) <script> in `html`. */
 export async function inlineScriptHashes(html) {
@@ -51,10 +62,12 @@ export function contentSecurityPolicy(scriptHashes = []) {
  * `res` with the security headers set. HTML bodies get a CSP carrying their
  * inline-script hashes. A 304 keeps the browser's stored CSP (a hash-less
  * policy on a revalidation would replace it and block the inline scripts).
+ * `connectPopup` marks the ADR-0008 connect page (see the COOP note above).
  */
-export async function withSecurityHeaders(res) {
+export async function withSecurityHeaders(res, { connectPopup = false } = {}) {
   const headers = new Headers(res.headers);
   for (const [k, v] of Object.entries(BASE_SECURITY_HEADERS)) headers.set(k, v);
+  headers.set('Cross-Origin-Opener-Policy', connectPopup ? 'unsafe-none' : 'same-origin');
   const html = (headers.get('content-type') ?? '').toLowerCase().startsWith('text/html');
   if (!html) {
     headers.set('Content-Security-Policy', contentSecurityPolicy());

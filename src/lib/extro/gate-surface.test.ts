@@ -34,7 +34,9 @@ const base: ExtroRuntimeConfig = {
 	zkp_conditional_vk_sha256: '19'.repeat(32),
 	ice_servers: ['stun:stun.example:3478'],
 	turn_servers: [],
-	hub_bridge_origins: []
+	wallet_home_origin: 'https://wallet.test',
+	connected_apps: [],
+	grant_ttl_secs: 3600
 } as ExtroRuntimeConfig;
 
 class ProbeAdapter implements ExtroAdapter {

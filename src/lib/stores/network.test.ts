@@ -45,7 +45,9 @@ const development = () => ({
 			credential: 'openrelayproject'
 		}
 	],
-	hub_bridge_origins: []
+	wallet_home_origin: 'https://wallet.test',
+	connected_apps: [],
+	grant_ttl_secs: 3600
 });
 
 describe('P0 network store defaults', () => {

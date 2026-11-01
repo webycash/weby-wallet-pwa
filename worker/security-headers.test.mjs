@@ -87,4 +87,20 @@ describe('wallet worker security headers (pentest 2026-11-01 L3)', () => {
     expect(res.headers.get('content-security-policy')).toBeNull();
     expect(res.headers.get('x-content-type-options')).toBe('nosniff');
   });
+
+  it('COOP isolates every wallet page except the connect popup (ADR-0008)', async () => {
+    const env = assetsEnv({
+      '/wallet/index.html': { body: SHELL, type: 'text/html; charset=utf-8' },
+      '/wallet/connect.html': { body: SHELL, type: 'text/html; charset=utf-8' }
+    });
+    for (const path of ['/wallet/', '/wallet/index.html', '/wallet/send', '/wallet/connectx', '/connect']) {
+      const res = await worker.fetch(new Request(`https://w.example${path}`), env);
+      expect(res.headers.get('cross-origin-opener-policy')).toBe('same-origin');
+    }
+    for (const path of ['/wallet/connect', '/wallet/connect/', '/wallet/connect.html']) {
+      const res = await worker.fetch(new Request(`https://w.example${path}`), env);
+      expect(res.headers.get('cross-origin-opener-policy')).toBe('unsafe-none');
+      expect(res.headers.get('content-security-policy')).toContain("frame-ancestors 'none'");
+    }
+  });
 });

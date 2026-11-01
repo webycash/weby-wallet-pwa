@@ -6,7 +6,6 @@ import { configuredAdapterMode } from '$lib/extro/config';
 import { installGateSurface } from '$lib/extro/gate-surface';
 import { loadRuntimeConfig } from '$lib/extro/release-config';
 import { syncNetworkFromRuntimeConfig } from '$lib/stores/network.svelte';
-import { installConfiguredHubBridge } from '@extro/node';
 
 export const ssr = false;
 export const prerender = true;
@@ -31,17 +30,15 @@ export const load = async ({ fetch }) => {
 		const config = await bootWithArkAttestation(loaded, (bootConfig) => {
 			if (mode === 'bundled') client = configureExtro({ mode: 'bundled', bundled: { bootConfig } });
 		});
-		// GATE 7-CAP: hub CapToken postMessage listener, answering only the
-		// origins this deployment's runtime-config.json lists (none = off).
-		const hubBridge = client ? installConfiguredHubBridge(client, config) : null;
+		// Other sites reach this wallet only through the popup at /connect
+		// (ADR-0008): no iframe bridge is installed — the wallet is never framed
+		// (frame-ancestors 'none') and Safari would partition its storage.
 		// DEV diagnostic: expose the authoritative app client so it can be probed
 		// from the page console (dynamic `import('/src/lib/extro')` resolves to a
 		// SEPARATE module instance whose singleton defaults to mock — unusable for
 		// inspecting the real bundled client). Remove before ship.
 		if ((import.meta.env.DEV || config.deployment === 'development') && client) {
 			(window as unknown as { __extro?: unknown }).__extro = client;
-			(window as unknown as { __extroHubBridge?: { stop: () => void } | null }).__extroHubBridge =
-				hubBridge;
 		}
 		// STAGING live gates: read-only probes only (never the debug client above).
 		installGateSurface(window, client, config, arkStatus);

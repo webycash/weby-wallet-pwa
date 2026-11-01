@@ -44,7 +44,9 @@ const development = () => ({
 	turn_servers: [
 		{ url: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
 	],
-	hub_bridge_origins: []
+	wallet_home_origin: 'https://wallet.test',
+	connected_apps: [],
+	grant_ttl_secs: 3600
 });
 
 const pub = (c: string) => `e1:public:${c.repeat(64)}`;

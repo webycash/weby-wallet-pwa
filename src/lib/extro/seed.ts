@@ -39,14 +39,8 @@ let seeded = false;
  */
 export async function seedExtroWallet(mnemonic: string | null): Promise<boolean> {
 	if (seeded) return true;
-	if (!mnemonic) return false;
 	try {
-		const res = await getExtroClient().send({
-			request_id: newRequestId(),
-			op: { kind: 'Wallet', cmd: { op: 'Import', mnemonic, passphrase: SESSION_PASSPHRASE } }
-		});
-		if (!isOk(res)) throw new Error(`${res.code}: ${res.message}`);
-		clearSelfIdentity();
+		if (!(await unlockExtroWallet(mnemonic))) return false;
 		seeded = await joinExtroNetwork(getExtroClient(), getRuntimeConfig());
 		return seeded;
 	} catch (error) {
@@ -55,9 +49,30 @@ export async function seedExtroWallet(mnemonic: string | null): Promise<boolean>
 	}
 }
 
+let imported = false;
+
+/**
+ * Only the `Import` step of {@link seedExtroWallet}: unlocks the node (and
+ * pins its grant issuer) without joining the network. The connect popup uses
+ * this — serving a connected app needs the keys, not a DataChannel.
+ */
+export async function unlockExtroWallet(mnemonic: string | null): Promise<boolean> {
+	if (imported) return true;
+	if (!mnemonic) return false;
+	const res = await getExtroClient().send({
+		request_id: newRequestId(),
+		op: { kind: 'Wallet', cmd: { op: 'Import', mnemonic, passphrase: SESSION_PASSPHRASE } }
+	});
+	if (!isOk(res)) throw new Error(`${res.code}: ${res.message}`);
+	clearSelfIdentity();
+	imported = true;
+	return true;
+}
+
 /** Clear the per-load seed latch (call on PWA lock) so the next unlock re-seeds. */
 export function resetExtroSeed(): void {
 	seeded = false;
+	imported = false;
 	clearSelfIdentity();
 	markExtroDisconnected();
 	try {

@@ -71,7 +71,9 @@ const config: ExtroRuntimeConfig = {
 	zkp_conditional_vk_sha256: '19'.repeat(32),
 	ice_servers: [],
 	turn_servers: [],
-	hub_bridge_origins: []
+	wallet_home_origin: 'https://wallet.test',
+	connected_apps: [],
+	grant_ttl_secs: 3600
 };
 
 const build = (p = plan(), c = config, operator = v.operator) => buildArkSwapContract(c, p, operator, 1n);

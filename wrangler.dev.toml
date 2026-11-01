@@ -47,8 +47,13 @@ PUBLIC_ICE_SERVERS_JSON = '["stun:stun.l.google.com:19302","stun:stun.cloudflare
 # Development only: static public relay (the Worker refuses `static` on mainnet tiers).
 PUBLIC_TURN_PROVIDER = "static"
 PUBLIC_TURN_SERVERS_JSON = '[{"url":"turn:openrelay.metered.ca:443","username":"openrelayproject","credential":"openrelayproject"}]'
-# Origins whose hub CapToken postMessages this node answers (exact origins).
-PUBLIC_HUB_BRIDGE_ORIGINS_JSON = '["https://dev.extro.life","https://dev.extro.network","https://dev.weby.cash"]'
+# Wallet access (ADR-0008). This origin is the tier's wallet home: other sites
+# open ${WALLET_BASE_PATH}/connect as a popup and get audience-bound CapTokens up
+# to their max_tier (read | act). Spend always needs a confirm in the popup;
+# custody never leaves this origin. Empty list = no site may connect.
+PUBLIC_WALLET_HOME_ORIGIN = "https://dev.weby.cash"
+PUBLIC_CONNECTED_APPS_JSON = '[{"origin":"https://dev.extro.life","name":"Extro Life (dev)","max_tier":"act"},{"origin":"https://dev.extro.network","name":"Extro Network (dev)","max_tier":"act"}]'
+PUBLIC_GRANT_TTL_SECS = "3600"
 
 # More specific than the marketing site's dev.weby.cash/* — this wins for /wallet*.
 [[routes]]

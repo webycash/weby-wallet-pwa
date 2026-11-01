@@ -57,8 +57,11 @@ PUBLIC_ZKP_PROFILE = "mpc-2026-10-31"
 PUBLIC_ZKP_BEARER_VK_SHA256 = "7de9aac9e4e4e880d32eacb06c717c9c59f1d251ebc71de1daddbf76acd66220"
 PUBLIC_ZKP_CONDITIONAL_VK_SHA256 = "084837739c4fa0c0e12a60da8aabb6d0fdf198d9ce7c443ce00bc27271710db2"
 PUBLIC_ICE_SERVERS_JSON = '["stun:stun.l.google.com:19302","stun:stun.cloudflare.com:3478"]'
-# No Extro consumer site exists for staging yet: hub bridge off (@extro/node >= ce32278 requires it).
-PUBLIC_HUB_BRIDGE_ORIGINS_JSON = '[]'
+# Wallet access (ADR-0008): this origin is the staging wallet home. No connected
+# site exists for staging yet, so no site may connect (fail closed).
+PUBLIC_WALLET_HOME_ORIGIN = "https://weby-wallet-pwa-staging.harmoniis.workers.dev"
+PUBLIC_CONNECTED_APPS_JSON = '[]'
+PUBLIC_GRANT_TTL_SECS = "3600"
 # Managed TURN: Cloudflare Realtime TURN credentials minted per runtime-config
 # request (worker/turn-relay.mjs), never static; public Open Relay is refused
 # on mainnet tiers. Secrets (never here):

@@ -40,7 +40,9 @@ const loaded = {
 	zkp_conditional_vk_sha256: '55'.repeat(32),
 	ice_servers: ['stun:stun.cloudflare.com:3478'],
 	turn_servers: [],
-	hub_bridge_origins: []
+	wallet_home_origin: 'https://wallet.test',
+	connected_apps: [],
+	grant_ttl_secs: 3600
 } satisfies ExtroRuntimeConfig as ExtroRuntimeConfig;
 
 const att = {

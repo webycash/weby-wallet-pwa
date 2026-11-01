@@ -14,6 +14,7 @@ export * from '@extro/node';
 export type ExtroMode = 'bundled';
 
 let singleton: ExtroClient | null = null;
+let singletonAdapter: BundledExtroAdapter | null = null;
 let singletonMode: ExtroMode | null = null;
 
 export interface ConfigureOptions {
@@ -27,6 +28,7 @@ export interface ConfigureOptions {
 export function configureExtro(options: ConfigureOptions): ExtroClient {
 	const adapter = new BundledExtroAdapter(options.bundled);
 	singleton = new ExtroClient(adapter);
+	singletonAdapter = adapter;
 	singletonMode = options.mode;
 	return singleton;
 }
@@ -41,6 +43,15 @@ export function getExtroClient(): ExtroClient {
 	return singleton;
 }
 
+/**
+ * The access tier (`read` | `act` | `spend` | `custody`) of a CapToken scope,
+ * from the booted node's own table (ADR-0008) — the UI never keeps a copy.
+ */
+export function getExtroScopeTier(scope: string): string {
+	getExtroClient();
+	return (singletonAdapter as BundledExtroAdapter).scopeTier(scope);
+}
+
 /** The currently configured adapter mode. */
 export function getExtroMode(): ExtroMode {
 	if (!singletonMode) getExtroClient();
@@ -50,5 +61,6 @@ export function getExtroMode(): ExtroMode {
 /** Test helper: drop the singleton so the next call rebuilds it. */
 export function resetExtroClient(): void {
 	singleton = null;
+	singletonAdapter = null;
 	singletonMode = null;
 }
