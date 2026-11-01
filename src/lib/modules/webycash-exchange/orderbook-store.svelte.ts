@@ -12,7 +12,7 @@ import { MOCK_PAIRS, pairKey } from './mock-data';
 import { recordObservation } from './market-data';
 import { getExtroClient } from '$lib/extro';
 import { notePeersObserved } from '$lib/extro/connection';
-import { newRequestId, type WireOrder } from '@extro/node';
+import { newRequestId, type WireAssetRef, type WireOrder } from '@extro/node';
 import type { LimitOrder, MarketWalk, Side, TradingPair } from './types';
 
 /** Lowercase hex of bytes. */
@@ -44,6 +44,7 @@ function toLimitOrder(o: WireOrder): LimitOrder {
 			base: o.pair.base as AssetClass,
 			quote: o.pair.quote as AssetClass
 		},
+		assets: { base: o.base, quote: o.quote },
 		side: (o.side === 'Buy' ? 'buy' : 'sell') as Side,
 		price: Number(o.price_atomic),
 		amount: Number(o.amount_atomic),
@@ -240,6 +241,22 @@ export async function refreshBook(): Promise<void> {
 }
 
 /**
+ * The signed order asset for one side of the selected pair. Webcash and
+ * BitcoinArk need no namespace; a Voucher/RGB side must be given explicitly
+ * (contract + issuer), else this fails closed — the node refuses it too.
+ */
+export function orderAssetFor(family: AssetClass, given?: WireAssetRef): WireAssetRef {
+	if (given) {
+		if (given.family !== family) {
+			throw new Error(`ORDER_ASSET_MISMATCH: pair side ${family}, asset ${given.family}`);
+		}
+		return given;
+	}
+	if (family === 'Webcash' || family === 'BitcoinArk') return { family };
+	throw new Error(`ORDER_ASSET_UNNAMESPACED: ${family} needs contract_id + issuer_fp`);
+}
+
+/**
  * Publish a signed limit order into the node network. The wallet identity key
  * signs the order INSIDE the WASM (it never crosses the JS boundary), records it
  * locally, and broadcasts an `OrderAnnounce` to every connected peer. Returns the
@@ -255,7 +272,16 @@ export async function publishOrder(input: {
 	amountAtomic: bigint;
 	/** Unix seconds the order expires (TTL). */
 	expiresAt: number;
+	/** Namespaced assets for a Voucher/RGB side (see {@link orderAssetFor}). */
+	assets?: { base?: WireAssetRef; quote?: WireAssetRef };
 }): Promise<{ ok: true; orderId: string; peersBroadcast: number } | { ok: false; error: string }> {
+	let base: WireAssetRef, quote: WireAssetRef;
+	try {
+		base = orderAssetFor(state.pair.base, input.assets?.base);
+		quote = orderAssetFor(state.pair.quote, input.assets?.quote);
+	} catch (e) {
+		return { ok: false, error: e instanceof Error ? e.message : String(e) };
+	}
 	const client = getExtroClient();
 	const resp = await client.send({
 		request_id: newRequestId(),
@@ -264,7 +290,8 @@ export async function publishOrder(input: {
 			cmd: {
 				op: 'PublishOrder',
 				slot: input.slot,
-				pair: { base: state.pair.base, quote: state.pair.quote },
+				base,
+				quote,
 				side: input.side === 'buy' ? 'Buy' : 'Sell',
 				price_atomic: input.priceAtomic,
 				amount_atomic: input.amountAtomic,

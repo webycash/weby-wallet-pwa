@@ -206,19 +206,29 @@ export async function bearerLegFromWallet(
 
 /**
  * The order's bearer asset (prepare v3 `bearer_asset`): the non-Ark side of the
- * pair. Webcash needs no namespace. A Voucher must name its contract and issuer
- * (extrolib `validate_bearer_asset`), and the DHTX order wire carries only the
- * family, so a voucher order fails closed here until that wire is namespaced.
+ * pair. Webcash needs no namespace. A Voucher takes the contract + issuer the
+ * maker signed into the DHTX order (v2 `base`/`quote`); without them it fails
+ * closed (extrolib `validate_bearer_asset` would refuse it anyway).
  */
 export function bearerAssetFor(order: LimitOrder): BearerAssetRef {
   const { base, quote } = order.pair;
-  const bearer =
-    base === "BitcoinArk" ? quote : quote === "BitcoinArk" ? base : null;
+  const bearerSide =
+    base === "BitcoinArk" ? "quote" : quote === "BitcoinArk" ? "base" : null;
+  const bearer = bearerSide ? order.pair[bearerSide] : null;
   if (bearer === "Webcash") return { family: "Webcash" };
   if (bearer === "Voucher") {
-    throw new Error(
-      "BEARER_ASSET_UNNAMESPACED: voucher order carries no contract/issuer on the DHTX wire",
-    );
+    const a = order.assets?.[bearerSide!];
+    if (!a || a.family !== "Voucher" || !a.contract_id || !a.issuer_fp) {
+      throw new Error(
+        "BEARER_ASSET_UNNAMESPACED: voucher order carries no signed contract/issuer",
+      );
+    }
+    return {
+      family: "Voucher",
+      contract_id: a.contract_id,
+      issuer_fp: a.issuer_fp,
+      ...(a.rail_hint ? { rail_hint: a.rail_hint } : {}),
+    };
   }
   throw new Error(
     `BEARER_ASSET_UNSUPPORTED: no Ark-bearer leg in ${base}/${quote}`,

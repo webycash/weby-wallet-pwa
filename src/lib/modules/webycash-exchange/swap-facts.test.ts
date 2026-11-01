@@ -239,10 +239,35 @@ describe("bearer asset from the order", () => {
       family: "Webcash",
     });
   });
-  it("fails closed for a voucher order (no namespace on the DHTX wire)", () => {
+  it("takes a voucher order's signed contract + issuer", () => {
+    const v = {
+      family: "Voucher" as const,
+      contract_id: "c-1",
+      issuer_fp: "AB".repeat(20),
+    };
+    const o = {
+      ...ord("BitcoinArk", "Voucher"),
+      assets: { base: { family: "BitcoinArk" as const }, quote: v },
+    };
+    expect(bearerAssetFor(o)).toEqual(v);
+    const flipped = {
+      ...ord("Voucher", "BitcoinArk"),
+      assets: { base: v, quote: { family: "BitcoinArk" as const } },
+    };
+    expect(bearerAssetFor(flipped)).toEqual(v);
+  });
+  it("fails closed for a voucher order without a signed namespace", () => {
     expect(() => bearerAssetFor(ord("BitcoinArk", "Voucher"))).toThrow(
       /^BEARER_ASSET_UNNAMESPACED/,
     );
+    const bare = {
+      ...ord("BitcoinArk", "Voucher"),
+      assets: {
+        base: { family: "BitcoinArk" as const },
+        quote: { family: "Voucher" as const },
+      },
+    };
+    expect(() => bearerAssetFor(bare)).toThrow(/^BEARER_ASSET_UNNAMESPACED/);
   });
   it("refuses a pair without an Ark/bearer leg", () => {
     expect(() => bearerAssetFor(ord("Webcash", "Rgb20"))).toThrow(

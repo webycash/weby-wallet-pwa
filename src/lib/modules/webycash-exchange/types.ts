@@ -5,6 +5,7 @@
 // extro facade as signed rkyv bytes). The module holds public commitments and
 // metadata only — never a plaintext bearer secret.
 
+import type { WireAssetRef } from '@extro/node';
 import type { AssetClass, SettlementModel } from './pair-policy';
 
 export type Side = 'buy' | 'sell';
@@ -30,6 +31,12 @@ export interface LimitOrder {
 	/** 16-byte order id, hex. */
 	id: string;
 	pair: TradingPair;
+	/**
+	 * The maker-signed base/quote assets (DHTX order v2), incl. a Voucher's
+	 * `contract_id` + `issuer_fp`. Present on every DHTX order; absent only on
+	 * synthetic/test orders, which then cannot settle a namespaced leg.
+	 */
+	assets?: { base: WireAssetRef; quote: WireAssetRef };
 	side: Side;
 	/** Price in quote units per 1 base unit (integer atomic ratio scaled). */
 	price: number;
