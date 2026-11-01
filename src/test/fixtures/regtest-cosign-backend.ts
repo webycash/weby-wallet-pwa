@@ -6,7 +6,7 @@
  * backend that returns genuine MuSig2 partials (via extro-node
  * `gate3_musig2_cosign` or an in-process signer) bound to real locked_ref digests.
  */
-import type { DedicatedCosignBackend, DedicatedCosignReceipt, ArkSpendTemplate } from './swap-spend';
+import type { DedicatedCosignBackend, DedicatedCosignReceipt, ArkSpendTemplate } from '$lib/ark/swap-spend';
 
 export type RegtestCosignFn = (template: ArkSpendTemplate) => Promise<DedicatedCosignReceipt>;
 

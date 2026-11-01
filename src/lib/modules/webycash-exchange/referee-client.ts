@@ -15,7 +15,7 @@
 // and treats the referee as a MEDIATOR, never as custody (per the security
 // invariants). Application code has no default or fallback referee: the strict
 // runtime config installs the pinned HTTP client before exchange actions run.
-// Test doubles live in `mock-referee-client.ts`, which production code never
+// Test doubles live in `src/test/fixtures/mock-referee-client.ts`, which production code never
 // imports.
 
 import { newRequestId, type RefereeCall, type RefereeReply } from '@extro/node';

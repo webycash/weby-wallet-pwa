@@ -37,7 +37,7 @@ import {
 	testScalar,
 	testSigningSession,
 	testSwapContract
-} from './settle-tx.fixture';
+} from '../../test/fixtures/settle-tx.fixture';
 
 const hx = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
 const OPERATOR = testScalar(3);

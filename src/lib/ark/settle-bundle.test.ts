@@ -24,7 +24,7 @@ import {
 	TEST_SWAP_ID,
 	testSigningSession,
 	testSwapContract
-} from './settle-tx.fixture';
+} from '../../test/fixtures/settle-tx.fixture';
 import { swapOwnerKey } from './ceremony';
 import {
 	providerAggregateRefund,

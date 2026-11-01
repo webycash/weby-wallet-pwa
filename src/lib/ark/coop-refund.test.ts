@@ -23,7 +23,7 @@ import {
 	testOwnerKey,
 	testSigningSession,
 	testSwapContract
-} from './settle-tx.fixture';
+} from '../../test/fixtures/settle-tx.fixture';
 import { coopRefundAggregate, type CoopRefundDeps, type CoopRefundInput } from './coop-refund';
 
 const hx = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');

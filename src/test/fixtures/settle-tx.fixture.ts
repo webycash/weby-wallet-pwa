@@ -11,8 +11,8 @@ import { createHash } from 'node:crypto';
 import { IndividualPubkey, Session, keyAggExport, keyAggregate } from '@scure/btc-signer/musig2.js';
 import { schnorr } from '@noble/curves/secp256k1.js';
 import type { ExtroRuntimeConfig } from '$lib/extro/release-config';
-import { buildArkSwapContract, type ArkSwapContract, type VerifiedArkContractPlan } from './swap-contract';
-import { arkOperatorInfoDigest } from './operator';
+import { buildArkSwapContract, type ArkSwapContract, type VerifiedArkContractPlan } from '$lib/ark/swap-contract';
+import { arkOperatorInfoDigest } from '$lib/ark/operator';
 
 const hx = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
 export const testScalar = (n: number): Uint8Array => {

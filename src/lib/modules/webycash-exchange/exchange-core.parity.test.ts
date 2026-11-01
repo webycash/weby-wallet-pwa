@@ -11,7 +11,7 @@ import { liveOrders, midPrice, sortAsks, sortBids, spread, walkBook } from './bo
 import { computePublicationFee } from './publication-fee';
 import { bookView, publicationFeeNode, walkBookNode, type ExtroSend } from './exchange-core';
 import type { LimitOrder, Seeder, Side } from './types';
-import { MOCK_PAIRS } from './mock-data';
+import { MOCK_PAIRS } from '../../../test/fixtures/exchange-mock-data';
 
 const require = createRequire(import.meta.url);
 

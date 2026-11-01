@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { assertFundedLockedRef, resolveFundedLockedRef } from './funded-ref';
-import { fixturePlan } from './blocker3-fixture';
+import { fixturePlan } from '../../test/fixtures/blocker3-fixture';
 import type { ArkSwapContract } from './swap-contract';
 
 const contract = { plan: fixturePlan(), pkScriptHex: '5120' + 'ab'.repeat(32) } as unknown as ArkSwapContract;

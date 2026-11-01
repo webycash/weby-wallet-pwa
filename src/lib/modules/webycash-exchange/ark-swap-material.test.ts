@@ -7,7 +7,7 @@ vi.mock('$lib/extro/release-config', () => ({ getRuntimeConfig: () => ({ ark_ena
 
 import { verifyProviderMaterialAgainstPlan } from './ark-swap-protocol';
 import { fundingRefsFromSpends } from '$lib/ark/settle-tx';
-import { testSwapContract } from '$lib/ark/settle-tx.fixture';
+import { testSwapContract } from '../../../test/fixtures/settle-tx.fixture';
 
 const locked = `${'33'.repeat(32)}:0`;
 let contract: Awaited<ReturnType<typeof testSwapContract>>;
