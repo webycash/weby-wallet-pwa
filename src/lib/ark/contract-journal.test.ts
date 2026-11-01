@@ -1,4 +1,14 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { bootArkNode } from './ark-node.testkit';
+import type { ExtroSend } from '$lib/modules/webycash-exchange/exchange-core';
+
+// The journal rules run in the real extro-node WASM (Op::Exchange journal ops).
+let send: ExtroSend;
+vi.mock('$lib/extro', () => ({ getExtroClient: () => ({ send: (c: never) => send(c) }) }));
+beforeAll(async () => {
+	send = (await bootArkNode()).send;
+});
+
 import {
 	CONTRACT_JOURNAL_VERSION,
 	fundArkSwapContractPersisted,

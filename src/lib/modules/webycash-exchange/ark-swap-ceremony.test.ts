@@ -84,7 +84,7 @@ vi.mock('$lib/ark/ark-view', () => ({
 vi.mock('$lib/extro', () => ({
 	getExtroClient: () => ({
 		send: async (req: { op: { kind: string; cmd: { op: string } } }) => {
-			if (req.op.kind === 'Ark') return state.node!.send(req);
+			if (req.op.kind === 'Ark' || req.op.kind === 'Exchange') return state.node!.send(req);
 			if (req.op.cmd.op === 'SendProviderOffer') return { kind: 'Ok', body: { kind: 'SwapMsgSent', delivered: true } };
 			if (req.op.cmd.op === 'InspectSwapPrepare') return { kind: 'Ok', body: { kind: 'SwapPrepareTerms', terms: providerTerms() } };
 			throw new Error(`unexpected op ${req.op.cmd.op}`);
