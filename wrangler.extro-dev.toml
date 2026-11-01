@@ -1,0 +1,67 @@
+# DEV wallet HOME (ADR-0008 §12): the same build served at dev.extro.network/wallet.
+# Build with WALLET_TIER=extro-dev (base = WALLET_BASE_PATH below), nest output under dev-deploy/wallet/, then:
+#   wrangler deploy --config wrangler.extro-dev.toml
+# Every [vars] entry except the wallet-access block below must equal wrangler.dev.toml
+# (src/lib/extro/tier-configs.test.ts). Same IndexedDB names as extro-frontend on
+# this origin, so this IS the extro.network wallet.
+name = "extro-wallet-dev"
+main = "dev-worker.js"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+assets = { directory = "dev-deploy", binding = "ASSETS", run_worker_first = true }
+
+# Public, versioned release configuration served by dev-worker.js at
+# /wallet/runtime-config.json. Trust values are explicit; no PWA fallback is
+# used. The dev ceremony and public relay credentials are intentionally
+# testnet-only and are rejected by the production validator.
+[vars]
+# The ONE source of this tier's base path: the build (WALLET_TIER) and
+# dev-worker.js both read it; scripts/base-path.mjs checks it against the route.
+WALLET_BASE_PATH = "/wallet"
+PUBLIC_BOOT_SCHEMA_VERSION = "2"
+PUBLIC_DEPLOYMENT = "development"
+PUBLIC_EXTRO_DB_NAME = "extro-node-dev"
+PUBLIC_EXTRO_ADAPTER = "bundled"
+PUBLIC_KEYSERVER_URL = "https://dev.extro.network"
+PUBLIC_KEYSERVER_DOMAIN = "dev.extro.network"
+PUBLIC_KEYSERVER_FINGERPRINT = "fe812c12f3ab4ce6ac5db69ac352f906cb1b11ef"
+PUBLIC_KEYSERVER_VK = "ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c"
+# No swap referee on development (the dev referee is retired): an empty pair is
+# the explicit "referee unavailable" setting, allowed only on this tier; the
+# exchange stops at REFEREE_UNAVAILABLE.
+PUBLIC_REFEREE_URL = ""
+PUBLIC_REFEREE_VK = ""
+PUBLIC_WEBCASH_SERVER_URL = "https://dev.weby.cash/api/webcash"
+PUBLIC_VOUCHER_SERVER_URL = "https://dev.weby.cash/api/voucher"
+PUBLIC_RGB_SERVER_URL = "https://dev.weby.cash/api/rgb"
+PUBLIC_RGB_COLLECTIBLE_SERVER_URL = "https://dev.weby.cash/api/rgb-collectible"
+# Default Arkade ASP (we do NOT operate it). Pins from GET https://signet.arkade.sh/v1/info
+PUBLIC_ARK_ENABLED = "true"
+PUBLIC_ARK_NETWORK = "signet"
+PUBLIC_ARK_ASP_URL = "https://signet.arkade.sh"
+PUBLIC_ARK_SIGNER_PK_HEX = "8bf56160efc769112b361de4117b3c71b88ca16f1bb9f6ac7a2781929abc5e6a"
+PUBLIC_ARK_INFO_DIGEST_HEX = "b35b0185209534c372efa5ba6bbda2f57c39faf18346f671ae046e57772cde3a"
+PUBLIC_ARK_CHECKPOINT_TAPSCRIPT_HEX = "03a80040b275202697695adaf0635333d6240739de02feb3f6852e180c596b69a77536aadb7123ac"
+PUBLIC_ARK_UNILATERAL_EXIT_DELAY = "172544"
+PUBLIC_ZKP_PROFILE = "development-only"
+PUBLIC_ZKP_BEARER_VK_SHA256 = "ecd299b3326e682106a31a39decf1fb43c0d5b960eb40baa2975691f406f77c1"
+PUBLIC_ZKP_CONDITIONAL_VK_SHA256 = "8efdd75f738658f3da0308fac3cbf6912c1324e815d863548c7e82ba39d07f1d"
+PUBLIC_ICE_SERVERS_JSON = '["stun:stun.l.google.com:19302","stun:stun.cloudflare.com:3478"]'
+# Development only: static public relay (the Worker refuses `static` on mainnet tiers).
+PUBLIC_TURN_PROVIDER = "static"
+PUBLIC_TURN_SERVERS_JSON = '[{"url":"turn:openrelay.metered.ca:443","username":"openrelayproject","credential":"openrelayproject"}]'
+# Wallet access (ADR-0008). This origin is the wallet home: the seed, custody,
+# the /connect popup and every spend confirm live here. Connected apps open
+# ${WALLET_BASE_PATH}/connect as a popup and get audience-bound CapTokens up to
+# their max_tier (read | act); spend always needs a confirm here; custody never
+# leaves this origin. A wallet created at a legacy origin arrives only through
+# the user-confirmed popup handoff at ${WALLET_BASE_PATH}/migrate.
+PUBLIC_WALLET_HOME_ORIGIN = "https://dev.extro.network"
+PUBLIC_CONNECTED_APPS_JSON = '[{"origin":"https://dev.weby.cash","name":"Weby (dev)","max_tier":"act"},{"origin":"https://dev.extro.life","name":"Extro Life (dev)","max_tier":"act"}]'
+PUBLIC_GRANT_TTL_SECS = "3600"
+PUBLIC_LEGACY_WALLET_ORIGINS_JSON = '["https://dev.weby.cash"]'
+
+# A route beats the extro-frontend Custom Domain on dev.extro.network for /wallet*.
+[[routes]]
+pattern = "dev.extro.network/wallet*"
+zone_name = "extro.network"

@@ -13,10 +13,15 @@
 //   the wallet is never framed.
 //
 // Cross-Origin-Opener-Policy (ADR-0008): every wallet page is `same-origin`
-// (no other site keeps a handle to a wallet window) EXCEPT the connect popup,
-// which must stay reachable from the connected app that opened it
-// (`unsafe-none`; `same-origin-allow-popups` on the popup would still sever a
-// cross-origin opener). The popup protocol itself checks opener + origin.
+// (no other site keeps a handle to a wallet window) EXCEPT
+// - the popups another origin opens: `/connect` (a connected app) and
+//   `/migrate` (the legacy wallet origin moving a wallet to the home, §12).
+//   They must stay reachable from their opener (`unsafe-none`;
+//   `same-origin-allow-popups` on the popup would still sever a cross-origin
+//   opener). Their protocols check opener + exact origin themselves.
+// - `/move`, the legacy page that OPENS the home's /migrate popup:
+//   `same-origin-allow-popups` keeps its handle to that popup while no other
+//   site gets one to this page.
 
 export const BASE_SECURITY_HEADERS = Object.freeze({
   'X-Content-Type-Options': 'nosniff',
@@ -24,9 +29,14 @@ export const BASE_SECURITY_HEADERS = Object.freeze({
   'X-Frame-Options': 'DENY'
 });
 
-/** True for the connect popup document under the tier base path (with or without `.html` / trailing slash). */
-export function isConnectPopupPath(pathname, base) {
-  return [`${base}/connect`, `${base}/connect/`, `${base}/connect.html`].includes(pathname);
+const isPage = (pathname, base, page) =>
+  [`${base}/${page}`, `${base}/${page}/`, `${base}/${page}.html`].includes(pathname);
+
+/** The COOP value for a request path under the tier base path (see the note above). */
+export function openerPolicy(pathname, base) {
+  if (isPage(pathname, base, 'connect') || isPage(pathname, base, 'migrate')) return 'unsafe-none';
+  if (isPage(pathname, base, 'move')) return 'same-origin-allow-popups';
+  return 'same-origin';
 }
 
 /** sha256 CSP sources for each inline (src-less) <script> in `html`. */
@@ -62,12 +72,13 @@ export function contentSecurityPolicy(scriptHashes = []) {
  * `res` with the security headers set. HTML bodies get a CSP carrying their
  * inline-script hashes. A 304 keeps the browser's stored CSP (a hash-less
  * policy on a revalidation would replace it and block the inline scripts).
- * `connectPopup` marks the ADR-0008 connect page (see the COOP note above).
+ * `coop` comes from {@link openerPolicy} (see the COOP note above).
  */
-export async function withSecurityHeaders(res, { connectPopup = false } = {}) {
+export async function withSecurityHeaders(res, { coop = 'same-origin' } = {}) {
   const headers = new Headers(res.headers);
   for (const [k, v] of Object.entries(BASE_SECURITY_HEADERS)) headers.set(k, v);
-  headers.set('Cross-Origin-Opener-Policy', connectPopup ? 'unsafe-none' : 'same-origin');
+  if (!['same-origin', 'same-origin-allow-popups', 'unsafe-none'].includes(coop)) throw new Error(`bad COOP ${coop}`);
+  headers.set('Cross-Origin-Opener-Policy', coop);
   const html = (headers.get('content-type') ?? '').toLowerCase().startsWith('text/html');
   if (!html) {
     headers.set('Content-Security-Policy', contentSecurityPolicy());

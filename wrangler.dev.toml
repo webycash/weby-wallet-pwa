@@ -1,4 +1,4 @@
-# DEV deploy (Cloudflare Worker + static assets, dev.weby.cash/wallet).
+# DEV deploy (Cloudflare Worker + static assets, dev.weby.cash/wallet — the legacy wallet path).
 # Build with WALLET_TIER=dev (base = WALLET_BASE_PATH below), nest output under dev-deploy/wallet/, then:
 #   wrangler deploy --config wrangler.dev.toml
 name = "weby-wallet-pwa-dev"
@@ -47,13 +47,15 @@ PUBLIC_ICE_SERVERS_JSON = '["stun:stun.l.google.com:19302","stun:stun.cloudflare
 # Development only: static public relay (the Worker refuses `static` on mainnet tiers).
 PUBLIC_TURN_PROVIDER = "static"
 PUBLIC_TURN_SERVERS_JSON = '[{"url":"turn:openrelay.metered.ca:443","username":"openrelayproject","credential":"openrelayproject"}]'
-# Wallet access (ADR-0008). This origin is the tier's wallet home: other sites
-# open ${WALLET_BASE_PATH}/connect as a popup and get audience-bound CapTokens up
-# to their max_tier (read | act). Spend always needs a confirm in the popup;
-# custody never leaves this origin. Empty list = no site may connect.
-PUBLIC_WALLET_HOME_ORIGIN = "https://dev.weby.cash"
-PUBLIC_CONNECTED_APPS_JSON = '[{"origin":"https://dev.extro.life","name":"Extro Life (dev)","max_tier":"act"},{"origin":"https://dev.extro.network","name":"Extro Network (dev)","max_tier":"act"}]'
+# Wallet access (ADR-0008 §12). The wallet home is extro.network
+# (wrangler.extro-dev.toml); this deployment is the LEGACY wallet path: it never
+# serves /connect (no connected apps), sends a visitor without a wallet (or with
+# a moved one) to the home, and offers a wallet stored here the user-confirmed
+# device-local move at ${WALLET_BASE_PATH}/move. Nothing stored here is deleted.
+PUBLIC_WALLET_HOME_ORIGIN = "https://dev.extro.network"
+PUBLIC_CONNECTED_APPS_JSON = '[]'
 PUBLIC_GRANT_TTL_SECS = "3600"
+PUBLIC_LEGACY_WALLET_ORIGINS_JSON = '[]'
 
 # More specific than the marketing site's dev.weby.cash/* — this wins for /wallet*.
 [[routes]]

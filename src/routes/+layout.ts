@@ -5,6 +5,10 @@ import { configureExtro } from '$lib/extro';
 import { configuredAdapterMode } from '$lib/extro/config';
 import { installGateSurface } from '$lib/extro/gate-surface';
 import { loadRuntimeConfig } from '$lib/extro/release-config';
+import { homeRoute, MOVE_DEFER_KEY, MOVE_NEXT_KEY } from '$lib/core/wallet-home-route';
+import { readMovedTo } from '$lib/core/wallet-move';
+import { walletExists } from '$lib/stores/settings.svelte';
+import { base } from '$app/paths';
 import { syncNetworkFromRuntimeConfig } from '$lib/stores/network.svelte';
 
 export const ssr = false;
@@ -18,7 +22,29 @@ export const prerender = true;
 export const load = async ({ fetch }) => {
 	if (browser) {
 		const loaded = await loadRuntimeConfig(fetch);
+		// Wallet home (ADR-0008 §12): a legacy origin forwards to the configured
+		// home, or asks to move a wallet still stored here; the move pages run
+		// without booting the node so its store is copied at rest.
+		const route = homeRoute({
+			origin: location.origin,
+			home: loaded.wallet_home_origin,
+			base,
+			pathname: location.pathname,
+			search: location.search,
+			hash: location.hash,
+			hasWallet: walletExists(),
+			moved: readMovedTo() !== null,
+			deferred: sessionStorage.getItem(MOVE_DEFER_KEY) === 'true'
+		});
+		if (route.kind === 'forward' || route.kind === 'move') {
+			if (route.kind === 'move') sessionStorage.setItem(MOVE_NEXT_KEY, route.next);
+			location.replace(route.url);
+			return await new Promise<never>(() => {}); // navigating away: render and boot nothing
+		}
 		syncNetworkFromRuntimeConfig();
+		if (route.kind === 'migrate' || route.kind === 'move-page') {
+			return {};
+		}
 		// Money-moving Ark code is reachable only after the live operator matches
 		// every pin in this immutable release, including extro-node's canonical
 		// info digest (Op::Ark OperatorInfoDigest, checked right after the node

@@ -73,7 +73,8 @@ async function onboardWallet(context: BrowserContext) {
 		deployment: rc.deployment,
 		wallet_home_origin: rc.wallet_home_origin,
 		connected_apps: rc.connected_apps,
-		grant_ttl_secs: rc.grant_ttl_secs
+		grant_ttl_secs: rc.grant_ttl_secs,
+		legacy_wallet_origins: rc.legacy_wallet_origins
 	});
 	const tos = page.getByText('I accept the terms');
 	await tos.waitFor({ timeout: 60_000 });

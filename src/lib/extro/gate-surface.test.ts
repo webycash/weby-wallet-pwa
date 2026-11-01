@@ -36,7 +36,8 @@ const base: ExtroRuntimeConfig = {
 	turn_servers: [],
 	wallet_home_origin: 'https://wallet.test',
 	connected_apps: [],
-	grant_ttl_secs: 3600
+	grant_ttl_secs: 3600,
+	legacy_wallet_origins: []
 } as ExtroRuntimeConfig;
 
 class ProbeAdapter implements ExtroAdapter {

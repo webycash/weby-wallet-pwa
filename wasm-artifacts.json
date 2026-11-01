@@ -4,7 +4,7 @@
     "extroNode": {
       "package": "@extro/node",
       "repository": "git@github.com:extronet/extro-node.git",
-      "commit": "6acbc545434718b91a8c5305a25ee92998a63d2b"
+      "commit": "ab2985ee439525abe700abe537a98aa3097ec073"
     },
     "walletWasm": {
       "repository": "git@github.com:webycash/weby-wallet-pwa.git",

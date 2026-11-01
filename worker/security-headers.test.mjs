@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import worker from '../dev-worker.js';
-import { contentSecurityPolicy, inlineScriptHashes, withSecurityHeaders } from './security-headers.mjs';
+import { contentSecurityPolicy, inlineScriptHashes, openerPolicy, withSecurityHeaders } from './security-headers.mjs';
 
 const THEME = "(function(){document.documentElement.dataset.t='x'})()";
 const BOOT = '{ __sveltekit_x = { base: "/wallet" }; }';
@@ -88,19 +88,34 @@ describe('wallet worker security headers (pentest 2026-11-01 L3)', () => {
     expect(res.headers.get('x-content-type-options')).toBe('nosniff');
   });
 
-  it('COOP isolates every wallet page except the connect popup (ADR-0008)', async () => {
+  it('COOP isolates every wallet page except the cross-origin popups and the move opener (ADR-0008)', async () => {
     const env = assetsEnv({
       '/wallet/index.html': { body: SHELL, type: 'text/html; charset=utf-8' },
-      '/wallet/connect.html': { body: SHELL, type: 'text/html; charset=utf-8' }
+      '/wallet/connect.html': { body: SHELL, type: 'text/html; charset=utf-8' },
+      '/wallet/migrate.html': { body: SHELL, type: 'text/html; charset=utf-8' },
+      '/wallet/move.html': { body: SHELL, type: 'text/html; charset=utf-8' }
     });
-    for (const path of ['/wallet/', '/wallet/index.html', '/wallet/send', '/wallet/connectx', '/connect']) {
+    const coop = async (path) => {
       const res = await worker.fetch(new Request(`https://w.example${path}`), env);
-      expect(res.headers.get('cross-origin-opener-policy')).toBe('same-origin');
-    }
-    for (const path of ['/wallet/connect', '/wallet/connect/', '/wallet/connect.html']) {
-      const res = await worker.fetch(new Request(`https://w.example${path}`), env);
-      expect(res.headers.get('cross-origin-opener-policy')).toBe('unsafe-none');
       expect(res.headers.get('content-security-policy')).toContain("frame-ancestors 'none'");
+      return res.headers.get('cross-origin-opener-policy');
+    };
+    for (const path of ['/wallet/', '/wallet/index.html', '/wallet/send', '/wallet/connectx', '/connect', '/wallet/migrated', '/migrate', '/wallet/mover', '/move']) {
+      expect(await coop(path)).toBe('same-origin');
     }
+    for (const page of ['connect', 'migrate']) {
+      for (const path of [`/wallet/${page}`, `/wallet/${page}/`, `/wallet/${page}.html`]) {
+        expect(await coop(path)).toBe('unsafe-none');
+      }
+    }
+    for (const path of ['/wallet/move', '/wallet/move/', '/wallet/move.html']) {
+      expect(await coop(path)).toBe('same-origin-allow-popups');
+    }
+  });
+
+  it('openerPolicy follows the base path and refuses unknown values', async () => {
+    expect(openerPolicy('/w2/migrate', '/w2')).toBe('unsafe-none');
+    expect(openerPolicy('/wallet/migrate', '/w2')).toBe('same-origin');
+    await expect(withSecurityHeaders(new Response('x'), { coop: 'none' })).rejects.toThrow(/bad COOP/);
   });
 });

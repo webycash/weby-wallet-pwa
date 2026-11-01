@@ -5,7 +5,7 @@
 // SPA shell at <base>/index.html (adapter-static fallback). No base path
 // configured = fail closed (nothing is served).
 import { parseRuntimeConfig, runtimeConfigFromPublicEnv } from '@extro/node/runtime-config';
-import { isConnectPopupPath, withSecurityHeaders } from './worker/security-headers.mjs';
+import { openerPolicy, withSecurityHeaders } from './worker/security-headers.mjs';
 import { mintCloudflareTurnServers } from './worker/turn-relay.mjs';
 
 /** TURN relays for the runtime config. `cloudflare` mints short-lived
@@ -43,8 +43,8 @@ const NO_STORE = { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosni
 
 export default {
   async fetch(request, env) {
-    const connectPopup = isConnectPopupPath(new URL(request.url).pathname, env.WALLET_BASE_PATH);
-    return withSecurityHeaders(await route(request, env), { connectPopup });
+    const coop = openerPolicy(new URL(request.url).pathname, env.WALLET_BASE_PATH);
+    return withSecurityHeaders(await route(request, env), { coop });
   }
 };
 
