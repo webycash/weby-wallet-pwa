@@ -11,7 +11,8 @@ import {
 	loadExtroNodeWasm,
 	parseRuntimeConfig,
 	type ExtroCommand,
-	type ExtroResponse
+	type ExtroResponse,
+	type WireArkOperatorInfo
 } from '@extro/node';
 
 const require = createRequire(import.meta.url);
@@ -34,6 +35,34 @@ export interface ArkCeremonyVector {
 
 export const arkCeremonyVector = (): ArkCeremonyVector =>
 	JSON.parse(readFileSync(require.resolve('@extro/node/vectors/ark_ceremony.json'), 'utf8'));
+
+/** `@extro/node/vectors/ark_tx_ops.json`: one swap contract and both claims (regtest). */
+export interface ArkTxOpsVector {
+	swap_id: string;
+	request_commitment_hex: string;
+	referee_pubkey_hex: string;
+	provider_pubkey_hex: string;
+	owner_q_hex: string;
+	network: 'regtest';
+	exit_delay: number;
+	operator: WireArkOperatorInfo;
+	operator_info_digest_hex: string;
+	operator_signer_pk_hex: string;
+	address: string;
+	script_pubkey_hex: string;
+	tap_tree_hex: string;
+	forfeit_script_hex: string;
+	recovery_script_hex: string;
+	locked_ref: string;
+	amount_sats: number;
+	settle_destination: string;
+	refund_destination: string;
+	settle_bundle_hex: string;
+	refund_bundle_hex: string;
+}
+
+export const arkTxOpsVector = (): ArkTxOpsVector =>
+	JSON.parse(readFileSync(require.resolve('@extro/node/vectors/ark_tx_ops.json'), 'utf8'));
 
 // Public placeholder trust values only; Op::Ark reads no configuration.
 const config = {

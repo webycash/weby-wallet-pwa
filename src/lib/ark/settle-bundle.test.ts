@@ -1,20 +1,20 @@
 /**
  * End-to-end sighash-bundle-v1 ceremony over the REAL Arkade settle/refund
  * spends (test-only scalars): partial bundles verify and aggregate under the
- * per-swap tweaked Q in the real extro-node WASM (`Op::Ark`), and the
- * presigned identity accepts exactly the two [checkpoint, ark] sighashes.
+ * per-swap tweaked Q in the real extro-node WASM (`Op::Ark`), and extro-node
+ * attaches exactly those signatures to the claim (`SignClaim`), refusing any other.
  */
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { nonceAggregate, nonceGen } from '@scure/btc-signer/musig2.js';
+import { newRequestId } from '@extro/node';
 import { bootArkNode } from './ark-node.testkit';
 
 const node = vi.hoisted(() => ({ client: null as unknown }));
 vi.mock('$lib/extro', () => ({ getExtroClient: () => node.client }));
 
 import { schnorr } from '@noble/curves/secp256k1.js';
-import { fundingRefsFromSpends, presignedIdentity, splitAggregateBundle } from './settle-tx';
+import { fundingRefsFromSpends, splitAggregateBundle } from './settle-tx';
 import {
-	TEST_CHECKPOINT_HEX,
 	TEST_PROVIDER_PUB,
 	TEST_PROVIDER_SK,
 	TEST_Q,
@@ -36,8 +36,7 @@ import {
 const hx = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
 const unhex = (h: string) => Uint8Array.from(h.match(/../g) ?? [], (b) => Number.parseInt(b, 16));
 const LOCKED = `${'5a'.repeat(32)}:1`;
-const contract = testSwapContract();
-const refs = fundingRefsFromSpends(contract, LOCKED, TEST_CHECKPOINT_HEX);
+let refs: Awaited<ReturnType<typeof fundingRefsFromSpends>>;
 const swap = { swapId: TEST_SWAP_ID, requestCommitment: TEST_REQUEST_COMMITMENT };
 
 /** Per-message nonces for one signer over the 2-message bundle. */
@@ -68,7 +67,14 @@ const pubHex = (n: ReturnType<typeof nonces>) => n.map((x) => hx(x.public)).join
 
 beforeAll(async () => {
 	node.client = await bootArkNode();
+	refs = await fundingRefsFromSpends(await testSwapContract(), LOCKED);
 });
+
+const signClaim = (kind: 'Settle' | 'Refund', signatures_hex: string) =>
+	(node.client as Awaited<ReturnType<typeof bootArkNode>>).send({
+		request_id: newRequestId(),
+		op: { kind: 'Ark', cmd: { op: 'SignClaim', claims: refs.settle.claims, kind, signatures_hex } }
+	});
 
 describe('sighash-bundle-v1 over real Arkade spends', () => {
 	it('the simulated signers\' tweaked Q is the extro-node SwapOwnerKey (C1)', async () => {
@@ -106,9 +112,12 @@ describe('sighash-bundle-v1 over real Arkade spends', () => {
 		const [s0, s1] = splitAggregateBundle(sigs);
 		expect(schnorr.verify(s0, refs.settle.sighashes[0], TEST_Q)).toBe(true);
 		expect(schnorr.verify(s1, refs.settle.sighashes[1], TEST_Q)).toBe(true);
-		expect(() =>
-			presignedIdentity({ qXonly: TEST_Q, sighashes: refs.settle.sighashes, signatures: [s0, s1] })
-		).not.toThrow();
+		const signed = await signClaim('Settle', sigs);
+		expect(signed.kind === 'Ok' && signed.body.kind).toBe('ArkSignedClaim');
+		// extro-node refuses the swapped pair and the same pair on the refund claim
+		const swapped = await signClaim('Settle', hx(s1) + hx(s0));
+		expect(swapped.kind).toBe('Err');
+		expect((await signClaim('Refund', sigs)).kind).toBe('Err');
 		// the same signatures never authorize the refund spend
 		expect(schnorr.verify(s1, refs.refund.sighashes[1], TEST_Q)).toBe(false);
 	});

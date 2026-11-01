@@ -16,7 +16,6 @@ import { schnorr } from '@noble/curves/secp256k1.js';
 import { ed25519 } from '@noble/curves/ed25519.js';
 import { fundingRefsFromSpends, splitAggregateBundle } from './settle-tx';
 import {
-	TEST_CHECKPOINT_HEX,
 	TEST_PROVIDER_PUB,
 	TEST_PROVIDER_SK,
 	TEST_REFEREE_PUB,
@@ -33,8 +32,8 @@ const LOCKED = `${'5a'.repeat(32)}:1`;
 const COMMIT = 'cd'.repeat(32);
 /** The per-swap tweaked owner key of this swap (audit C1). */
 const TEST_Q = testOwnerKey('coop-swap', unhex(COMMIT));
-const contract = testSwapContract('coop-swap', unhex(COMMIT));
-const refs = fundingRefsFromSpends(contract, LOCKED, TEST_CHECKPOINT_HEX);
+let contract: Awaited<ReturnType<typeof testSwapContract>>;
+let refs: Awaited<ReturnType<typeof fundingRefsFromSpends>>;
 const DEST = 'ark1qprovider';
 const CANCEL_SK = new Uint8Array(32).fill(9);
 const CANCEL_PK = hx(ed25519.getPublicKey(CANCEL_SK));
@@ -143,6 +142,8 @@ const input = (over: Partial<CoopRefundInput> = {}): CoopRefundInput => ({
 
 beforeAll(async () => {
 	node.client = await bootArkNode();
+	contract = await testSwapContract('coop-swap', unhex(COMMIT));
+	refs = await fundingRefsFromSpends(contract, LOCKED);
 });
 
 describe('coop-refund-v1 client', () => {

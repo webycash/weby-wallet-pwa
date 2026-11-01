@@ -1,13 +1,18 @@
 /**
  * TEST-ONLY Ark swap contract over deterministic, never-funded scalars
  * (referee, provider, operator). Shared by settle-tx / protocol tests.
+ * The contract and its claims are built by the real extro-node (`Op::Ark`):
+ * callers must route `$lib/extro`'s client to `bootArkNode()` first.
  */
 import { ArkAddress, CSVMultisigTapscript } from '@arkade-os/sdk';
+import { TEST_NETWORK, p2tr } from '@scure/btc-signer';
+import type { WireArkOperatorInfo } from '@extro/node';
 import { createHash } from 'node:crypto';
 import { IndividualPubkey, Session, keyAggExport, keyAggregate } from '@scure/btc-signer/musig2.js';
 import { schnorr } from '@noble/curves/secp256k1.js';
 import type { ExtroRuntimeConfig } from '$lib/extro/release-config';
-import { buildArkSwapContract, type VerifiedArkContractPlan } from './swap-contract';
+import { buildArkSwapContract, type ArkSwapContract, type VerifiedArkContractPlan } from './swap-contract';
+import { arkOperatorInfoDigest } from './operator';
 
 const hx = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
 export const testScalar = (n: number): Uint8Array => {
@@ -55,14 +60,33 @@ export const TEST_CHECKPOINT_HEX = hx(
 	CSVMultisigTapscript.encode({ pubkeys: [TEST_OPERATOR_X], timelock: { type: 'blocks', value: 144n } }).script
 );
 
-export function testSwapContract(swapId = TEST_SWAP_ID, requestCommitment = TEST_REQUEST_COMMITMENT) {
+/** The test operator's claim-relevant info (signet; key = scalar 3). */
+export const TEST_OPERATOR: WireArkOperatorInfo = {
+	network: 'signet',
+	signer_pubkey_hex: `02${hx(TEST_OPERATOR_X)}`,
+	forfeit_pubkey_hex: `02${hx(TEST_OPERATOR_X)}`,
+	forfeit_address: p2tr(TEST_OPERATOR_X, undefined, TEST_NETWORK).address as string,
+	checkpoint_tapscript_hex: TEST_CHECKPOINT_HEX,
+	unilateral_exit_delay: 86_016n,
+	boarding_exit_delay: 86_016n,
+	dust: 330n,
+	vtxo_min_amount: -1n
+};
+
+export async function testSwapContract(
+	swapId = TEST_SWAP_ID,
+	requestCommitment = TEST_REQUEST_COMMITMENT
+): Promise<ArkSwapContract> {
+	const digestHex = await arkOperatorInfoDigest(TEST_OPERATOR);
 	const plan: VerifiedArkContractPlan = {
 		swapId,
 		requestCommitment,
+		refereePubkeyHex: hx(TEST_REFEREE_PUB),
+		providerPubkeyHex: hx(TEST_PROVIDER_PUB),
 		aggregateOwnerKey: testOwnerKey(swapId, requestCommitment),
-		providerRecoveryKey: schnorr.getPublicKey(testScalar(4)),
+		providerRecoveryKey: TEST_PROVIDER_PUB.slice(1),
 		operatorSignerKey: TEST_OPERATOR_X,
-		operatorInfoDigest: new Uint8Array(32).fill(0x62),
+		operatorInfoDigest: Uint8Array.from(digestHex.match(/../g) ?? [], (b) => Number.parseInt(b, 16)),
 		unilateralExitDelay: 86_016n,
 		amountSats: 25_000n,
 		network: 'signet',
@@ -74,9 +98,9 @@ export function testSwapContract(swapId = TEST_SWAP_ID, requestCommitment = TEST
 		ark_enabled: true,
 		ark_network: 'signet',
 		ark_signer_pk_hex: hx(TEST_OPERATOR_X),
-		ark_info_digest_hex: '62'.repeat(32),
+		ark_info_digest_hex: digestHex,
 		ark_checkpoint_tapscript_hex: TEST_CHECKPOINT_HEX,
 		ark_unilateral_exit_delay: 86_016
 	} as unknown as ExtroRuntimeConfig;
-	return buildArkSwapContract(config, plan, 1n);
+	return buildArkSwapContract(config, plan, TEST_OPERATOR, 1n);
 }

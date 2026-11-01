@@ -139,6 +139,11 @@ vi.mock('$lib/ark/swap-contract', () => ({
 	buildArkSwapContract: (_c: unknown, plan: unknown) => ({ plan, address: 'tark1contract', tapTree: new Uint8Array([9]) }),
 	fundArkSwapContract: async () => ({ arkTxId: '33'.repeat(32) })
 }));
+// The live operator attestation (release pins + extro-node canonical digest)
+// is unit-tested in operator.test.ts; here the swap only needs its result.
+vi.mock('$lib/ark/operator', () => ({
+	verifiedArkOperator: async () => ({ operator: { network: 'signet' } })
+}));
 vi.mock('$lib/ark/funded-ref', () => ({
 	resolveFundedLockedRef: async () => LOCKED,
 	assertFundedLockedRef: async () => undefined

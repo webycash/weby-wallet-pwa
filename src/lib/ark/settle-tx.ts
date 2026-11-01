@@ -1,36 +1,22 @@
 /**
- * Real Ark spend construction for the referee 2-of-2 (`webycash-musig2-v2`).
+ * Ark settle / collaborative-refund claims for the referee 2-of-2 swap
+ * contract — wallet side, as thin calls into extro-node (ADR-0007, audit H2).
  *
- * Replaces the canonical-text template digest with the sighashes arkd actually
- * verifies. An Arkade offchain spend of one VTXO is TWO transactions
- * (`@arkade-os/sdk` `buildOffchainTx`):
+ * An Arkade offchain spend of one VTXO is TWO transactions: a checkpoint that
+ * spends the swap VTXO through the forfeit leaf `<Q> CHECKSIGVERIFY <operator>
+ * CHECKSIG`, and the ark tx that spends the checkpoint output to the
+ * destination. Q signs BOTH inputs, so the referee/provider MuSig2 message is
+ * the `sighash-bundle-v1` pair `[checkpoint, ark]` (64 bytes).
  *
- *   checkpoint: spends the locked VTXO via the collaborative (forfeit) leaf
- *               `[Q, operator]` into a checkpoint output `[serverUnroll, forfeit]`;
- *   ark tx:     spends the checkpoint output via the same forfeit leaf to the
- *               destination (+ the P2A anchor).
- *
- * Q must sign BOTH inputs, so the referee/provider MuSig2 message is the
- * `sighash-bundle-v1` pair `[checkpoint, ark]` (64 bytes). Both sighashes are
- * fully determined before submission (the checkpoint txid depends only on the
- * VTXO, the forfeit leaf and the pinned server unroll script), so the ceremony
- * can sign them ahead of time and {@link presignedIdentity} just inserts the
- * aggregated BIP340 signatures when the SDK asks the "identity" to sign
- * (`signAndSubmitOffchainTx`). No private key exists in JS.
+ * Both transactions, their sighashes, the signature attachment and the
+ * checkpoint co-signature are built in extro-node (`Op::Ark SwapClaims`,
+ * `SignClaim`, `CosignCheckpoint`). JS only moves the resulting PSBTs to the
+ * operator (`submitTx` / `finalizeTx`). No private key and no Ark transaction
+ * construction exist in JS.
  */
-import {
-	ArkAddress,
-	CSVMultisigTapscript,
-	MultisigTapscript,
-	buildOffchainTx,
-	signAndSubmitOffchainTx,
-	type ArkTxInput,
-	type OffchainTx,
-	type Transaction
-} from '@arkade-os/sdk';
-import { SigHash } from '@scure/btc-signer';
-import { tapLeafHash } from '@scure/btc-signer/payment.js';
-import { schnorr } from '@noble/curves/secp256k1.js';
+import { newRequestId, type ExtroResponse, type WireArkClaimSet } from '@extro/node';
+
+import { getExtroClient } from '$lib/extro';
 import type { ArkSwapContract } from './swap-contract';
 import { exactLockedRef, exactTxHashHex } from './provider-material';
 
@@ -39,6 +25,17 @@ export type ArkSpendKind = 'settle' | 'refund';
 const bytesToHex = (b: Uint8Array): string => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
 const hexToBytes = (hex: string): Uint8Array => Uint8Array.from(hex.match(/../g) ?? [], (b) => Number.parseInt(b, 16));
 
+const base64 = {
+	encode(b: Uint8Array): string {
+		let s = '';
+		for (const x of b) s += String.fromCharCode(x);
+		return btoa(s);
+	},
+	decode(text: string): Uint8Array {
+		return Uint8Array.from(atob(text), (c) => c.charCodeAt(0));
+	}
+};
+
 /** Tag binding a two-message bundle (mirrors referee `crypto::sighash_bundle`). */
 export const SIGHASH_BUNDLE_TAG = 'webycash/ark-sighash-bundle/v1';
 
@@ -46,149 +43,69 @@ export interface ArkSpend {
 	kind: ArkSpendKind;
 	lockedRef: string;
 	destination: string;
-	offchain: OffchainTx;
 	/** BIP341 tapscript sighashes `[checkpoint input 0, ark tx input 0]`. */
 	sighashes: [Uint8Array, Uint8Array];
 	/** Lowercase hex of the 64-byte `[checkpoint, ark]` bundle the MuSig2 ceremony signs. */
 	bundleHex: string;
-	/** Forfeit leaf hash (`[Q, operator]`) both inputs spend through. */
-	leafHash: Uint8Array;
-	inputs: ArkTxInput[];
-	outputs: { amount: bigint; script: Uint8Array }[];
-	serverUnrollScript: CSVMultisigTapscript.Type;
+	/** The exact claim set extro-node rebuilds both transactions from. */
+	claims: WireArkClaimSet;
 }
 
-/** Decode the pinned `ark_checkpoint_tapscript_hex` (arkd `checkpointTapscript`). */
-export function serverUnrollScriptFromHex(hex: string): CSVMultisigTapscript.Type {
-	if (!/^([0-9a-f]{2})+$/i.test(hex)) throw new Error('ark_checkpoint_tapscript_hex is not hex');
-	return CSVMultisigTapscript.decode(hexToBytes(hex));
+type Body<K extends string> = Extract<Extract<ExtroResponse, { kind: 'Ok' }>['body'], { kind: K }>;
+
+async function arkOp<K extends string>(
+	label: string,
+	want: K,
+	cmd: Extract<Parameters<ReturnType<typeof getExtroClient>['send']>[0]['op'], { kind: 'Ark' }>['cmd']
+): Promise<Body<K>> {
+	const response = await getExtroClient().send({ request_id: newRequestId(), op: { kind: 'Ark', cmd } });
+	if (response.kind === 'Err') throw new Error(`${label}: ${response.message}`);
+	if (response.body.kind !== want) throw new Error(`${label}: unexpected ${response.body.kind}`);
+	return response.body as Body<K>;
 }
 
-/** The collaborative `[Q, operator]` leaf of the swap contract. */
-export function forfeitLeaf(contract: ArkSwapContract) {
-	const script = MultisigTapscript.encode({
-		pubkeys: [contract.plan.aggregateOwnerKey, contract.plan.operatorSignerKey]
-	}).script;
-	return contract.script.findLeaf(bytesToHex(script));
-}
-
-function leafOf(tx: Transaction, idx: number): { script: Uint8Array; version: number } {
-	const leaves = tx.getInput(idx).tapLeafScript;
-	if (!leaves || leaves.length !== 1) throw new Error(`input ${idx} must carry exactly one tapLeafScript`);
-	const withVersion = leaves[0][1];
-	return { script: withVersion.subarray(0, -1), version: withVersion[withVersion.length - 1] };
-}
-
-/** BIP341 SIGHASH_DEFAULT script-path sighash for `tx` input `idx` (the message Q signs). */
-export function tapscriptSighash(tx: Transaction, idx: number): Uint8Array {
-	const scripts: Uint8Array[] = [];
-	const amounts: bigint[] = [];
-	for (let i = 0; i < tx.inputsLength; i++) {
-		const u = tx.getInput(i).witnessUtxo;
-		if (!u) throw new Error(`input ${i} is missing witnessUtxo`);
-		scripts.push(u.script);
-		amounts.push(u.amount);
-	}
-	const { script, version } = leafOf(tx, idx);
-	return tx.preimageWitnessV1(idx, scripts, SigHash.DEFAULT, amounts, undefined, script, version);
-}
-
-/** sighash-bundle-v1 binding digest (N=2): SHA256(tag || h0 || h1). */
+/** sighash-bundle-v1 binding digest (N=2): SHA256(tag || h0 || h1), via extro-node. */
 export async function sighashBundleBinding(bundle: Uint8Array): Promise<Uint8Array> {
-	if (bundle.length === 32) return bundle.slice();
-	if (bundle.length !== 64) throw new Error('sighash bundle must be 32 or 64 bytes');
-	const tag = new TextEncoder().encode(SIGHASH_BUNDLE_TAG);
-	const buf = new Uint8Array(tag.length + 64);
-	buf.set(tag, 0);
-	buf.set(bundle, tag.length);
-	return new Uint8Array(await crypto.subtle.digest('SHA-256', buf));
-}
-
-/**
- * Build the exact checkpoint + ark tx for a settle (to the bearer-seller) or a
- * collaborative refund (to the provider) of the funded swap VTXO.
- */
-export function buildArkSpend(input: {
-	contract: ArkSwapContract;
-	lockedRef: string;
-	kind: ArkSpendKind;
-	checkpointTapscriptHex: string;
-}): ArkSpend {
-	const lockedRef = exactLockedRef(input.lockedRef);
-	const [txid, voutStr] = lockedRef.split(':');
-	const { plan } = input.contract;
-	const destination = input.kind === 'settle' ? plan.bearerSellerDestination : plan.providerDestination;
-	const dest = ArkAddress.decode(destination);
-	if (bytesToHex(dest.serverPubKey) !== bytesToHex(plan.operatorSignerKey)) {
-		throw new Error(`${input.kind} destination belongs to a different Ark operator`);
-	}
-	const tapLeafScript = forfeitLeaf(input.contract);
-	const inputs: ArkTxInput[] = [
-		{ txid, vout: Number(voutStr), value: Number(plan.amountSats), tapLeafScript, tapTree: input.contract.tapTree }
-	];
-	const outputs = [{ amount: plan.amountSats, script: dest.pkScript }];
-	const serverUnrollScript = serverUnrollScriptFromHex(input.checkpointTapscriptHex);
-	const offchain = buildOffchainTx(inputs, outputs, serverUnrollScript);
-	if (offchain.checkpoints.length !== 1) throw new Error('expected exactly one checkpoint');
-	const sighashes: [Uint8Array, Uint8Array] = [
-		tapscriptSighash(offchain.checkpoints[0], 0),
-		tapscriptSighash(offchain.arkTx, 0)
-	];
-	const { script, version } = leafOf(offchain.arkTx, 0);
-	const cp = leafOf(offchain.checkpoints[0], 0);
-	if (bytesToHex(cp.script) !== bytesToHex(script)) throw new Error('checkpoint and ark tx leaves differ');
-	const bundle = new Uint8Array(64);
-	bundle.set(sighashes[0], 0);
-	bundle.set(sighashes[1], 32);
-	return {
-		kind: input.kind,
-		lockedRef,
-		destination,
-		offchain,
-		sighashes,
-		bundleHex: bytesToHex(bundle),
-		leafHash: tapLeafHash(script, version),
-		inputs,
-		outputs,
-		serverUnrollScript
-	};
-}
-
-/**
- * A signing "identity" that never holds a key: it inserts the precomputed
- * aggregate signatures under Q for exactly the two known sighashes and refuses
- * anything else (fail closed on any tx mutation).
- */
-export function presignedIdentity(input: { qXonly: Uint8Array; sighashes: Uint8Array[]; signatures: Uint8Array[] }): {
-	sign(tx: Transaction, inputIndexes?: number[]): Promise<Transaction>;
-} {
-	if (input.sighashes.length !== input.signatures.length) throw new Error('sighash/signature count mismatch');
-	const bySighash = new Map<string, Uint8Array>();
-	input.sighashes.forEach((h, i) => {
-		const sig = input.signatures[i];
-		if (sig.length !== 64 || !schnorr.verify(sig, h, input.qXonly)) {
-			throw new Error(`aggregate signature ${i} does not verify under Q`);
-		}
-		bySighash.set(bytesToHex(h), sig);
+	const body = await arkOp('SighashBundleBinding', 'ArkBundleBinding', {
+		op: 'SighashBundleBinding',
+		sighash_hex: bytesToHex(bundle)
 	});
+	return body.binding.slice();
+}
+
+/** The claim set both terminal claims of `contract`'s funded VTXO `lockedRef` are built from. */
+export function arkClaimSet(contract: ArkSwapContract, lockedRef: string): WireArkClaimSet {
+	const { plan } = contract;
 	return {
-		async sign(tx, inputIndexes) {
-			const out = tx.clone();
-			const idxs = inputIndexes ?? Array.from({ length: out.inputsLength }, (_, i) => i);
-			for (const idx of idxs) {
-				const h = bytesToHex(tapscriptSighash(out, idx));
-				const sig = bySighash.get(h);
-				if (!sig) throw new Error(`no presigned signature for input ${idx} (sighash ${h.slice(0, 12)}…)`);
-				const { script, version } = leafOf(out, idx);
-				const existing = out.getInput(idx).tapScriptSig ?? [];
-				out.updateInput(idx, {
-					tapScriptSig: [...existing, [{ pubKey: input.qXonly, leafHash: tapLeafHash(script, version) }, sig]]
-				});
-			}
-			return out;
-		}
+		referee_pubkey_hex: plan.refereePubkeyHex,
+		provider_pubkey_hex: plan.providerPubkeyHex,
+		swap_id: plan.swapId,
+		request_commitment: plan.requestCommitment.slice(),
+		operator: contract.operator,
+		operator_info_digest: plan.operatorInfoDigest.slice(),
+		operator_signer_pk: plan.operatorSignerKey.slice(),
+		network: plan.network,
+		exit_delay: plan.unilateralExitDelay,
+		locked_ref: exactLockedRef(lockedRef),
+		amount_sats: plan.amountSats,
+		settle_destination: plan.bearerSellerDestination,
+		refund_destination: plan.providerDestination
 	};
 }
+
+const spendOf = (kind: ArkSpendKind, claims: WireArkClaimSet, bundleHex: string): ArkSpend => {
+	const hex = exactTxHashHex(bundleHex, kind === 'settle' ? 'tx_settle_hash' : 'tx_refund_hash');
+	if (hex.length !== 128) throw new Error(`${kind} sighash bundle must be [checkpoint, ark]`);
+	const b = hexToBytes(hex);
+	return {
+		kind,
+		lockedRef: claims.locked_ref,
+		destination: kind === 'settle' ? claims.settle_destination : claims.refund_destination,
+		sighashes: [b.slice(0, 32), b.slice(32)],
+		bundleHex: hex,
+		claims
+	};
+};
 
 /** Split the 128-byte aggregate bundle `[sig_checkpoint, sig_ark]`. */
 export function splitAggregateBundle(sigsHex: string): [Uint8Array, Uint8Array] {
@@ -205,48 +122,67 @@ export interface ArkSubmitProvider {
 	finalizeTx(arkTxid: string, finalCheckpointTxs: string[]): Promise<void>;
 }
 
-/** Submit + finalize the spend with the aggregated Q signatures. Returns the Ark txid. */
+/**
+ * Submit + finalize the spend with the aggregated Q signatures. extro-node
+ * verifies the signatures under Q, attaches them, and (after `submitTx`)
+ * verifies the operator's checkpoint signature before adding Q's. Returns the
+ * Ark txid.
+ */
 export async function submitArkSpend(input: {
 	spend: ArkSpend;
-	qXonly: Uint8Array;
+	/** Kept for the transport contract; Q is re-derived and checked in extro-node. */
+	qXonly?: Uint8Array;
 	aggregateSigsHex: string;
 	provider: ArkSubmitProvider;
 }): Promise<string> {
-	const sigs = splitAggregateBundle(input.aggregateSigsHex);
-	const identity = presignedIdentity({ qXonly: input.qXonly, sighashes: input.spend.sighashes, signatures: sigs });
-	return signAndSubmitOffchainTx({
-		identity,
-		provider: input.provider,
-		inputs: input.spend.inputs,
-		outputs: input.spend.outputs,
-		serverUnrollScript: input.spend.serverUnrollScript,
-		verifyServerSignatures: { serverPubkey: inputPlanOperator(input.spend) }
+	splitAggregateBundle(input.aggregateSigsHex);
+	const kind = input.spend.kind === 'settle' ? 'Settle' : 'Refund';
+	const signatures_hex = input.aggregateSigsHex.toLowerCase();
+	const signed = await arkOp('SignClaim', 'ArkSignedClaim', {
+		op: 'SignClaim',
+		claims: input.spend.claims,
+		kind,
+		signatures_hex
 	});
-}
-
-function inputPlanOperator(spend: ArkSpend): Uint8Array {
-	// The forfeit leaf is `[Q, operator]`; the operator key is its second pubkey.
-	const leaf = MultisigTapscript.decode(leafOf(spend.offchain.arkTx, 0).script);
-	return leaf.params.pubkeys[1];
+	const submitted = await input.provider.submitTx(base64.encode(signed.ark_psbt), [
+		base64.encode(signed.checkpoint_psbt)
+	]);
+	if (submitted.arkTxid.toLowerCase() !== signed.ark_txid.toLowerCase()) {
+		throw new Error('Ark operator accepted a different ark transaction than the one signed');
+	}
+	if (submitted.signedCheckpointTxs.length !== 1) {
+		throw new Error(`Ark operator returned ${submitted.signedCheckpointTxs.length} checkpoints, expected 1`);
+	}
+	const cosigned = await arkOp('CosignCheckpoint', 'ArkCheckpoint', {
+		op: 'CosignCheckpoint',
+		claims: input.spend.claims,
+		kind,
+		signatures_hex,
+		checkpoint_psbt: base64.decode(submitted.signedCheckpointTxs[0])
+	});
+	await input.provider.finalizeTx(submitted.arkTxid, [base64.encode(cosigned.checkpoint_psbt)]);
+	return signed.ark_txid.toLowerCase();
 }
 
 /**
- * Funding refs from the REAL Arkade spends: `tx_settle_hash` / `tx_refund_hash`
- * are the 64-byte `[checkpoint, ark]` sighash bundles of the settle (to the
- * bearer-seller) and collaborative-refund (to the provider) transactions.
+ * Funding refs from the REAL Arkade spends (`Op::Ark SwapClaims`):
+ * `tx_settle_hash` / `tx_refund_hash` are the 64-byte `[checkpoint, ark]`
+ * sighash bundles of the settle (to the bearer-seller) and collaborative-refund
+ * (to the provider) transactions.
  */
-export function fundingRefsFromSpends(
+export async function fundingRefsFromSpends(
 	contract: ArkSwapContract,
-	lockedRef: string,
-	checkpointTapscriptHex: string
-): { lockedRef: string; txSettleHashHex: string; txRefundHashHex: string; settle: ArkSpend; refund: ArkSpend } {
-	const settle = buildArkSpend({ contract, lockedRef, kind: 'settle', checkpointTapscriptHex });
-	const refund = buildArkSpend({ contract, lockedRef, kind: 'refund', checkpointTapscriptHex });
+	lockedRef: string
+): Promise<{ lockedRef: string; txSettleHashHex: string; txRefundHashHex: string; settle: ArkSpend; refund: ArkSpend }> {
+	const claims = arkClaimSet(contract, lockedRef);
+	const body = await arkOp('SwapClaims', 'ArkSwapClaims', { op: 'SwapClaims', claims });
+	const settle = spendOf('settle', claims, body.settle_bundle_hex);
+	const refund = spendOf('refund', claims, body.refund_bundle_hex);
 	if (settle.bundleHex === refund.bundleHex) throw new Error('settle and refund sighashes must differ');
 	return {
-		lockedRef: settle.lockedRef,
-		txSettleHashHex: exactTxHashHex(settle.bundleHex, 'tx_settle_hash'),
-		txRefundHashHex: exactTxHashHex(refund.bundleHex, 'tx_refund_hash'),
+		lockedRef: claims.locked_ref,
+		txSettleHashHex: settle.bundleHex,
+		txRefundHashHex: refund.bundleHex,
 		settle,
 		refund
 	};

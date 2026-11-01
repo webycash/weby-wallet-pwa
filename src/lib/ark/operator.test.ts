@@ -1,8 +1,17 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import type { ExtroRuntimeConfig } from '$lib/extro/release-config';
+import { arkTxOpsVector, bootArkNode } from './ark-node.testkit';
 
-import { attestConfiguredArkOperator, validateArkOperatorInfo } from './operator';
+const node = vi.hoisted(() => ({ client: null as unknown }));
+vi.mock('$lib/extro', () => ({ getExtroClient: () => node.client }));
+
+import {
+	arkOperatorWireInfo,
+	attestConfiguredArkOperator,
+	validateArkOperatorInfo,
+	verifiedArkOperator
+} from './operator';
 
 const signerXOnly = '8bf56160efc769112b361de4117b3c71b88ca16f1bb9f6ac7a2781929abc5e6a';
 const infoDigest = '66'.repeat(32);
@@ -41,6 +50,11 @@ const config: ExtroRuntimeConfig = {
 const info = {
 	network: 'signet',
 	signerPubkey: `02${signerXOnly}`,
+	forfeitPubkey: `02${signerXOnly}`,
+	forfeitAddress: 'tb1pqqqqp399et2xygdj5xreqhjjvcmzhxw4aywxecjdzew6hylgvsesf3hn0c',
+	boardingExitDelay: 172544n,
+	dust: 330n,
+	vtxoMinAmount: -1n,
 	digest: infoDigest,
 	checkpointTapscript,
 	unilateralExitDelay: 172544n,
@@ -53,6 +67,7 @@ describe('Ark operator release attestation', () => {
 		expect(attestation.signer_pk_hex).toBe(signerXOnly);
 		expect(attestation.network).toBe('signet');
 		expect(attestation.unilateral_exit_delay).toBe(172544n);
+		expect(attestation.operator).toEqual(arkOperatorWireInfo('signet', info));
 	});
 
 	it('rejects a substituted operator key', () => {
@@ -71,9 +86,6 @@ describe('Ark operator release attestation', () => {
 	});
 
 	it('rejects changed operator policy under the same signer', () => {
-		expect(() => validateArkOperatorInfo(config, { ...info, digest: '78'.repeat(32) })).toThrow(
-			/info digest mismatch/
-		);
 		expect(() =>
 			validateArkOperatorInfo(config, { ...info, checkpointTapscript: '79'.repeat(32) })
 		).toThrow(/checkpointTapscript does not match/);
@@ -101,5 +113,48 @@ describe('Ark operator release attestation', () => {
 		});
 		expect(result).toBeNull();
 		expect(called).toBe(false);
+	});
+});
+
+describe('Ark operator canonical digest (extro-node Op::Ark)', () => {
+	const v = arkTxOpsVector();
+	const vectorInfo = {
+		network: v.operator.network,
+		signerPubkey: v.operator.signer_pubkey_hex,
+		forfeitPubkey: v.operator.forfeit_pubkey_hex,
+		forfeitAddress: v.operator.forfeit_address,
+		checkpointTapscript: v.operator.checkpoint_tapscript_hex,
+		unilateralExitDelay: BigInt(v.operator.unilateral_exit_delay),
+		boardingExitDelay: BigInt(v.operator.boarding_exit_delay),
+		dust: BigInt(v.operator.dust),
+		vtxoMinAmount: BigInt(v.operator.vtxo_min_amount),
+		// arkd's own digest is informational only and never compared.
+		digest: '78'.repeat(32),
+		version: 'test'
+	};
+	const regtest: ExtroRuntimeConfig = {
+		...config,
+		ark_network: 'regtest',
+		ark_signer_pk_hex: v.operator_signer_pk_hex,
+		ark_info_digest_hex: v.operator_info_digest_hex,
+		ark_checkpoint_tapscript_hex: v.operator.checkpoint_tapscript_hex,
+		ark_unilateral_exit_delay: v.exit_delay
+	};
+	const live = (over: Partial<typeof vectorInfo> = {}) => ({ getInfo: async () => ({ ...vectorInfo, ...over }) });
+
+	beforeAll(async () => {
+		node.client = await bootArkNode();
+	});
+
+	it('accepts the live operator whose canonical digest is the release pin', async () => {
+		const att = await verifiedArkOperator(regtest, live());
+		expect(att.operator.forfeit_address).toBe(v.operator.forfeit_address);
+	});
+
+	it('rejects a changed claim-relevant field under the same signer', async () => {
+		await expect(verifiedArkOperator(regtest, live({ dust: 331n }))).rejects.toThrow(/info digest mismatch/);
+		await expect(
+			verifiedArkOperator(regtest, live({ forfeitPubkey: info.forfeitPubkey }))
+		).rejects.toThrow(/info digest mismatch/);
 	});
 });

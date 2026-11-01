@@ -49,6 +49,7 @@ import {
 	type ArkIndexerReader
 } from '$lib/ark/funded-ref';
 import { fundingRefsFromSpends, type ArkSpend } from '$lib/ark/settle-tx';
+import { verifiedArkOperator } from '$lib/ark/operator';
 import {
 	buildArkSwapContract,
 	deriveVerifiedArkContractPlan,
@@ -388,7 +389,11 @@ async function deriveContract(
 	refereeVk: Uint8Array
 ): Promise<ArkSwapContract> {
 	const plan = await deriveVerifiedArkContractPlan({ terms, signedResponse, refereeVk });
-	return buildArkSwapContract(getRuntimeConfig() as never, plan);
+	const config = getRuntimeConfig() as never;
+	// The live operator, pinned to the release (signer, checkpoint, delay) and to
+	// extro-node's canonical info digest, is part of every claim built for Q.
+	const { operator } = await verifiedArkOperator(config);
+	return buildArkSwapContract(config, plan, operator);
 }
 
 /**
@@ -546,7 +551,7 @@ export async function runProviderSide(
 	// insert falls back to coop-refund-v1 (fresh nonce + per-order cancel key).
 	// The referee enforces exclusivity: it refuses once the swap left pre-insert,
 	// and a coop refund consumes its Refund session and discards Settle.
-	let coopRefs: ReturnType<typeof fundingRefsFromSpends> | undefined;
+	let coopRefs: Awaited<ReturnType<typeof fundingRefsFromSpends>> | undefined;
 	let insertClaimed = false;
 	const coopTransport = opts.settleTransport ?? {};
 	try {
@@ -558,11 +563,7 @@ export async function runProviderSide(
 			intervalMs
 		});
 		// Real Arkade spends: tx_settle/refund_hash = [checkpoint, ark] BIP341 sighash bundles.
-		const refs = fundingRefsFromSpends(
-			contract,
-			lockedRef,
-			getRuntimeConfig().ark_checkpoint_tapscript_hex
-		);
+		const refs = await fundingRefsFromSpends(contract, lockedRef);
 		coopRefs = refs;
 		const sent = await probeProviderMaterial(order, counterpartyFpHex, slot, {
 			lockedRef: refs.lockedRef,
@@ -778,18 +779,17 @@ async function arkIndexer(): Promise<ArkIndexerReader> {
  * seller's OWN `[checkpoint, ark]` sighash bundles of the real settle/refund
  * Arkade spends over (verified contract, locked_ref).
  */
-export function verifyProviderMaterialAgainstPlan(
+export async function verifyProviderMaterialAgainstPlan(
 	material: Pick<WireProviderMaterial, 'locked_ref' | 'tx_settle_hash_hex' | 'tx_refund_hash_hex'>,
-	contract: ArkSwapContract,
-	checkpointTapscriptHex: string = getRuntimeConfig().ark_checkpoint_tapscript_hex
-): {
+	contract: ArkSwapContract
+): Promise<{
 	lockedRef: string;
 	txSettleHashHex: string;
 	txRefundHashHex: string;
 	settle: ArkSpend;
 	refund: ArkSpend;
-} {
-	const own = fundingRefsFromSpends(contract, material.locked_ref, checkpointTapscriptHex);
+}> {
+	const own = await fundingRefsFromSpends(contract, material.locked_ref);
 	if (material.tx_settle_hash_hex.toLowerCase() !== own.txSettleHashHex) {
 		throw new Error(
 			'provider settle sighash does not match the own settle spend over the verified contract'
@@ -978,9 +978,9 @@ export async function runBearerSellerSide(
 			{ facts }
 		);
 	}
-	let checked: ReturnType<typeof verifyProviderMaterialAgainstPlan>;
+	let checked: Awaited<ReturnType<typeof verifyProviderMaterialAgainstPlan>>;
 	try {
-		checked = verifyProviderMaterialAgainstPlan(material, contract);
+		checked = await verifyProviderMaterialAgainstPlan(material, contract);
 	} catch (e) {
 		throw Object.assign(e as Error, { facts });
 	}

@@ -1,25 +1,45 @@
+/**
+ * The webycash Ark swap contract — wallet side, as thin calls into extro-node
+ * (ADR-0007, audit H2). The contract is built once, in extro-node's
+ * `ark_protocol::SwapContract` (`Op::Ark SwapContract`): the canonical 2-leaf
+ * taptree arkd accepts,
+ *
+ *   forfeit:  <Q> CHECKSIGVERIFY <operator> CHECKSIG
+ *   recovery: <delay> CSV DROP <provider> CHECKSIG   (seconds-only delays)
+ *
+ * with Q the per-swap tweaked referee/provider key (audit C1). JS only checks
+ * the runtime pins, hands the node's `tap_tree` to the SDK for funding /
+ * contract-manager transport, and fails closed if the SDK's decoding of that
+ * tree disagrees with the node's script or address.
+ *
+ * Supersedes the in-TS 3-leaf contract (DefaultVtxo forfeit + CSV recovery +
+ * an OP_RETURN request-commitment leaf), which arkd cannot parse. A VTXO
+ * already funded to such a 3-leaf script is recoverable only via its provider
+ * CSV leaf.
+ */
 import {
-	CSVMultisigTapscript,
-	DefaultVtxo,
 	VtxoScript,
 	contractHandlers,
 	getNetwork,
-	scriptFromTapLeafScript,
 	type Contract,
 	type ContractHandler,
 	type ContractWithVtxos,
-	type IContractManager,
-	type RelativeTimelock
+	type IContractManager
 } from '@arkade-os/sdk';
 import { getExtroClient } from '$lib/extro';
-import { newRequestId, type ArkPrepareTerms } from '@extro/node';
+import { newRequestId, type ArkPrepareTerms, type WireArkOperatorInfo } from '@extro/node';
 import type { ExtroRuntimeConfig } from '$lib/extro/release-config';
+import { arkOperatorInfoDigest } from './operator';
 
-export const WEBYCASH_ARK_CONTRACT_TYPE = 'webycash-musig2-v2';
+export const WEBYCASH_ARK_CONTRACT_TYPE = 'webycash-musig2-v3';
 
 export interface VerifiedArkContractPlan {
 	swapId: string;
 	requestCommitment: Uint8Array;
+	/** Referee MuSig2 key (compressed hex) Q is aggregated from. */
+	refereePubkeyHex: string;
+	/** Provider MuSig2 key (compressed hex) Q is aggregated from. */
+	providerPubkeyHex: string;
 	aggregateOwnerKey: Uint8Array;
 	providerRecoveryKey: Uint8Array;
 	operatorSignerKey: Uint8Array;
@@ -34,10 +54,13 @@ export interface VerifiedArkContractPlan {
 
 export interface ArkSwapContract {
 	plan: VerifiedArkContractPlan;
+	/** SDK view of the node's taptree (transport only: funding, indexer, contract manager). */
 	script: VtxoScript;
 	address: string;
 	pkScriptHex: string;
 	tapTree: Uint8Array;
+	/** The live operator whose canonical digest equals the plan's pinned digest. */
+	operator: WireArkOperatorInfo;
 	contract: Omit<Contract, 'createdAt'>;
 }
 
@@ -51,6 +74,11 @@ const hexToBytes = (value: string, length: number, name: string): Uint8Array => 
 	return Uint8Array.from({ length }, (_, index) => Number.parseInt(value.slice(index * 2, index * 2 + 2), 16));
 };
 
+const anyHexToBytes = (value: string, name: string): Uint8Array => {
+	if (!/^([0-9a-f]{2})+$/i.test(value)) throw new Error(`${name} must be hexadecimal data`);
+	return hexToBytes(value, value.length / 2, name);
+};
+
 const exactBytes = (value: Uint8Array, length: number, name: string): Uint8Array => {
 	if (!(value instanceof Uint8Array) || value.length !== length) {
 		throw new Error(`${name} must be exactly ${length} bytes`);
@@ -59,86 +87,39 @@ const exactBytes = (value: Uint8Array, length: number, name: string): Uint8Array
 	return value.slice();
 };
 
+const compressedKeyHex = (value: string, name: string): string => {
+	if (!/^0[23][0-9a-f]{64}$/i.test(value)) throw new Error(`${name} must be a compressed secp256k1 key`);
+	return value.toLowerCase();
+};
+
 const sameBytes = (a: Uint8Array, b: Uint8Array): boolean =>
 	a.length === b.length && a.every((byte, index) => byte === b[index]);
 
-const delayToTimelock = (delay: bigint): RelativeTimelock => {
-	if (delay <= 0n) throw new Error('Ark unilateral exit delay must be positive');
-	if (delay >= 512n && delay % 512n !== 0n) {
-		throw new Error('second-based Ark unilateral exit delay must be a multiple of 512');
-	}
-	return { value: delay, type: delay < 512n ? 'blocks' : 'seconds' };
-};
-
-const commitmentLeaf = (commitment: Uint8Array): Uint8Array => {
-	const leaf = new Uint8Array(34);
-	leaf[0] = 0x6a; // OP_RETURN: unspendable, but commits this address to one prepare request.
-	leaf[1] = 0x20; // direct push of the 32-byte request commitment.
-	leaf.set(exactBytes(commitment, 32, 'request commitment'), 2);
-	return leaf;
-};
-
 interface StoredContractParams {
-	aggregateOwnerKey: Uint8Array;
-	providerRecoveryKey: Uint8Array;
-	operatorSignerKey: Uint8Array;
-	requestCommitment: Uint8Array;
-	unilateralExitDelay: bigint;
+	/** The node-built taptree (SDK `TapTree` encoding). */
+	tapTree: Uint8Array;
 }
 
-function createSwapScript(params: StoredContractParams): VtxoScript {
-	const timelock = delayToTimelock(params.unilateralExitDelay);
-	// Ark's collaborative leaf remains operator + one owner key. That owner is
-	// the provider/referee MuSig2 aggregate. The CSV path intentionally uses the
-	// provider's standalone key instead, so referee loss cannot destroy recovery.
-	const standard = new DefaultVtxo.Script({
-		pubKey: exactBytes(params.aggregateOwnerKey, 32, 'aggregate owner key'),
-		serverPubKey: exactBytes(params.operatorSignerKey, 32, 'operator signer key'),
-		csvTimelock: timelock
-	});
-	const recovery = CSVMultisigTapscript.encode({
-		pubkeys: [exactBytes(params.providerRecoveryKey, 32, 'provider recovery key')],
-		timelock
-	});
-	return new VtxoScript([
-		scriptFromTapLeafScript(standard.forfeit()),
-		recovery.script,
-		commitmentLeaf(params.requestCommitment)
-	]);
-}
+/** SDK view of a node-built taptree. Decoding only; no script is built in JS. */
+const decodeTapTree = (tapTree: Uint8Array): VtxoScript => VtxoScript.decode(tapTree);
 
 const handler: ContractHandler<StoredContractParams, VtxoScript> = {
 	type: WEBYCASH_ARK_CONTRACT_TYPE,
 	createScript(params) {
-		return createSwapScript(this.deserializeParams(params));
+		return decodeTapTree(this.deserializeParams(params).tapTree);
 	},
 	serializeParams(params) {
-		return {
-			aggregateOwnerKey: bytesToHex(params.aggregateOwnerKey),
-			providerRecoveryKey: bytesToHex(params.providerRecoveryKey),
-			operatorSignerKey: bytesToHex(params.operatorSignerKey),
-			requestCommitment: bytesToHex(params.requestCommitment),
-			unilateralExitDelay: params.unilateralExitDelay.toString()
-		};
+		return { tapTree: bytesToHex(params.tapTree) };
 	},
 	deserializeParams(params) {
-		if (!/^[1-9][0-9]*$/.test(params.unilateralExitDelay ?? '')) {
-			throw new Error('unilateralExitDelay must be a positive decimal integer');
-		}
-		return {
-			aggregateOwnerKey: hexToBytes(params.aggregateOwnerKey, 32, 'aggregateOwnerKey'),
-			providerRecoveryKey: hexToBytes(params.providerRecoveryKey, 32, 'providerRecoveryKey'),
-			operatorSignerKey: hexToBytes(params.operatorSignerKey, 32, 'operatorSignerKey'),
-			requestCommitment: hexToBytes(params.requestCommitment, 32, 'requestCommitment'),
-			unilateralExitDelay: BigInt(params.unilateralExitDelay)
-		};
+		return { tapTree: anyHexToBytes(params.tapTree ?? '', 'tapTree') };
 	},
 	selectPath() {
 		return null;
 	},
 	getAllSpendingPaths() {
-		// Named settle/refund templates live in swap-spend.ts. The generic SDK
-		// spender must see an empty path set until dedicated signers bind a VTXO.
+		// Settle / refund claims are built and signed by extro-node (settle-tx.ts).
+		// The generic SDK spender must see an empty path set.
 		return [];
 	},
 	getSpendablePaths() {
@@ -189,6 +170,8 @@ export async function deriveVerifiedArkContractPlan(input: {
 	return {
 		swapId: response.body.swap_id,
 		requestCommitment: exactBytes(response.body.request_commitment, 32, 'request commitment'),
+		refereePubkeyHex: compressedKeyHex(response.body.referee_pubkey_hex, 'referee MuSig2 key'),
+		providerPubkeyHex: compressedKeyHex(response.body.provider_pubkey_hex, 'provider MuSig2 key'),
 		aggregateOwnerKey: exactBytes(response.body.aggregate_owner_key, 32, 'aggregate owner key'),
 		providerRecoveryKey: exactBytes(
 			response.body.provider_recovery_key,
@@ -214,12 +197,19 @@ export async function deriveVerifiedArkContractPlan(input: {
 	};
 }
 
-/** Build the exact, request-unique Ark script after checking every runtime pin. */
-export function buildArkSwapContract(
+/**
+ * Build the exact, request-unique Ark contract (`Op::Ark SwapContract`) after
+ * checking every runtime pin. Fails closed unless the live `operator`'s
+ * canonical digest is the plan's pinned digest, the node's Q equals the
+ * referee-verified plan's aggregate key, and the SDK's decoding of the node's
+ * taptree yields the node's own script and address.
+ */
+export async function buildArkSwapContract(
 	config: ExtroRuntimeConfig,
 	plan: VerifiedArkContractPlan,
+	operator: WireArkOperatorInfo,
 	nowUnix = BigInt(Math.floor(Date.now() / 1000))
-): ArkSwapContract {
+): Promise<ArkSwapContract> {
 	if (!config.ark_enabled) throw new Error('Ark is disabled in runtime configuration');
 	if (plan.expiresAtUnix <= nowUnix) throw new Error('Ark contract plan has expired');
 	if (plan.network !== config.ark_network) throw new Error('Ark contract network does not match runtime pin');
@@ -237,27 +227,56 @@ export function buildArkSwapContract(
 	if (plan.amountSats <= 0n || plan.amountSats > BigInt(Number.MAX_SAFE_INTEGER)) {
 		throw new Error('Ark amount is outside the exact range supported by the pinned SDK');
 	}
-	const stored: StoredContractParams = {
-		aggregateOwnerKey: exactBytes(plan.aggregateOwnerKey, 32, 'aggregate owner key'),
-		providerRecoveryKey: exactBytes(plan.providerRecoveryKey, 32, 'provider recovery key'),
-		operatorSignerKey: exactBytes(plan.operatorSignerKey, 32, 'operator signer key'),
-		requestCommitment: exactBytes(plan.requestCommitment, 32, 'request commitment'),
-		unilateralExitDelay: plan.unilateralExitDelay
-	};
-	const script = createSwapScript(stored);
-	const address = script.address(getNetwork(plan.network).hrp, stored.operatorSignerKey).encode();
-	const params = handler.serializeParams(stored);
+	if ((await arkOperatorInfoDigest(operator)) !== bytesToHex(plan.operatorInfoDigest)) {
+		throw new Error('live Ark operator info does not match the pinned operator info digest');
+	}
+	const response = await getExtroClient().send({
+		request_id: newRequestId(),
+		op: {
+			kind: 'Ark',
+			cmd: {
+				op: 'SwapContract',
+				referee_pubkey_hex: compressedKeyHex(plan.refereePubkeyHex, 'referee MuSig2 key'),
+				provider_pubkey_hex: compressedKeyHex(plan.providerPubkeyHex, 'provider MuSig2 key'),
+				swap_id: plan.swapId,
+				request_commitment: exactBytes(plan.requestCommitment, 32, 'request commitment'),
+				operator_signer_pk: exactBytes(plan.operatorSignerKey, 32, 'operator signer key'),
+				network: plan.network,
+				exit_delay: plan.unilateralExitDelay
+			}
+		}
+	});
+	if (response.kind === 'Err') throw new Error(`SwapContract: ${response.message}`);
+	if (response.body.kind !== 'ArkSwapContract') {
+		throw new Error(`SwapContract: unexpected ${response.body.kind}`);
+	}
+	const built = response.body;
+	if (!sameBytes(built.owner_q, plan.aggregateOwnerKey)) {
+		throw new Error('Ark contract owner key does not match the referee-verified plan');
+	}
+	const tapTree = built.tap_tree.slice();
+	const script = decodeTapTree(tapTree);
+	const pkScriptHex = bytesToHex(built.script_pubkey);
+	if (bytesToHex(script.pkScript) !== pkScriptHex) {
+		throw new Error('SDK decoding of the node taptree disagrees with the node script');
+	}
+	const address = built.address;
+	if (script.address(getNetwork(plan.network).hrp, plan.operatorSignerKey).encode() !== address) {
+		throw new Error('SDK decoding of the node taptree disagrees with the node address');
+	}
+	const params = handler.serializeParams({ tapTree });
 	return {
 		plan,
 		script,
 		address,
-		pkScriptHex: bytesToHex(script.pkScript),
-		tapTree: script.encode(),
+		pkScriptHex,
+		tapTree,
+		operator,
 		contract: {
 			type: WEBYCASH_ARK_CONTRACT_TYPE,
 			label: `WebyCash swap ${plan.swapId}`,
 			params,
-			script: bytesToHex(script.pkScript),
+			script: pkScriptHex,
 			address,
 			state: 'active',
 			watch: 'watched',
