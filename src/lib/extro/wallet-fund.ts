@@ -21,7 +21,8 @@ export type WalletFundDeps = {
 	insert: (secret: string) => Promise<Result<void>>;
 };
 
-const sameServer = (a: string, b: string) => {
+/** Same webcash server: origin and path, trailing slash ignored. */
+export const sameServer = (a: string, b: string) => {
 	try {
 		const x = new URL(a);
 		const y = new URL(b);

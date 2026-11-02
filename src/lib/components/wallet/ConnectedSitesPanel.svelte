@@ -14,11 +14,25 @@
 		syncNow,
 		type SyncStatus
 	} from '$lib/extro/connections';
+	import { clearBudget, pruneBudgets, viewBudget, type BudgetView } from '$lib/extro/spend-budget';
 
 	let items = $state<Connection[] | null>(null);
 	let sync = $state<SyncStatus | 'syncing'>('syncing');
 	let busy = $state<string | null>(null);
 	let message = $state('');
+	/** Daily spend budgets set on this device, by connection id. */
+	let budgets = $state<Record<string, BudgetView | null>>({});
+
+	function loadBudgets(list: Connection[]) {
+		// A budget belongs to one sign-in: drop those of gone connections.
+		pruneBudgets(localStorage, list.map((c) => c.id_hex));
+		budgets = Object.fromEntries(list.map((c) => [c.id_hex, viewBudget(localStorage, c.id_hex)]));
+	}
+
+	function removeBudget(c: Connection) {
+		clearBudget(localStorage, c.id_hex);
+		budgets = { ...budgets, [c.id_hex]: null };
+	}
 
 	const nameOf = (origin: string) => getRuntimeConfig().connected_apps.find((a) => a.origin === origin)?.name ?? origin;
 	const since = (unix: number) => new Date(unix * 1000).toLocaleString();
@@ -30,6 +44,7 @@
 			sync = 'syncing';
 			sync = await syncNow();
 			items = activeConnections(await listConnections());
+			loadBudgets(items);
 		} catch (e) {
 			if (sync === 'syncing') sync = 'failed';
 			message = String(e instanceof Error ? e.message : e);
@@ -41,6 +56,7 @@
 		try {
 			sync = await disconnect(c.id_hex);
 			items = activeConnections(await listConnections());
+			loadBudgets(items);
 		} catch (e) {
 			message = String(e instanceof Error ? e.message : e);
 		} finally {
@@ -72,6 +88,16 @@
 						<p class="text-sm font-medium">{nameOf(c.aud)}</p>
 						<p class="font-mono text-xs break-all opacity-70">{c.aud}</p>
 						<p class="text-xs opacity-70">{c.scopes.join(' · ')} — since {since(c.connected_at)}</p>
+						{#if budgets[c.id_hex]}
+							{@const b = budgets[c.id_hex]!}
+							<p class="text-xs" data-testid="connected-site-budget" data-amount={b.amount}>
+								Pays without asking up to {b.amount} webcash per {b.window_secs === 86400 ? '24 hours' : `${b.window_secs} s`}
+								on this device ({b.used} used).
+								<button class="underline" onclick={() => removeBudget(c)} data-testid="connected-site-budget-remove">Remove</button>
+							</p>
+						{:else}
+							<p class="text-xs opacity-70">Every payment asks first.</p>
+						{/if}
 					</div>
 					<button
 						class="shrink-0 rounded-md border border-border px-2 py-1 text-xs"

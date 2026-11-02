@@ -6,6 +6,7 @@
 import {
 	installWalletConnectHost,
 	type ConnectedApp,
+	type Connection,
 	type ConsentRequest,
 	type Op,
 	type WalletConnectHost
@@ -14,11 +15,12 @@ import { getExtroClient, getExtroScopeTier } from './index';
 import { getRuntimeConfig } from './release-config';
 import { syncNow } from './connections';
 import { fundFromWallet } from './wallet-fund';
+import { spendBudget } from './spend-budget';
 import { insertWebcashIntoWebcashWallet, payWebcashFromWebcashWallet } from '$lib/stores/wallet.svelte';
 
 export interface ConnectPrompts {
 	consent: (request: ConsentRequest) => Promise<boolean>;
-	confirm: (app: ConnectedApp, op: Op) => Promise<boolean>;
+	confirm: (app: ConnectedApp, op: Op, connection: Connection) => Promise<boolean>;
 }
 
 /** Serve the opener; `null` when this page was not opened by a connected app's popup call. */
@@ -29,6 +31,9 @@ export function startConnectHost(prompts: ConnectPrompts): WalletConnectHost | n
 		scopeTier: getExtroScopeTier,
 		consent: prompts.consent,
 		confirm: prompts.confirm,
+		// A spend that fits the budget the user set for this connection runs
+		// without the prompt (doc 13 §3.4 amount_caps); all else is confirmed.
+		budget: spendBudget({ storage: localStorage, serverUrl: () => getRuntimeConfig().webcash_server_url }),
 		// A confirmed payment without inputs is paid from this wallet's own
 		// webcash balance, on its own webcash server only.
 		fund: (_app, op, run) =>

@@ -2,7 +2,10 @@
 	// Wallet connect popup (ADR-0008). A connected app opens this page with
 	// window.open to sign in with the user's Extro identity (asked once; the
 	// connection lasts until the user disconnects it) and for each
-	// value-moving request (confirm). The seed never leaves this origin.
+	// value-moving request (confirm), unless the spend fits a budget the user
+	// set for that site. The seed never leaves this origin. The window does
+	// not have to stay open: the site keeps its sign-in and opens the wallet
+	// again from the user's next click (Safari-safe: no iframe, no 3P storage).
 	import { onDestroy, onMount } from 'svelte';
 	import { browser } from '$app/environment';
 	import Button from '$lib/components/ui/button/button.svelte';
@@ -12,9 +15,13 @@
 	import { getMnemonic } from '$lib/core/persistence';
 	import { unlockExtroWallet } from '$lib/extro/seed';
 	import { describeOp, startConnectHost } from '$lib/extro/connect-host';
-	import type { ConnectedApp, ConsentRequest, Op, WalletConnectHost } from '@extro/node';
+	import { getRuntimeConfig } from '$lib/extro/release-config';
+	import { budgetedWats, DAY_SECS, setBudget, watsToWebcash } from '$lib/extro/spend-budget';
+	import type { ConnectedApp, Connection, ConsentRequest, Op, WalletConnectHost } from '@extro/node';
 
-	type Question = { kind: 'consent'; request: ConsentRequest } | { kind: 'confirm'; app: ConnectedApp; op: Op };
+	type Question =
+		| { kind: 'consent'; request: ConsentRequest }
+		| { kind: 'confirm'; app: ConnectedApp; op: Op; connection: Connection };
 	type Prompt = Question & { answer: (ok: boolean) => void };
 
 	const hasWallet = browser && walletExists() && licenseAccepted();
@@ -22,13 +29,37 @@
 	let status = $state<'locked' | 'starting' | 'serving' | 'not-opened' | 'failed'>('locked');
 	let prompt = $state<Prompt | null>(null);
 	let host: WalletConnectHost | null = null;
+	/** Served at least one request: the site may close this window now. */
+	let served = $state(false);
+	/** Offer on a budget-eligible confirm: "don't ask again up to N per day". */
+	let allowBudget = $state(false);
+	let budgetAmount = $state('');
+	let budgetError = $state('');
+
+	const budgetable = (op: Op) => budgetedWats(op, getRuntimeConfig().webcash_server_url);
 
 	const ask = (q: Question) =>
 		new Promise<boolean>((resolve) => {
+			if (q.kind === 'confirm') {
+				const wats = budgetable(q.op);
+				allowBudget = false;
+				budgetError = '';
+				// Suggest ten such payments; the user edits it, nothing is preset on.
+				budgetAmount = wats === null ? '' : watsToWebcash(wats * 10n);
+			}
 			prompt = {
 				...q,
 				answer: (ok: boolean) => {
+					if (ok && q.kind === 'confirm' && allowBudget) {
+						try {
+							setBudget(localStorage, q.connection.id_hex, budgetAmount.trim(), DAY_SECS);
+						} catch (e) {
+							budgetError = e instanceof Error ? e.message : String(e);
+							return;
+						}
+					}
 					prompt = null;
+					served = true;
 					resolve(ok);
 				}
 			};
@@ -44,7 +75,7 @@
 		}
 		host = startConnectHost({
 			consent: (request) => ask({ kind: 'consent', request }),
-			confirm: (app, op) => ask({ kind: 'confirm', app, op })
+			confirm: (app, op, connection) => ask({ kind: 'confirm', app, op, connection })
 		});
 		status = host ? 'serving' : 'not-opened';
 	}
@@ -85,7 +116,7 @@
 				<Card.Description>
 					<span class="font-mono" data-testid="connect-origin">{request.app.origin}</span> stays connected until you
 					disconnect it — from this wallet on any of your devices, or from the site. It never sees your recovery
-					phrase, and every payment asks you here first.
+					phrase, and every payment asks you here first unless you set a daily budget for it.
 				</Card.Description>
 			</Card.Header>
 			<Card.Content>
@@ -114,6 +145,23 @@
 						<dd class="font-mono break-all">{v}</dd>
 					{/each}
 				</dl>
+				{#if budgetable(prompt.op) !== null}
+					<label class="mt-3 flex items-start gap-2 text-sm" data-testid="confirm-budget">
+						<input type="checkbox" class="mt-1" bind:checked={allowBudget} data-testid="confirm-budget-allow" />
+						<span>
+							Don't ask again: let {prompt.app.name} pay up to
+							<input
+								class="mx-1 w-24 rounded border border-border bg-transparent px-1 font-mono"
+								inputmode="decimal"
+								bind:value={budgetAmount}
+								disabled={!allowBudget}
+								data-testid="confirm-budget-amount"
+							/>
+							webcash per 24 hours from this wallet without asking. Change or remove it in Settings → Connected sites.
+						</span>
+					</label>
+					{#if budgetError}<p class="mt-1 text-xs text-destructive" data-testid="confirm-budget-error">{budgetError}</p>{/if}
+				{/if}
 			</Card.Content>
 			<Card.Footer class="flex gap-2">
 				<Button variant="outline" data-testid="confirm-reject" onclick={() => prompt?.answer(false)}>Reject</Button>
@@ -122,7 +170,8 @@
 		</Card.Root>
 	{:else}
 		<p class="text-center text-sm opacity-70" data-testid="connect-status" data-status={status}>
-			{#if status === 'serving'}Connected — keep this window open while the app uses your wallet.
+			{#if status === 'serving' && served}The site closes this window when it is done. It stays signed in and opens the wallet again on your next action.
+			{:else if status === 'serving'}Connected — waiting for the site…
 			{:else if status === 'not-opened'}This page only works when a connected site opens it.
 			{:else if status === 'failed'}The wallet could not start. Close this window and try again.
 			{:else}Starting the wallet…{/if}
