@@ -63,10 +63,11 @@ PUBLIC_ZKP_PROFILE = "mpc-2026-10-31"
 PUBLIC_ZKP_BEARER_VK_SHA256 = "7de9aac9e4e4e880d32eacb06c717c9c59f1d251ebc71de1daddbf76acd66220"
 PUBLIC_ZKP_CONDITIONAL_VK_SHA256 = "084837739c4fa0c0e12a60da8aabb6d0fdf198d9ce7c443ce00bc27271710db2"
 PUBLIC_ICE_SERVERS_JSON = '["stun:stun.l.google.com:19302","stun:stun.cloudflare.com:3478"]'
-# Origins whose hub CapToken postMessages this node answers (exact origins).
-# PENDING the cross-site wallet access review (CapToken grants, access levels):
-# do not deploy until that review signs off on this list.
-PUBLIC_HUB_BRIDGE_ORIGINS_JSON = '["https://extro.life","https://extro.network","https://weby.cash"]'
+# ADR-0008: the wallet home is https://extro.network/wallet; weby.cash/wallet is a
+# legacy wallet origin that migrates to it and then connects as an app.
+PUBLIC_WALLET_HOME_ORIGIN = "https://extro.network"
+PUBLIC_CONNECTED_APPS_JSON = '[]'
+PUBLIC_LEGACY_WALLET_ORIGINS_JSON = '[]'
 # Managed TURN: Cloudflare Realtime TURN credentials minted per runtime-config
 # request (worker/turn-relay.mjs), never static; public Open Relay is refused
 # on mainnet tiers. Secrets (never here):
