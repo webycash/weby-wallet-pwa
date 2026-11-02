@@ -13,6 +13,8 @@ import {
 import { getExtroClient, getExtroScopeTier } from './index';
 import { getRuntimeConfig } from './release-config';
 import { syncNow } from './connections';
+import { fundFromWallet } from './wallet-fund';
+import { insertWebcashIntoWebcashWallet, payWebcashFromWebcashWallet } from '$lib/stores/wallet.svelte';
 
 export interface ConnectPrompts {
 	consent: (request: ConsentRequest) => Promise<boolean>;
@@ -27,6 +29,14 @@ export function startConnectHost(prompts: ConnectPrompts): WalletConnectHost | n
 		scopeTier: getExtroScopeTier,
 		consent: prompts.consent,
 		confirm: prompts.confirm,
+		// A confirmed payment without inputs is paid from this wallet's own
+		// webcash balance, on its own webcash server only.
+		fund: (_app, op, run) =>
+			fundFromWallet(op, run, {
+				serverUrl: () => getRuntimeConfig().webcash_server_url,
+				pay: payWebcashFromWebcashWallet,
+				insert: insertWebcashIntoWebcashWallet
+			}),
 		// A disconnect made on another device applies before this popup
 		// serves; a new sign-in or disconnect here reaches the others.
 		pullConnections: async () => void (await syncNow()),
@@ -37,6 +47,15 @@ export function startConnectHost(prompts: ConnectPrompts): WalletConnectHost | n
 /** One line per field of a value-moving op, for the confirm screen (bytes shown by length). */
 export function describeOp(op: Op): { title: string; fields: [string, string][] } {
 	const cmd = (op as { cmd?: Record<string, unknown> }).cmd ?? {};
+	if (op.kind === 'Rail' && cmd.op === 'PayWebcash' && Array.isArray(cmd.inputs) && cmd.inputs.length === 0) {
+		return {
+			title: `Pay ${render(cmd.amount)} webcash from this wallet`,
+			fields: [
+				['amount', `${render(cmd.amount)} webcash`],
+				['server', render(cmd.server_url)]
+			]
+		};
+	}
 	const name = typeof cmd.op === 'string' ? cmd.op : op.kind;
 	const fields: [string, string][] = [];
 	for (const [key, value] of Object.entries(cmd)) {
