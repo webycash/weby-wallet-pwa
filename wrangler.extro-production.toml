@@ -59,7 +59,7 @@ PUBLIC_ICE_SERVERS_JSON = '["stun:stun.l.google.com:19302","stun:stun.cloudflare
 # here and stay connected until disconnected (synced by CONNECTION_SYNC below).
 # harmoniis is NOT listed until its production origin is confirmed.
 PUBLIC_WALLET_HOME_ORIGIN = "https://extro.network"
-PUBLIC_CONNECTED_APPS_JSON = '[{"origin":"https://weby.cash","name":"Weby","max_tier":"act"},{"origin":"https://extro.life","name":"Extro Life","max_tier":"act"}]'
+PUBLIC_CONNECTED_APPS_JSON = '[{"origin":"https://weby.cash","name":"Weby","max_tier":"act"},{"origin":"https://extro.life","name":"Extro Life","max_tier":"act"},{"origin":"https://harmoniis.com","name":"Harmoniis","max_tier":"act"}]'
 PUBLIC_LEGACY_WALLET_ORIGINS_JSON = '["https://weby.cash"]'
 # Managed TURN: Cloudflare Realtime TURN credentials minted per runtime-config
 # request (worker/turn-relay.mjs), never static; public Open Relay is refused
