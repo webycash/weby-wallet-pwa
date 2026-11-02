@@ -11,11 +11,12 @@
  * - Valid (unspent) -> card shows "REDEEM"
  * - Spent -> card shows "INVALID"
  *
- * It has no route of its own: the wallet Worker (weby.cash/wallet*) hands it
- * the card images and crawler requests through its OG_CARDS service binding
- * (see ../og-crawlers.mjs), and this Worker reads the wallet's own
- * runtime-config.json back through its WALLET binding, so the spent check
- * boots the exact release the wallet serves.
+ * It has no route and no bindings to other Workers: the wallet Worker
+ * (weby.cash/wallet*) hands it only the card images and crawler requests
+ * through its OG_CARDS service binding (see ../og-crawlers.mjs). Anything else
+ * is a 404 here; this Worker never forwards or proxies. The spent check boots
+ * from the wallet's public runtime-config.json (WALLET_RUNTIME_CONFIG_URL), so
+ * it runs the exact release the wallet serves.
  *
  * Deploy (after the wallet Worker exists):
  *   cd worker && npx wrangler deploy
@@ -39,15 +40,20 @@ function esc(s) {
 }
 
 // --- Webcash verification (extro-node Rail(WebcashTokenStatus), see webcash-status.js) ---
-// The release config is the wallet's own runtime-config.json, read through the
-// WALLET service binding, so the OG read boots the exact release the wallet runs.
+// The release config is the wallet's own public runtime-config.json, so the OG
+// read boots the exact release the wallet runs (a plain public GET; the
+// global_fetch_strictly_public flag sends it through the wallet's route).
 
 let checkSpent = null;
 function spentChecker(env) {
   checkSpent ??= createSpentChecker({
     load: () => loadExtroNodeWasm(extroNodeWasm),
     loadConfig: async () => {
-      const res = await env.WALLET.fetch('https://weby.cash/wallet/runtime-config.json');
+      const url = env.WALLET_RUNTIME_CONFIG_URL;
+      if (typeof url !== 'string' || !url.startsWith('https://')) {
+        throw new Error('WALLET_RUNTIME_CONFIG_URL is not configured');
+      }
+      const res = await fetch(url, { headers: { accept: 'application/json' } });
       if (!res.ok) throw new Error(`runtime-config.json: HTTP ${res.status}`);
       return res.json();
     },
@@ -237,7 +243,11 @@ export default {
 
     }
 
-    // --- Everything else is the wallet itself ---
-    return env.WALLET.fetch(request);
+    // Not a card: this Worker serves nothing else (the wallet Worker only hands
+    // it card requests). Never forward.
+    return new Response('Not found', {
+      status: 404,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' },
+    });
   },
 };
