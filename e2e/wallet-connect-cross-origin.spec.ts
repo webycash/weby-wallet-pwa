@@ -82,9 +82,14 @@ async function onboardWallet(context: BrowserContext) {
 	const page = await context.newPage();
 	await page.goto(`${WALLET_URL}/`);
 	const rc = await page.evaluate(async (u) => (await fetch(`${u}/runtime-config.json`)).json(), WALLET_URL);
-	if (rc.deployment !== 'development' && process.env.E2E_ALLOW_LOCAL !== '1') {
-		throw new Error(`refusing: wallet is not a development tier (${rc.deployment})`);
-	}
+	// Production smoke is opt-in (E2E_ALLOW_PRODUCTION=1): the run restores the
+	// public test vector, connects, reads, and sends only a malformed spend that
+	// fails decoding, so no value moves on any tier.
+	const allowed =
+		rc.deployment === 'development' ||
+		process.env.E2E_ALLOW_LOCAL === '1' ||
+		(rc.deployment === 'production' && process.env.E2E_ALLOW_PRODUCTION === '1');
+	if (!allowed) throw new Error(`refusing: wallet tier ${rc.deployment} needs an explicit opt-in`);
 	record('served_config', {
 		deployment: rc.deployment,
 		wallet_home_origin: rc.wallet_home_origin,
