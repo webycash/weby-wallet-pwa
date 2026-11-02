@@ -33,7 +33,9 @@ const evidence: Record<string, unknown> = {};
 const record = (key: string, value: unknown) => {
 	evidence[key] = value;
 	fs.mkdirSync(OUT, { recursive: true });
-	fs.writeFileSync(`${OUT}/wallet-connect.json`, JSON.stringify(evidence, null, 1));
+	// Never write a webcash secret into evidence.
+	const text = JSON.stringify(evidence, null, 1).replace(/(e[0-9.]+:secret:)[0-9a-f]+/gi, '$1<redacted>');
+	fs.writeFileSync(`${OUT}/wallet-connect.json`, text);
 };
 
 const appHtml = (origin: string) => `<!doctype html><html><head><title>app ${origin}</title></head><body>
@@ -349,4 +351,74 @@ test('wallet connect: sign-in persists until disconnected; disconnect syncs acro
 	expect(evilPrompt).toBe(0);
 
 	await a.close();
+});
+
+test('wallet connect: a per-site daily budget pays without asking, only up to the cap', async () => {
+	test.setTimeout(600_000);
+	const c = await device(fs.mkdtempSync(path.join(os.tmpdir(), 'wc-budget-')));
+	await onboardWallet(c);
+	const probe = await c.newPage();
+	await probe.goto(`${WALLET_URL}/`);
+	const server: string = (await probe.evaluate(async (u) => (await fetch(`${u}/runtime-config.json`)).json(), WALLET_URL)).webcash_server_url;
+	await probe.close();
+	// Wallet-funded webcash pay on the wallet's own server: the op a budget
+	// covers. The public test-vector wallet holds no value on any tier.
+	const pay = (amount: string) => ({ kind: 'Rail', cmd: { op: 'PayWebcash', amount, inputs: [], server_url: server } });
+
+	const g = await openApp(c, APP_ORIGIN, ['WalletRead(pgp)']);
+	const consent = g.popup.getByTestId('connect-consent');
+	if (await consent.waitFor({ timeout: 30_000 }).then(() => true, () => false)) await g.popup.getByTestId('connect-approve').click();
+	const grant = await connected(g.app);
+	expect(grant.ok).toBe(true);
+
+	// First pay asks; the user confirms it and opts in to a budget of 0.00003.
+	const first = g.app.evaluate((op) => (window as any).W.request(op), pay('0.00001'));
+	await g.popup.getByTestId('connect-confirm').waitFor();
+	await expect(g.popup.getByTestId('confirm-budget-allow')).not.toBeChecked();
+	await expect(g.popup.getByTestId('confirm-budget-amount')).toHaveValue('0.0001');
+	await g.popup.getByTestId('confirm-budget-allow').check();
+	await g.popup.getByTestId('confirm-budget-amount').fill('0.00003');
+	await g.popup.getByTestId('confirm-approve').click();
+	const firstOut = await first;
+	record('budget_first', firstOut);
+	expect(firstOut.code).not.toBe('UserRejected');
+	await expect(g.popup.getByTestId('connect-status')).toContainText('closes this window');
+
+	// Within the budget: no prompt (an empty wallet fails to fund; the hold is released).
+	const within = await g.app.evaluate((op) => (window as any).W.request(op), pay('0.00002'));
+	const withinPrompts = await g.popup.getByTestId('connect-confirm').count();
+	record('budget_within', { within, prompts: withinPrompts });
+	expect(withinPrompts).toBe(0);
+	expect(within.code).not.toBe('UserRejected');
+
+	// Over the budget: asks again; reject → UserRejected.
+	const over = g.app.evaluate((op) => (window as any).W.request(op), pay('0.00004'));
+	await g.popup.getByTestId('connect-confirm').waitFor();
+	await g.popup.getByTestId('confirm-reject').click();
+	const overOut = await over;
+	record('budget_over', overOut);
+	expect(overOut).toMatchObject({ ok: false, code: 'UserRejected' });
+	await g.popup.close();
+
+	// The wallet home shows the budget and removes it; then every pay asks.
+	const home = await connectedSites(c);
+	const row = home.panel.locator(`[data-testid=connected-site][data-id="${grant.connection_id}"]`);
+	await expect(row.getByTestId('connected-site-budget')).toHaveAttribute('data-amount', '0.00003');
+	const shown = await row.getByTestId('connected-site-budget').textContent();
+	await row.getByTestId('connected-site-budget-remove').click();
+	await expect(row.getByTestId('connected-site-budget')).toHaveCount(0);
+	record('budget_home', { shown: shown?.replace(/\s+/g, ' ').trim() });
+	await home.page.close();
+	const p = await click(c, g.app, '#reopen');
+	const after = g.app.evaluate((op) => (window as any).W.request(op), pay('0.00001'));
+	await p.getByTestId('connect-confirm').waitFor();
+	await p.getByTestId('confirm-reject').click();
+	expect(await after).toMatchObject({ ok: false, code: 'UserRejected' });
+	await p.close();
+
+	// Leave the identity disconnected for the next run.
+	const d = await click(c, g.app, '#reopen');
+	expect((await g.app.evaluate(() => (window as any).W.disconnect())).ok).toBe(true);
+	await d.close().catch(() => {});
+	await c.close();
 });
