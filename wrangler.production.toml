@@ -6,9 +6,9 @@
 # extro.network, mainnet referee + voucher + RGB endpoints and their pins.
 # `scripts/check-release-trust.mjs` (CI) rejects development trust roots here.
 #
-# The route weby.cash/wallet* is held today by the legacy `weby-og` Worker
-# (proxy to the old GitHub Pages wallet + crawler OG cards). Switching it is a
-# release step (record weby-og's version for rollback first), never implicit.
+# The route weby.cash/wallet* moves here from the legacy `weby-og` Worker (it
+# proxied the old GitHub Pages wallet). weby-og stays as the OG card Worker
+# behind the OG_CARDS binding below; record its version for rollback first.
 #
 # Wallet storage continuity: same origin and the same IndexedDB name/version
 # (`weby-wallet-v2-<network>`, v1, store `wallet_state`) as the legacy wallet.
@@ -77,6 +77,12 @@ PUBLIC_TURN_PROVIDER = "cloudflare"
 PUBLIC_TURN_TTL_SECONDS = "43200"
 
 # Per-client-IP cap on TURN credential minting (Workers rate limiting).
+# Payment-link OG cards (worker/, Worker weby-og): card images and crawler
+# previews of ?amount= links are handed to it (worker/og-crawlers.mjs).
+[[services]]
+binding = "OG_CARDS"
+service = "weby-og"
+
 [[ratelimits]]
 name = "TURN_MINT_LIMITER"
 namespace_id = "7002"

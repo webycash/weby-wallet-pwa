@@ -3,9 +3,16 @@ main = "src/index.js"
 compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
 
-[[routes]]
-pattern = "weby.cash/wallet*"
-zone_name = "weby.cash"
+# No route: weby.cash/wallet* belongs to the production wallet Worker
+# (weby-wallet-pwa, ../wrangler.production.toml), which hands this Worker the
+# card images and crawler requests through its OG_CARDS binding.
+workers_dev = false
+
+# The wallet itself: its runtime-config.json (for the spent check) and any
+# request that is not a card.
+[[services]]
+binding = "WALLET"
+service = "weby-wallet-pwa"
 
 [[rules]]
 type = "Data"

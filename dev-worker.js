@@ -8,6 +8,7 @@ import { parseRuntimeConfig, runtimeConfigFromPublicEnv } from '@extro/node/runt
 import { ConnectionRelay, ConnectionSyncError, RELAY_LIMITS } from '@extro/node/connection-sync';
 import { openerPolicy, withSecurityHeaders } from './worker/security-headers.mjs';
 import { mintCloudflareTurnServers } from './worker/turn-relay.mjs';
+import { isOgRequest } from './worker/og-crawlers.mjs';
 
 /** TURN relays for the runtime config. `cloudflare` mints short-lived
  *  credentials per request (mainnet tiers); `static` passes
@@ -78,6 +79,12 @@ async function route(request, env) {
   }
   if (url.pathname === `${base}/api/connections/push` || url.pathname === `${base}/api/connections/pull`) {
     return connectionSync(request, env, url);
+  }
+  // Payment-link previews (weby.cash): the OG card Worker, bound as OG_CARDS,
+  // renders the card images and the crawler's OG page. Tiers without the
+  // binding have no payment-link cards and serve the wallet for every path.
+  if (env.OG_CARDS && isOgRequest(url, request.headers.get('user-agent'), base)) {
+    return env.OG_CARDS.fetch(request);
   }
   const res = await env.ASSETS.fetch(request);
   if (res.status !== 404) return res;

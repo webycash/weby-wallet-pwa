@@ -11,11 +11,14 @@
  * - Valid (unspent) -> card shows "REDEEM"
  * - Spent -> card shows "INVALID"
  *
- * Deploy:
- *   cd worker && npx wrangler deploy
+ * It has no route of its own: the wallet Worker (weby.cash/wallet*) hands it
+ * the card images and crawler requests through its OG_CARDS service binding
+ * (see ../og-crawlers.mjs), and this Worker reads the wallet's own
+ * runtime-config.json back through its WALLET binding, so the spent check
+ * boots the exact release the wallet serves.
  *
- * Route in Cloudflare dashboard:
- *   weby.cash/wallet*
+ * Deploy (after the wallet Worker exists):
+ *   cd worker && npx wrangler deploy
  */
 
 import { Resvg, initWasm } from '@resvg/resvg-wasm';
@@ -27,29 +30,30 @@ import { LOGO_CIRCLE, LOGO_TEXT } from './logo.js';
 import { loadExtroNodeWasm } from '@extro/node';
 import extroNodeWasm from '@extro/node/wasm/extro_node_bg.wasm';
 import { createSpentChecker } from './webcash-status.js';
+import { OG_CRAWLERS } from '../og-crawlers.mjs';
 
 let wasmReady = false;
-
-const ORIGIN = 'https://webycash.github.io';
-
-const BOTS = /facebookexternalhit|Facebot|Twitterbot|WhatsApp|TelegramBot|LinkedInBot|Slackbot|Discordbot|Pinterest|Applebot|iMessageLinkPreviews|Googlebot|bingbot/i;
 
 function esc(s) {
   return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 // --- Webcash verification (extro-node Rail(WebcashTokenStatus), see webcash-status.js) ---
-// The release config is the wallet's own runtime-config.json from the origin
-// this worker fronts, so the OG read boots the exact release the wallet runs.
+// The release config is the wallet's own runtime-config.json, read through the
+// WALLET service binding, so the OG read boots the exact release the wallet runs.
 
-const checkSpent = createSpentChecker({
-  load: () => loadExtroNodeWasm(extroNodeWasm),
-  loadConfig: async () => {
-    const res = await fetch(`${ORIGIN}/weby-wallet-pwa/runtime-config.json`, { cf: { cacheTtl: 300 } });
-    if (!res.ok) throw new Error(`runtime-config.json: HTTP ${res.status}`);
-    return res.json();
-  },
-});
+let checkSpent = null;
+function spentChecker(env) {
+  checkSpent ??= createSpentChecker({
+    load: () => loadExtroNodeWasm(extroNodeWasm),
+    loadConfig: async () => {
+      const res = await env.WALLET.fetch('https://weby.cash/wallet/runtime-config.json');
+      if (!res.ok) throw new Error(`runtime-config.json: HTTP ${res.status}`);
+      return res.json();
+    },
+  });
+  return checkSpent;
+}
 
 // --- SVG card generators ---
 
@@ -187,12 +191,12 @@ export default {
       const memo = url.searchParams.get('memo') || '';
 
       // Bots get dynamic OG HTML with webcash verification
-      if (BOTS.test(ua)) {
+      if (OG_CRAWLERS.test(ua)) {
         const pub = url.searchParams.get('pub') || '';
         const network = url.searchParams.get('network') || 'production';
 
         // Verify public webcash if present — defaults to valid on any error
-        const spent = pub ? await checkSpent(network, pub) : null;
+        const spent = pub ? await spentChecker(env)(network, pub) : null;
         const spentParam = spent === true ? '1' : '0';
 
         const imgUrl = `https://weby.cash/wallet/og-card.png?amount=${encodeURIComponent(amount)}${memo ? '&memo=' + encodeURIComponent(memo) : ''}&spent=${spentParam}`;
@@ -231,24 +235,9 @@ export default {
         });
       }
 
-      // Real users — pre-warm with valid status and fall through to origin
-      const imgUrl = `https://weby.cash/wallet/og-card.png?amount=${encodeURIComponent(amount)}${memo ? '&memo=' + encodeURIComponent(memo) : ''}`;
-      ctx.waitUntil(fetch(imgUrl));
-      // Fall through to origin below
     }
 
-    // --- Pass through to origin for real users ---
-    // Map /wallet/... to /weby-wallet-pwa/... on GitHub Pages
-    const originPath = url.pathname.replace(/^\/wallet/, '/weby-wallet-pwa');
-    const originUrl = new URL(originPath + url.search, ORIGIN);
-    const res = await fetch(originUrl, {
-      headers: request.headers,
-      redirect: 'follow',
-    });
-
-    // Clone response so we can modify headers
-    const newRes = new Response(res.body, res);
-    newRes.headers.set('X-Robots-Tag', 'noindex');
-    return newRes;
+    // --- Everything else is the wallet itself ---
+    return env.WALLET.fetch(request);
   },
 };
