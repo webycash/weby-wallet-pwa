@@ -33,6 +33,10 @@ function expectBase(res) {
   expect(res.headers.get('x-content-type-options')).toBe('nosniff');
   expect(res.headers.get('referrer-policy')).toBe('no-referrer');
   expect(res.headers.get('x-frame-options')).toBe('DENY');
+  expect(res.headers.get('strict-transport-security')).toBe('max-age=31536000');
+  const pp = res.headers.get('permissions-policy') ?? '';
+  for (const own of ['camera=(self)', 'publickey-credentials-get=(self)', 'clipboard-read=(self)']) expect(pp).toContain(own);
+  for (const off of ['geolocation=()', 'microphone=()', 'payment=()', 'usb=()']) expect(pp).toContain(off);
   const csp = res.headers.get('content-security-policy') ?? '';
   expect(csp).toContain("frame-ancestors 'none'");
   expect(csp).toContain("object-src 'none'");

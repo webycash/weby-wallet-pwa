@@ -12,6 +12,15 @@
 // - frame-ancestors 'none' (and X-Frame-Options DENY for old browsers):
 //   the wallet is never framed.
 //
+// Strict-Transport-Security: one year, no includeSubDomains/preload. The
+// header is sent from the wallet path of a shared apex (extro.network,
+// weby.cash), and the apex owner, not the wallet, decides for its subdomains.
+//
+// Permissions-Policy: only what the wallet uses, for itself: camera (QR scan,
+// InsertForm), clipboard (paste a recovery / copy stats), WebAuthn (wallet
+// encryption with a passkey), Web Share (payment links). Everything else that
+// carries risk is off, for the wallet and anything it might embed.
+//
 // Cross-Origin-Opener-Policy (ADR-0008): every wallet page is `same-origin`
 // (no other site keeps a handle to a wallet window) EXCEPT
 // - the popups another origin opens: `/connect` (a connected app) and
@@ -23,10 +32,31 @@
 //   `same-origin-allow-popups` keeps its handle to that popup while no other
 //   site gets one to this page.
 
+export const PERMISSIONS_POLICY = [
+  'camera=(self)',
+  'clipboard-read=(self)',
+  'clipboard-write=(self)',
+  'publickey-credentials-create=(self)',
+  'publickey-credentials-get=(self)',
+  'web-share=(self)',
+  'geolocation=()',
+  'microphone=()',
+  'payment=()',
+  'usb=()',
+  'hid=()',
+  'serial=()',
+  'bluetooth=()',
+  'midi=()',
+  'display-capture=()',
+  'browsing-topics=()'
+].join(', ');
+
 export const BASE_SECURITY_HEADERS = Object.freeze({
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'no-referrer',
-  'X-Frame-Options': 'DENY'
+  'X-Frame-Options': 'DENY',
+  'Strict-Transport-Security': 'max-age=31536000',
+  'Permissions-Policy': PERMISSIONS_POLICY
 });
 
 const isPage = (pathname, base, page) =>
