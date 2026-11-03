@@ -121,7 +121,8 @@ export class HttpRefereeClient implements RefereeClient {
 	}
 
 	private async call<K extends RefereeReply['reply']>(call: RefereeCall, want: K): Promise<Reply<K>> {
-		const send = this.opts.send ?? getExtroClient().send;
+		// Call through the client: ExtroClient.send uses `this` (its single-flight queue).
+		const send: ExtroSend = this.opts.send ?? ((c) => getExtroClient().send(c));
 		const r = await send({
 			request_id: newRequestId(),
 			op: {
