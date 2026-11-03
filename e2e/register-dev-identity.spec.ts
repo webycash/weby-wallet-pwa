@@ -1,7 +1,7 @@
 /**
  * Dev-only: register the spec wallets' Extro identity through the real product
- * path (Webcash → Mining → Extro identity → Register). The 0.0001 fee is paid
- * from the wallet's dev TEST webcash (dev.weby.cash/api/webcash); mainnet
+ * path (Webcash → Mining → Extro identity → Register). The fee the key server
+ * publishes (shown before paying; 0.0001 on dev) is paid from the wallet's dev TEST webcash (dev.weby.cash/api/webcash); mainnet
  * webcash.org is aborted. Writes non-secret evidence only.
  */
 import { expect, test, type Browser } from '@playwright/test';
@@ -93,6 +93,11 @@ for (const who of WHO) {
 			if (await page.getByTestId('identity-registered').isVisible().catch(() => false)) {
 				result.alreadyRegisteredLocally = true;
 			} else {
+				const fee = page.getByTestId('identity-fee');
+				await fee.waitFor({ timeout: 60_000 });
+				result.feeShown = (await fee.innerText()).trim();
+				note(who, 'fee-shown', result.feeShown);
+				if (process.env.E2E_EXPECT_FEE) expect(result.feeShown).toContain(`${process.env.E2E_EXPECT_FEE} webcash`);
 				await page.getByTestId('identity-nickname').fill(NICK[who]);
 				const t0 = Date.now();
 				await page.getByTestId('identity-register').click();
